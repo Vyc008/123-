@@ -1,0 +1,197 @@
+local libraryUrl = "https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/turtle"
+local librarySuccess, library = pcall(loadstring, game:HttpGet(libraryUrl))
+if not librarySuccess then
+    error("Failed to load the library from URL: " .. libraryUrl)
+end
+
+-- Create the UI window for the Hitbox Expander
+local OwO = library():Window("Hitbox Expander")
+
+-- Global configuration variables
+-- For players
+_G.HeadSize = 50 / 10         -- Default size: 5 (50 divided by 10)
+_G.HeadTransparency = 0.7     -- Default transparency: 0.7
+_G.HeadColor = Color3.fromRGB(255, 255, 255)
+_G.Enabled = false            -- Toggle for players
+
+-- For NPCs
+_G.NPCHeadSize = 50 / 10        -- Default size: 5 (50 divided by 10)
+_G.NPCHeadTransparency = 0.7    -- Default transparency: 0.7
+_G.NPCHeadColor = Color3.fromRGB(255, 255, 255)
+_G.NPCEnabled = false           -- Toggle for NPCs
+
+-- Tables to store original properties of players' and NPCs' HumanoidRootParts
+local originalProps = {}
+local originalNPCProps = {}
+
+-- Slider to control the player head hitbox size.
+-- Slider values from 50 to 500 (step 10) divided by 10, so size from 5 to 50.
+OwO:Slider("Size", 50, 500, 10, function(value)
+    _G.HeadSize = value / 10
+end)
+
+-- Slider to control the player hitbox transparency.
+-- Slider values from 0 to 100 (step 1) divided by 100.
+OwO:Slider("Transparency", 0, 100, 1, function(value)
+    _G.HeadTransparency = value / 100
+end)
+
+-- ColorPicker to control the player hitbox color.
+OwO:ColorPicker("Color(Bug)", _G.HeadColor, function(color)
+    _G.HeadColor = color
+end)
+
+-- Toggle to enable or disable the hitbox modifications for players.
+OwO:Toggle("Toggle", false, function(toggleEnabled)
+    _G.Enabled = toggleEnabled
+end)
+
+-- Slider to control the NPC head hitbox size.
+OwO:Slider("NPC Size", 50, 500, 10, function(value)
+    _G.NPCHeadSize = value / 10
+end)
+
+-- Slider to control the NPC hitbox transparency.
+OwO:Slider("NPC Transparency", 0, 100, 1, function(value)
+    _G.NPCHeadTransparency = value / 100
+end)
+
+-- ColorPicker to control the NPC hitbox color.
+OwO:ColorPicker("NPC Color", _G.NPCHeadColor, function(color)
+    _G.NPCHeadColor = color
+end)
+
+-- Toggle to enable or disable the hitbox modifications for NPCs.
+OwO:Toggle("Toggle(NPC)", false, function(toggleEnabled)
+    _G.NPCEnabled = toggleEnabled
+end)
+
+-- Listen for the H key press to toggle the hitbox modifications for players.
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+    if input.KeyCode == Enum.KeyCode.H then
+        _G.Enabled = not _G.Enabled
+    end
+end)
+
+-- Utility function to capture the original properties of a part.
+local function captureOriginalProps(hrp)
+    return {
+        Size = hrp.Size,
+        Transparency = hrp.Transparency,
+        BrickColor = hrp.BrickColor,
+        Material = hrp.Material,
+        CanCollide = hrp.CanCollide
+    }
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+-- RenderStepped loop to update or revert hitbox modifications for players.
+RunService.RenderStepped:Connect(function()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local success, err = pcall(function()
+                local character = player.Character
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if hrp and humanoid then
+                    -- Check if the player's character is sitting.
+                    if humanoid.Sit then
+                        if originalProps[player.UserId] then
+                            local props = originalProps[player.UserId]
+                            hrp.Size = props.Size
+                            hrp.Transparency = props.Transparency
+                            hrp.BrickColor = props.BrickColor
+                            hrp.Material = props.Material
+                            hrp.CanCollide = props.CanCollide
+                            originalProps[player.UserId] = nil
+                        end
+                        return
+                    end
+
+                    if _G.Enabled then
+                        -- Store original properties if not already stored.
+                        if not originalProps[player.UserId] then
+                            originalProps[player.UserId] = captureOriginalProps(hrp)
+                        end
+                        -- Apply hitbox modifications for players.
+                        hrp.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                        hrp.Transparency = _G.HeadTransparency
+                        hrp.Color = _G.HeadColor
+                        hrp.Material = Enum.Material.Neon
+                        hrp.CanCollide = false
+                    else
+                        -- Revert to original properties if they were stored.
+                        if originalProps[player.UserId] then
+                            local props = originalProps[player.UserId]
+                            hrp.Size = props.Size
+                            hrp.Transparency = props.Transparency
+                            hrp.BrickColor = props.BrickColor
+                            hrp.Material = props.Material
+                            hrp.CanCollide = props.CanCollide
+                            originalProps[player.UserId] = nil
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- RenderStepped loop to update or revert hitbox modifications for NPCs.
+RunService.RenderStepped:Connect(function()
+    for _, model in ipairs(Workspace:GetChildren()) do
+        if model:IsA("Model") then
+            -- Process only models that are not associated with a Player.
+            if not Players:GetPlayerFromCharacter(model) then
+                local hrp = model:FindFirstChild("HumanoidRootPart")
+                local humanoid = model:FindFirstChildOfClass("Humanoid")
+                if hrp and humanoid then
+                    local success, err = pcall(function()
+                        -- Check if the NPC is sitting.
+                        if humanoid.Sit then
+                            if originalNPCProps[model] then
+                                local props = originalNPCProps[model]
+                                hrp.Size = props.Size
+                                hrp.Transparency = props.Transparency
+                                hrp.BrickColor = props.BrickColor
+                                hrp.Material = props.Material
+                                hrp.CanCollide = props.CanCollide
+                                originalNPCProps[model] = nil
+                            end
+                            return
+                        end
+
+                        if _G.NPCEnabled then
+                            if not originalNPCProps[model] then
+                                originalNPCProps[model] = captureOriginalProps(hrp)
+                            end
+                            -- Apply hitbox modifications for NPCs.
+                            hrp.Size = Vector3.new(_G.NPCHeadSize, _G.NPCHeadSize, _G.NPCHeadSize)
+                            hrp.Transparency = _G.NPCHeadTransparency
+                            hrp.Color = _G.NPCHeadColor
+                            hrp.Material = Enum.Material.Neon
+                            hrp.CanCollide = false
+                        else
+                            if originalNPCProps[model] then
+                                local props = originalNPCProps[model]
+                                hrp.Size = props.Size
+                                hrp.Transparency = props.Transparency
+                                hrp.BrickColor = props.BrickColor
+                                hrp.Material = props.Material
+                                hrp.CanCollide = props.CanCollide
+                                originalNPCProps[model] = nil
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
