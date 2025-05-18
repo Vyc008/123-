@@ -1,0 +1,196 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local lp = Players.LocalPlayer
+
+local espFolder = Instance.new("Folder", CoreGui)
+espFolder.Name = "Highlight_Storage"
+local connections, tracers = {}, {}
+
+local currentColor = Color3.fromRGB(255,255,255)
+local espEnabled, tracerEnabled = true, false
+
+local colorMap = {
+	Green=Color3.fromRGB(0,255,0), Yellow=Color3.fromRGB(255,255,0), Blue=Color3.fromRGB(0,0,255),
+	Orange=Color3.fromRGB(255,165,0), Purple=Color3.fromRGB(160,32,240), Red=Color3.fromRGB(255,0,0),
+	Grey=Color3.fromRGB(128,128,128), Brown=Color3.fromRGB(139,69,19), Maroon=Color3.fromRGB(128,0,0),
+	Olive=Color3.fromRGB(128,128,0), Silver=Color3.fromRGB(192,192,192), Pink=Color3.fromRGB(255,105,180),
+	Cyan=Color3.fromRGB(0,255,255), Rust=Color3.fromRGB(183,65,14), Gold=Color3.fromRGB(255,215,0),
+	Charcoal=Color3.fromRGB(54,69,79), Magenta=Color3.fromRGB(255,0,255), Bronze=Color3.fromRGB(205,127,50),
+	Cream=Color3.fromRGB(255,253,208), Violet=Color3.fromRGB(238,130,238), ["Navy Blue"]=Color3.fromRGB(0,0,128),
+	Mustard=Color3.fromRGB(255,219,88), Black=Color3.fromRGB(0,0,0), Teal=Color3.fromRGB(0,128,128),
+	Tan=Color3.fromRGB(210,180,140), Lavender=Color3.fromRGB(230,230,250), Mauve=Color3.fromRGB(224,176,255),
+	Peach=Color3.fromRGB(255,229,180), Coral=Color3.fromRGB(255,127,80), Burgundy=Color3.fromRGB(128,0,32),
+	White=Color3.fromRGB(255,255,255)
+}
+
+local gui = Instance.new("ScreenGui", lp:WaitForChild("PlayerGui"))
+gui.Name = "ESP_GUI"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 220, 0, 260)
+frame.Position = UDim2.new(0, 10, 0.4, 0)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+title.Text = "Esp All Players"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
+
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -30, 0, 0)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.TextColor3 = Color3.new(1,1,1)
+
+local minimizeBtn = Instance.new("TextButton", frame)
+minimizeBtn.Text = "-"
+minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+minimizeBtn.Position = UDim2.new(1, -60, 0, 0)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+minimizeBtn.TextColor3 = Color3.new(1,1,1)
+
+local toggleESP = Instance.new("TextButton", frame)
+toggleESP.Text = "ESP: ON"
+toggleESP.Size = UDim2.new(0.9, 0, 0, 30)
+toggleESP.Position = UDim2.new(0.05, 0, 0, 40)
+toggleESP.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleESP.TextColor3 = Color3.new(1,1,1)
+
+local toggleTracer = Instance.new("TextButton", frame)
+toggleTracer.Text = "Tracer: OFF"
+toggleTracer.Size = UDim2.new(0.9, 0, 0, 30)
+toggleTracer.Position = UDim2.new(0.05, 0, 0, 75)
+toggleTracer.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+toggleTracer.TextColor3 = Color3.new(1,1,1)
+
+local scroll = Instance.new("ScrollingFrame", frame)
+scroll.Size = UDim2.new(0.9, 0, 0, 140)
+scroll.Position = UDim2.new(0.05, 0, 0, 110)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarThickness = 6
+scroll.BackgroundColor3 = Color3.fromRGB(40,40,40)
+scroll.BorderSizePixel = 0
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.ClipsDescendants = true
+
+local layout = Instance.new("UIListLayout", scroll)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 1)
+
+for name, color in pairs(colorMap) do
+	local btn = Instance.new("TextButton", scroll)
+	btn.Size = UDim2.new(1, 0, 0, 30)
+	btn.Text = name
+	btn.BackgroundColor3 = color
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.SourceSans
+	btn.TextSize = 14
+	btn.MouseButton1Click:Connect(function()
+		currentColor = color
+		for _,v in pairs(espFolder:GetChildren()) do
+			if v:IsA("Highlight") then
+				v.FillColor = currentColor
+			end
+		end
+	end)
+end
+
+local function createESP(plr)
+	if plr == lp then return end
+	if espEnabled then
+		local h = Instance.new("Highlight", espFolder)
+		h.Name = plr.Name
+		h.FillColor = currentColor
+		h.FillTransparency = 0.5
+		h.OutlineColor = Color3.new(1,1,1)
+		h.OutlineTransparency = 0
+		h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		if plr.Character then h.Adornee = plr.Character end
+		connections[plr] = plr.CharacterAdded:Connect(function(char)
+			h.Adornee = char
+		end)
+	end
+	if tracerEnabled then
+		local line = Drawing.new("Line")
+		line.Thickness = 1.5
+		line.Visible = false
+		tracers[plr] = line
+	end
+end
+
+local function removeESP(plr)
+	if connections[plr] then connections[plr]:Disconnect() end
+	if espFolder:FindFirstChild(plr.Name) then espFolder[plr.Name]:Destroy() end
+	if tracers[plr] then tracers[plr]:Remove() tracers[plr] = nil end
+end
+
+toggleESP.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	toggleESP.Text = "ESP: " .. (espEnabled and "ON" or "OFF")
+	toggleESP.BackgroundColor3 = espEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(120,0,0)
+	for _,v in Players:GetPlayers() do
+		removeESP(v)
+		createESP(v)
+	end
+end)
+
+toggleTracer.MouseButton1Click:Connect(function()
+	tracerEnabled = not tracerEnabled
+	toggleTracer.Text = "Tracer: " .. (tracerEnabled and "ON" or "OFF")
+	toggleTracer.BackgroundColor3 = tracerEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(120,0,0)
+	for _,v in Players:GetPlayers() do
+		removeESP(v)
+		createESP(v)
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	gui:Destroy()
+	espFolder:Destroy()
+	for _,v in pairs(connections) do v:Disconnect() end
+	for _,v in pairs(tracers) do v:Remove() end
+end)
+
+minimizeBtn.MouseButton1Click:Connect(function()
+	local state = frame.Size.Y.Offset > 50
+	frame.Size = UDim2.new(0, 220, 0, state and 50 or 260)
+	for _,v in pairs(frame:GetChildren()) do
+		if not (v == title or v == closeBtn or v == minimizeBtn) then
+			v.Visible = not state
+		end
+	end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+	if plr ~= lp then createESP(plr) end
+end)
+
+Players.PlayerRemoving:Connect(removeESP)
+
+RunService.RenderStepped:Connect(function()
+	for plr, line in pairs(tracers) do
+		local char = plr.Character
+		if char and char:FindFirstChild("HumanoidRootPart") and tracerEnabled then
+			local pos, visible = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
+			line.Visible = visible
+			if visible then
+				line.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y)
+				line.To = Vector2.new(pos.X, pos.Y)
+				line.Color = currentColor
+			end
+		else
+			line.Visible = false
+		end
+	end
+end)
+
+for _,v in Players:GetPlayers() do if v ~= lp then createESP(v) end end
