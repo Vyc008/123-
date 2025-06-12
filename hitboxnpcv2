@@ -1,0 +1,299 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Teams = game:GetService("Teams")
+
+local player = Players.LocalPlayer
+local hitboxSize = 5
+local hitboxTransparency = 0.5
+local affectPlayers = true
+local affectNPCs = false
+local checkTeam = false
+local updateInterval = 0.5
+local lastUpdate = 0
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.CoreGui
+
+local function addUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = instance
+end
+
+local function addUIStroke(instance, thickness, color)
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = thickness
+    stroke.Color = color
+    stroke.Parent = instance
+end
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 120, 0, 40)
+button.Position = UDim2.new(0.8, 0, 0.1, 0)
+button.Text = "Abrir Menú"
+button.TextColor3 = Color3.new(1, 1, 1)
+button.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+button.BackgroundTransparency = 0.25
+button.Font = Enum.Font.GothamSemibold
+button.TextSize = 14
+button.Parent = screenGui
+addUICorner(button, 8)
+addUIStroke(button, 2, Color3.new(1, 1, 1))
+
+local menu = Instance.new("Frame")
+menu.Size = UDim2.new(0, 300, 0, 300)
+menu.Position = UDim2.new(0.5, -150, 0.5, -150)
+menu.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+menu.BackgroundTransparency = 0.25
+menu.Visible = false
+menu.Parent = screenGui
+addUICorner(menu, 0)
+addUIStroke(menu, 2, Color3.new(1, 1, 1))
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 5)
+title.Text = "Configuración de Hitbox"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = menu
+
+local function createStyledTextBox(parent, position, defaultText)
+    local textBox = Instance.new("TextBox")
+    textBox.Size = UDim2.new(0.8, 0, 0, 25)
+    textBox.Position = position
+    textBox.Text = defaultText
+    textBox.TextColor3 = Color3.new(1, 1, 1)
+    textBox.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    textBox.BackgroundTransparency = 0.5
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 14
+    textBox.Parent = parent
+    addUICorner(textBox, 4)
+    addUIStroke(textBox, 1, Color3.new(1, 1, 1))
+    return textBox
+end
+
+local function createStyledButton(parent, position, text)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.4, -10, 0, 25)
+    button.Position = position
+    button.Text = text
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    button.BackgroundTransparency = 0.5
+    button.Font = Enum.Font.GothamSemibold
+    button.TextSize = 12
+    button.Parent = parent
+    addUICorner(button, 4)
+    addUIStroke(button, 1, Color3.new(1, 1, 1))
+    return button
+end
+
+local hitboxInput = createStyledTextBox(menu, UDim2.new(0.1, 0, 0, 45), tostring(hitboxSize))
+local transparencySlider = createStyledTextBox(menu, UDim2.new(0.1, 0, 0, 85), tostring(hitboxTransparency))
+local playersOnly = createStyledButton(menu, UDim2.new(0.05, 0, 0, 125), "Solo Jugadores")
+local npcsOnly = createStyledButton(menu, UDim2.new(0.55, 0, 0, 125), "Solo NPCs")
+local bothButton = createStyledButton(menu, UDim2.new(0.3, 0, 0, 165), "Ambos")
+local checkTeamButton = createStyledButton(menu, UDim2.new(0.3, 0, 0, 205), "Revisar Equipo: OFF")
+
+local function makeDraggable(obj)
+    local dragging, dragInput, dragStart, startPos
+
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = obj.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    obj.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(button)
+makeDraggable(menu)
+
+local function updateHitbox(character, size, transparency)
+    if character == player.Character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        if size == 0 then
+            restoreNormalHitbox(character)
+        else
+            rootPart.Size = Vector3.new(size, size, size)
+            rootPart.Transparency = transparency
+            rootPart.CanCollide = false
+        end
+    end
+end
+
+local function restoreNormalHitbox(character)
+    if character == player.Character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        rootPart.Size = Vector3.new(2, 2, 1)
+        rootPart.Transparency = 1
+        rootPart.CanCollide = false
+    end
+end
+
+local function shouldAffectPlayer(plr)
+    if not affectPlayers then return false end
+    if plr == player then return false end
+    if not checkTeam then return true end
+    
+    local playerTeam = player.Team
+    local targetTeam = plr.Team
+    
+    if playerTeam == nil then return true end
+    return playerTeam ~= targetTeam
+end
+
+local function applyHitboxToAll()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then
+            if shouldAffectPlayer(plr) then
+                updateHitbox(plr.Character, hitboxSize, hitboxTransparency)
+            else
+                restoreNormalHitbox(plr.Character)
+            end
+        end
+    end
+    
+    if affectNPCs then
+        for _, model in ipairs(workspace:GetDescendants()) do
+            if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+                updateHitbox(model, hitboxSize, hitboxTransparency)
+            end
+        end
+    else
+        for _, model in ipairs(workspace:GetDescendants()) do
+            if model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model) then
+                restoreNormalHitbox(model)
+            end
+        end
+    end
+end
+
+button.MouseButton1Click:Connect(function()
+    menu.Visible = not menu.Visible
+end)
+
+hitboxInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local newSize = tonumber(hitboxInput.Text)
+        if newSize and newSize >= 0 and newSize <= 50 then
+            hitboxSize = newSize
+            applyHitboxToAll()
+        else
+            hitboxInput.Text = tostring(hitboxSize)
+        end
+    end
+end)
+
+transparencySlider.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local newTransparency = tonumber(transparencySlider.Text)
+        if newTransparency and newTransparency >= 0 and newTransparency <= 1 then
+            hitboxTransparency = newTransparency
+            applyHitboxToAll()
+        else
+            transparencySlider.Text = tostring(hitboxTransparency)
+        end
+    end
+end)
+
+local function updateButtonVisibility()
+    playersOnly.Visible = true
+    npcsOnly.Visible = true
+    bothButton.BackgroundColor3 = (affectPlayers and affectNPCs) and Color3.new(0, 0.5, 0) or Color3.new(0.2, 0.2, 0.2)
+    playersOnly.BackgroundColor3 = (affectPlayers and not affectNPCs) and Color3.new(0, 0.5, 0) or Color3.new(0.2, 0.2, 0.2)
+    npcsOnly.BackgroundColor3 = (not affectPlayers and affectNPCs) and Color3.new(0, 0.5, 0) or Color3.new(0.2, 0.2, 0.2)
+    checkTeamButton.Visible = affectPlayers
+end
+
+playersOnly.MouseButton1Click:Connect(function()
+    affectPlayers = true
+    affectNPCs = false
+    updateButtonVisibility()
+    applyHitboxToAll()
+end)
+
+npcsOnly.MouseButton1Click:Connect(function()
+    affectPlayers = false
+    affectNPCs = true
+    updateButtonVisibility()
+    applyHitboxToAll()
+end)
+
+bothButton.MouseButton1Click:Connect(function()
+    if affectPlayers and affectNPCs then
+        affectPlayers = false
+        affectNPCs = false
+    else
+        affectPlayers = true
+        affectNPCs = true
+    end
+    updateButtonVisibility()
+    applyHitboxToAll()
+end)
+
+checkTeamButton.MouseButton1Click:Connect(function()
+    checkTeam = not checkTeam
+    checkTeamButton.Text = "Revisar Equipo: " .. (checkTeam and "ON" or "OFF")
+    checkTeamButton.BackgroundColor3 = checkTeam and Color3.new(0, 0.5, 0) or Color3.new(0.2, 0.2, 0.2)
+    applyHitboxToAll()
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function(character)
+        if shouldAffectPlayer(plr) then
+            updateHitbox(character, hitboxSize, hitboxTransparency)
+        else
+            restoreNormalHitbox(character)
+        end
+    end)
+end)
+
+workspace.DescendantAdded:Connect(function(descendant)
+    if descendant:IsA("Model") and descendant:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(descendant) then
+        if affectNPCs then
+            updateHitbox(descendant, hitboxSize, hitboxTransparency)
+        else
+            restoreNormalHitbox(descendant)
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function(deltaTime)
+    lastUpdate = lastUpdate + deltaTime
+    if lastUpdate >= updateInterval then
+        applyHitboxToAll()
+        lastUpdate = 0
+    end
+end)
+
+updateButtonVisibility()
