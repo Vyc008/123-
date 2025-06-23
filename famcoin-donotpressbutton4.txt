@@ -1,0 +1,106 @@
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local teleporting = false
+local coinName = "Coin"
+
+local function findAllCoins()
+    local coins = {}
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name == coinName then
+            table.insert(coins, part)
+        end
+    end
+    return coins
+end
+
+local function teleportLoop()
+    while true do
+        if teleporting then
+            local character = player.Character
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+            if character and humanoid and rootPart then
+                local coins = findAllCoins()
+                if #coins > 0 then
+                    for _, coin in ipairs(coins) do
+                        if not teleporting then break end
+                        rootPart.CFrame = CFrame.new(coin.Position + Vector3.new(0, 3, 0))
+                        humanoid:Move(Vector3.new(1, 0, 0), true)
+                        humanoid.Jump = true
+                        wait(0.15)
+                    end
+                end
+            end
+        end
+        wait(0.15)
+    end
+end
+
+task.spawn(teleportLoop)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game.CoreGui 
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 100)
+frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+frame.BackgroundColor3 = Color3.new(0, 0, 0)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+frame.Visible = false
+frame.ClipsDescendants = true
+frame.BackgroundTransparency = 1
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 15)
+corner.Parent = frame
+
+local titleBar = Instance.new("TextLabel")
+titleBar.Size = UDim2.new(1, 0, 0, 20)
+titleBar.Position = UDim2.new(0, 0, -0.25, 0)
+titleBar.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+titleBar.Text = "Auto farm by Vinihgol333"
+titleBar.TextColor3 = Color3.new(1, 1, 1)
+titleBar.TextScaled = true
+titleBar.Font = Enum.Font.SourceSansBold
+titleBar.Parent = frame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleBar
+
+local textSizeConstraint = Instance.new("UITextSizeConstraint")
+textSizeConstraint.MinTextSize = 8
+textSizeConstraint.MaxTextSize = 14
+textSizeConstraint.Parent = titleBar
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 80, 0, 40)
+button.Position = UDim2.new(0.5, -40, 0.5, -20)
+button.BackgroundColor3 = Color3.new(0, 1, 0)
+button.Text = "ON"
+button.TextColor3 = Color3.new(1, 1, 1)
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 18
+button.Parent = frame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = button
+
+local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local fadeIn = TweenService:Create(frame, tweenInfo, {BackgroundTransparency = 0})
+frame.Visible = true
+fadeIn:Play()
+
+button.MouseButton1Click:Connect(function()
+    teleporting = not teleporting
+    button.Text = teleporting and "OFF" or "ON"
+    button.BackgroundColor3 = teleporting and Color3.new(1, 0, 0) or Color3.new(0, 1, 0)
+end)
