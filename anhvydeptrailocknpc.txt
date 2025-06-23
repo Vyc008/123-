@@ -7,8 +7,8 @@ local StarterGui = game:GetService("StarterGui")
 local camera = workspace.CurrentCamera
 
 StarterGui:SetCore("SendNotification", {
-    Title = "Tôi Yêu Việt Nam", -- dont skid ðŸ™ðŸ’”
-    Text = "on Roblox",
+    Title = "☠️☠️☠️", -- dont skid ðŸ™ðŸ’”
+    Text = "đang tải virut vào roblox",
     Duration = 3
 })
 
