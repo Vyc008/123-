@@ -90,7 +90,7 @@ end
 
 -- keysystem
 local keyGui = Instance.new("ScreenGui", game.CoreGui)
-keyGui.Name = "KeySystem"
+keyGui.Name = "PASSWORD aimbotex"
 keyGui.ResetOnSpawn = false
 
 local keyFrame = Instance.new("Frame", keyGui)
@@ -101,7 +101,7 @@ keyFrame.BorderSizePixel = 2
 
 local title = Instance.new("TextLabel", keyFrame)
 title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "Enter Key"
+title.Text = "aimbotex"
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.SourceSansBold
@@ -111,7 +111,7 @@ local keyBox = Instance.new("TextBox", keyFrame)
 keyBox.Size = UDim2.new(1, -40, 0, 30)
 keyBox.Position = UDim2.new(0, 20, 0, 50)
 keyBox.PlaceholderText = "Enter Key Here"
-keyBox.Text = ""
+keyBox.Text = "aimbotex"
 keyBox.Font = Enum.Font.SourceSans
 keyBox.TextSize = 16
 keyBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
@@ -120,7 +120,7 @@ keyBox.TextColor3 = Color3.new(1,1,1)
 local keyInfo = Instance.new("TextLabel", keyFrame)
 keyInfo.Size = UDim2.new(1, 0, 0, 20)
 keyInfo.Position = UDim2.new(0, 0, 1, -25)
-keyInfo.Text = "Get your key at: discord.gg/qP7CFMFEax (aimbotex)"
+keyInfo.Text = "PASSWORD aimbotex"
 keyInfo.TextColor3 = Color3.new(1, 1, 1)
 keyInfo.BackgroundTransparency = 1
 keyInfo.Font = Enum.Font.SourceSans
@@ -129,7 +129,7 @@ keyInfo.TextSize = 14
 local closeKeyBtn = Instance.new("TextButton", keyFrame)
 closeKeyBtn.Size = UDim2.new(0, 30, 0, 30)
 closeKeyBtn.Position = UDim2.new(1, -30, 0, 0)
-closeKeyBtn.Text = "X"
+closeKeyBtn.Text = "Key aimbotex"
 closeKeyBtn.TextColor3 = Color3.new(1, 1, 1)
 closeKeyBtn.Font = Enum.Font.SourceSansBold
 closeKeyBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
