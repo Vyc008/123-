@@ -638,7 +638,7 @@ submitBtn.MouseButton1Click:Connect(function()
             btnFullbright.BackgroundColor3 = fullbrightOn and Color3.fromRGB(255, 175, 50) or Color3.fromRGB(190, 140, 90)
             btnFullbright.Text = "Fullbright: " .. (fullbrightOn and "ON" or "OFF")
             btnRainbowFOV.Text = "Rainbow FOV: " .. (rainbowFOV and "ON" or "OFF")
-            btnInstantAim.Text = "Instant Aim: " .. (instantAim and "ON" or "OFF")
+            btnInstantAim.Text = "Best Aim: " .. (instantAim and "ON" or "OFF")
             lblFOVValue.Text = "FOV: " .. FOV_RADIUS
             updateStrengthBar()
             updatePredictionBar()
