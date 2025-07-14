@@ -222,7 +222,7 @@ submitBtn.MouseButton1Click:Connect(function()
         local title = Instance.new("TextLabel", panel)
         title.Size = UDim2.new(1, 0, 0, 25)
         title.BackgroundTransparency = 1
-        title.Text = "INSTANT AIM"
+        title.Text = "Best Aim"
         style(title)
         title.TextSize = 18
         
