@@ -1,4 +1,3 @@
-local keyRequired = "aimbotex"
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
@@ -87,75 +86,6 @@ local function createRobloxNotification(text, color)
         end)
     end)
 end
-
--- keysystem
-local keyGui = Instance.new("ScreenGui", game.CoreGui)
-keyGui.Name = "KeySystem"
-keyGui.ResetOnSpawn = false
-
-local keyFrame = Instance.new("Frame", keyGui)
-keyFrame.Size = UDim2.new(0, 300, 0, 150)
-keyFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-keyFrame.BorderSizePixel = 2
-
-local title = Instance.new("TextLabel", keyFrame)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "Enter Key"
-title.BackgroundTransparency = 1
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-
-local keyBox = Instance.new("TextBox", keyFrame)
-keyBox.Size = UDim2.new(1, -40, 0, 30)
-keyBox.Position = UDim2.new(0, 20, 0, 50)
-keyBox.PlaceholderText = "Enter Key Here"
-keyBox.Text = ""
-keyBox.Font = Enum.Font.SourceSans
-keyBox.TextSize = 16
-keyBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-keyBox.TextColor3 = Color3.new(1,1,1)
-
-local keyInfo = Instance.new("TextLabel", keyFrame)
-keyInfo.Size = UDim2.new(1, 0, 0, 20)
-keyInfo.Position = UDim2.new(0, 0, 1, -25)
-keyInfo.Text = "Get your key at: discord.gg/qP7CFMFEax (aimbotex)"
-keyInfo.TextColor3 = Color3.new(1, 1, 1)
-keyInfo.BackgroundTransparency = 1
-keyInfo.Font = Enum.Font.SourceSans
-keyInfo.TextSize = 14
-
-local closeKeyBtn = Instance.new("TextButton", keyFrame)
-closeKeyBtn.Size = UDim2.new(0, 30, 0, 30)
-closeKeyBtn.Position = UDim2.new(1, -30, 0, 0)
-closeKeyBtn.Text = "X"
-closeKeyBtn.TextColor3 = Color3.new(1, 1, 1)
-closeKeyBtn.Font = Enum.Font.SourceSansBold
-closeKeyBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-closeKeyBtn.TextSize = 18
-closeKeyBtn.MouseButton1Click:Connect(function()
-    keyFrame:Destroy()
-end)
-
-local submitBtn = Instance.new("TextButton", keyFrame)
-submitBtn.Size = UDim2.new(0.5, 0, 0, 30)
-submitBtn.Position = UDim2.new(0.25, 0, 0, 95)
-submitBtn.Text = "Submit"
-submitBtn.Font = Enum.Font.SourceSansBold
-submitBtn.TextColor3 = Color3.new(1, 1, 1)
-submitBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-submitBtn.TextSize = 16
-
-coroutine.wrap(function()
-    while keyGui.Parent do
-        for i = 0, 1, 0.01 do
-            if not keyGui.Parent then break end
-            submitBtn.BackgroundColor3 = Color3.fromHSV(i, 1, 1)
-            wait(0.1)
-        end
-    end
-end)()
 
 -- WallCheck utility: does a raycast from camera to target, returns true if path is clear
 local function isVisible(part)
