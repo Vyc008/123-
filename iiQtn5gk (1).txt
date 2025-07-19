@@ -1,0 +1,146 @@
+-- ✅ Load Rayfield
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+-- ✅ Trusted Animation IDs table
+local trustedAnimationIds = {
+	["126830014841198"] = true, ["126355327951215"] = true, ["121086746534252"] = true,
+	["18885909645"] = true, ["98456918873918"] = true, ["105458270463374"] = true,
+	["83829782357897"] = true, ["125403313786645"] = true, ["118298475669935"] = true,
+	["82113744478546"] = true, ["70371667919898"] = true, ["99135633258223"] = true,
+	["97167027849946"] = true, ["109230267448394"] = true, ["139835501033932"] = true,
+	["126896426760253"] = true,
+}
+
+-- ✅ Settings
+local detectionRange = 20
+local toggleOn, autoPunchOn = false, false
+
+-- 🖱️ Safe Click (mobile + PC)
+local function clickButton(btnName)
+	local gui = localPlayer:FindFirstChild("PlayerGui")
+	if not gui then return end
+
+	local mainUI = gui:FindFirstChild("MainUI")
+	local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+	local button = container and container:FindFirstChild(btnName)
+
+	if button and button:IsA("ImageButton") and button.Visible then
+		for _, conn in ipairs(getconnections(button.MouseButton1Click)) do
+			pcall(function()
+				conn:Fire()
+			end)
+		end
+	end
+end
+
+-- 🎯 Aimbot to target
+local function aimAtTarget(targetRoot)
+	local char = localPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if hrp and targetRoot then
+		hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(targetRoot.Position.X, hrp.Position.Y, targetRoot.Position.Z))
+	end
+end
+
+-- 🔎 Hybrid predictive detection with linked auto punch
+local function setupPredictiveBlock(humanoid, targetRoot)
+	humanoid.AnimationPlayed:Connect(function(track)
+		if toggleOn then
+			local anim = track.Animation
+			if anim and anim.AnimationId then
+				local id = string.match(anim.AnimationId, "%d+")
+				local animName = anim.Name:lower()
+
+				local dist = (targetRoot.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+				if dist <= detectionRange then
+					if trustedAnimationIds[id]
+						or animName:find("slash")
+						or animName:find("attack")
+						or animName:find("swing")
+						or (track.Length >= 0.3 and track.Length <= 3 and animName:find("hit")) then
+
+						-- ✅ Block first
+						clickButton("Block")
+
+						-- ✅ If Auto Punch enabled, aim and punch after block
+						if autoPunchOn then
+							task.wait(0.1) -- small delay after block
+							aimAtTarget(targetRoot)
+							clickButton("Punch")
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+
+-- ✅ Rayfield GUI
+local Window = Rayfield:CreateWindow({
+	Name = "ForsakenX | Guest 1337",
+	LoadingTitle = "Guest 1337 Auto Block",
+	LoadingSubtitle = "By Triplex",
+	ConfigurationSaving = {
+		Enabled = true,
+		FolderName = "Guest1337ForsakenX",
+		FileName = "GuestAutoBlock"
+	},
+	KeySystem = false
+})
+
+local MainTab = Window:CreateTab("Guest 1337", 4483362458)
+
+MainTab:CreateToggle({
+	Name = "Auto Block (Predictive)",
+	CurrentValue = false,
+	Flag = "AutoBlock",
+	Callback = function(Value)
+		toggleOn = Value
+	end,
+})
+
+MainTab:CreateToggle({
+	Name = "Auto Punch + Aimbot (After Block)",
+	CurrentValue = false,
+	Flag = "AutoPunch",
+	Callback = function(Value)
+		autoPunchOn = Value
+	end,
+})
+
+MainTab:CreateSlider({
+	Name = "Detection Range",
+	Range = {5, 50},
+	Increment = 1,
+	CurrentValue = 20,
+	Flag = "DetectionRange",
+	Callback = function(Value)
+		detectionRange = Value
+	end,
+})
+
+-- 🔁 Setup connections for all players
+RunService.RenderStepped:Connect(function()
+	if not toggleOn then return end
+
+	local myChar = localPlayer.Character
+	local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return end
+
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer ~= localPlayer and otherPlayer.Character then
+			local root = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+			local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if root and humanoid and not humanoid:FindFirstChild("BlockPredictSetup") then
+				local tag = Instance.new("BoolValue")
+				tag.Name = "BlockPredictSetup"
+				tag.Parent = humanoid
+				setupPredictiveBlock(humanoid, root)
+			end
+		end
+	end
+end)
