@@ -1,0 +1,22 @@
+local player = game:GetService("Players").LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local gunshot = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gunshot")
+local zombies = workspace:WaitForChild("AliveZombies")
+
+while task.wait() do
+	local tool = character:FindFirstChildOfClass("Tool")
+	if tool then
+		for _, zombie in ipairs(zombies:GetChildren()) do
+			if zombie:IsA("Model") then
+				local position = zombie.PrimaryPart and zombie.PrimaryPart.Position or zombie:GetModelCFrame().p
+				gunshot:FireServer(
+					tool,
+					{ zombie },
+					position,
+					BrickColor.new(333),
+					true
+				)
+			end
+		end
+	end
+end
