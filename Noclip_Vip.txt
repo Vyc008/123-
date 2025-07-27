@@ -93,7 +93,7 @@ StatusLabel.BackgroundTransparency = 1
 StatusLabel.Position = UDim2.new(0, 0, 0, 30)
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Font = Enum.Font.SourceSans
-StatusLabel.Text = "🫡🫡🫡"
+StatusLabel.Text = "Off"
 StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusLabel.TextSize = 16
 
@@ -117,7 +117,7 @@ CreditsButton.Text = "Credits"
 CreditsButton.TextColor3 = Color3.fromRGB(255, 255, 0)
 CreditsButton.TextSize = 18
 
-CreditsLabel.Name = "CreditsLabel"
+CreditsLabel.Name = "Anh thích"
 CreditsLabel.Parent = MainFrame
 CreditsLabel.BackgroundTransparency = 1
 CreditsLabel.Position = UDim2.new(0, 0, 1, -20)
