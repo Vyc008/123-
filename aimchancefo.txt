@@ -12,7 +12,7 @@ screenGui.Parent = PlayerGui
 
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 70, 0, 30)
-toggleButton.Position = UDim2.new(0, 20, 0, 23)
+toggleButton.Position = UDim2.new(0, 20, 0, 10)
 toggleButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 toggleButton.TextColor3 = Color3.new(1, 1, 1)
 toggleButton.Text = "Auto Aim: OFF"
@@ -20,7 +20,7 @@ toggleButton.Parent = screenGui
 
 local predictionBox = Instance.new("TextBox")
 predictionBox.Size = UDim2.new(0, 70, 0, 30)
-predictionBox.Position = UDim2.new(0, 20, 0, 60)
+predictionBox.Position = UDim2.new(0, 20, 0, 50)
 predictionBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 predictionBox.TextColor3 = Color3.new(1, 1, 1)
 predictionBox.Text = "3"
