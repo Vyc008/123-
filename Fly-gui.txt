@@ -90,7 +90,7 @@ mine.Name = "mine"
 mine.Parent = Frame
 mine.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
 mine.Position = UDim2.new(0.231578946, 0, 0.491228074, 0)
-mine.Size = UDim2.new(0, 45, 0, 29)
+mine.Size = UDim2.new(0, 45, 0, 28)
 mine.Font = Enum.Font.SourceSans
 mine.Text = "-"
 mine.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -136,8 +136,8 @@ local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
 nowe = false
 
 game:GetService("StarterGui"):SetCore("SendNotification", { 
-	Title = "FLY GUI V3";
-	Text = "BY XNEO";
+	Title = "WuW";
+	Text = "SEX GAY";
 	Icon = "rbxthumb://type=Asset&id=5107182114&w=150&h=150"})
 Duration = 5;
 
