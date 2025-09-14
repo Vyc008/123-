@@ -1,8 +1,13 @@
 local StarterGui = game:GetService("StarterGui")
 
 StarterGui:SetCore("SendNotification", {
-    Title = "loading...";
-    Text = "made by MidoriMidoru_73816";
+    Title = "chờ...";
+    Text = "loading..50%";
+    Duration = 2;
+
+StarterGui:SetCore("SendNotification", {
+    Title = "Hoàn Thành";
+    Text = "100%";
     Duration = 5;
 })
 
@@ -45,7 +50,7 @@ screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 250, 0, 150)
-frame.Position = UDim2.new(0.5, -125, 0, 0)
+frame.Position = UDim2.new(0, 20, 0, 49)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 frame.Active = true
 frame.Draggable = true
@@ -53,14 +58,14 @@ frame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "SKY BASE MAKER_v1"
+title.Text = "🫡🫡🫡"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 title.Parent = frame
 
 local sliderFrame = Instance.new("Frame")
 sliderFrame.Size = UDim2.new(1, -20, 0, 40)
-sliderFrame.Position = UDim2.new(0, 10, 0, 40)
+sliderFrame.Position = UDim2.new(0, 20, 0, 49)
 sliderFrame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 sliderFrame.Parent = frame
 
@@ -94,7 +99,7 @@ removeButton.Parent = frame
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 80, 0, 30)
 toggleButton.Position = UDim2.new(0, 10, 0, 200)
-toggleButton.Text = "😙"
+toggleButton.Text = "Hiện"
 toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
 toggleButton.Parent = screenGui
 
@@ -206,4 +211,5 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
+
 end)
