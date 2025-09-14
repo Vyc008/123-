@@ -9,7 +9,7 @@ screenGui.Parent = playerGui
 
 
 local squareButton = Instance.new("TextButton")
-squareButton.Size = UDim2.new(0, 40, 0, 80)
+squareButton.Size = UDim2.new(0, 50, 0, 100)
 squareButton.Position = UDim2.new(1, -100, 0, 5)
 squareButton.AnchorPoint = Vector2.new(0, 0)
 squareButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
