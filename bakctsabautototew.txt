@@ -1,0 +1,529 @@
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- CONFIG
+local DEFAULT_PROXIMITY = 8
+local DEFAULT_DURATION = 1.0
+local BEHIND_DISTANCE = 1.7
+local CHECK_INTERVAL = 0.12
+local COOLDOWN = 5
+local LERP_SPEED = 0.37
+local DELAY_BEFORE_STAB = 0.08
+-- BACKSTAB TYPE: "lerp" | "teleport" | "just aim"
+local BACKSTAB_TYPE = "lerp" -- default
+
+-- safe helpers
+local function getCharacter()
+    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+
+local function getDaggerButton()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return nil end
+    local mainUI = pg:FindFirstChild("MainUI")
+    if not mainUI then return nil end
+    local container = mainUI:FindFirstChild("AbilityContainer")
+    if not container then return nil end
+    return container:FindFirstChild("Dagger")
+end
+
+-- returns a cooldown object (NumberValue/StringValue/TextLabel/TextBox) or nil
+local function getDaggerCooldown()
+    local btn = getDaggerButton()
+    if not btn then return nil end
+    -- try several common names/types
+    local cd = btn:FindFirstChild("CooldownTime")
+        or btn:FindFirstChild("Cooldown")
+        or btn:FindFirstChildWhichIsA("NumberValue")
+        or btn:FindFirstChildWhichIsA("StringValue")
+    if cd then return cd end
+    local lbl = btn:FindFirstChild("CooldownLabel") or btn:FindFirstChild("Timer") or btn:FindFirstChild("CD")
+    if lbl then return lbl end
+    return nil
+end
+
+-- Safely read a numeric cooldown from several possible object types.
+-- Returns a number (seconds remaining) or nil if unknown.
+local function readCooldownValue(cdObj)
+    if not cdObj then return nil end
+    if cdObj and cdObj:IsA("NumberValue") then
+        return cdObj.Value
+    end
+    if cdObj and cdObj:IsA("StringValue") then
+        return tonumber(cdObj.Value)
+    end
+    if cdObj and (cdObj:IsA("TextLabel") or cdObj:IsA("TextBox")) then
+        return tonumber(cdObj.Text)
+    end
+    if cdObj.Value ~= nil then
+        if type(cdObj.Value) == "number" then return cdObj.Value end
+        if type(cdObj.Value) == "string" then return tonumber(cdObj.Value) end
+    end
+    if cdObj.Text ~= nil then
+        return tonumber(cdObj.Text)
+    end
+    return nil
+end
+
+local function getKillersFolder()
+    local playersFolder = Workspace:FindFirstChild("Players")
+    if not playersFolder then return nil end
+    return playersFolder:FindFirstChild("Killers")
+end
+
+local function isValidKillerModel(model)
+    if not model then return false end
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChildWhichIsA("Humanoid")
+    return hrp and humanoid and humanoid.Health and humanoid.Health > 0
+end
+
+local function tryActivateButton(btn)
+    if not btn then return false end
+    pcall(function()
+        if btn.Activate then btn:Activate() end
+    end)
+
+    local ok, conns = pcall(function()
+        if type(getconnections) == "function" and btn.MouseButton1Click then
+            return getconnections(btn.MouseButton1Click)
+        end
+        return nil
+    end)
+
+    if ok and conns then
+        for _, conn in ipairs(conns) do
+            pcall(function()
+                if conn.Function then
+                    conn.Function()
+                elseif conn.func then
+                    conn.func()
+                elseif conn.Fire then
+                    conn.Fire()
+                end
+            end)
+        end
+    end
+
+    pcall(function()
+        if btn.Activated then
+            btn.Activated:Fire()
+        end
+    end)
+
+    return true
+end
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BehindKillerLerperGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ===== Add: small draggable toggle square that hides/unhides the main GUI =====
+local controllerGui = Instance.new("ScreenGui")
+controllerGui.Name = "BehindKillerController"
+controllerGui.ResetOnSpawn = false
+controllerGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local toggleSquare = Instance.new("TextButton")
+toggleSquare.Size = UDim2.new(0, 44, 0, 44)
+toggleSquare.Position = UDim2.new(0, 12, 0, 12)
+toggleSquare.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleSquare.BorderSizePixel = 0
+toggleSquare.Text = "Hide" -- leave blank or put an icon/letter
+toggleSquare.TextScaled = true
+toggleSquare.AutoButtonColor = true
+toggleSquare.Draggable = true
+toggleSquare.Parent = controllerGui
+toggleSquare.ZIndex = 50
+
+-- track hidden state
+local guisHidden = false
+
+toggleSquare.MouseButton1Click:Connect(function()
+    guisHidden = not guisHidden
+
+    -- try the local variable first (screenGui defined earlier in this script)
+    if screenGui and screenGui.Parent then
+        screenGui.Enabled = not guisHidden
+    else
+        -- fallback: find by name in PlayerGui (in case screenGui var is out of scope)
+        local main = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("BehindKillerLerperGUI")
+        if main then
+            main.Enabled = not guisHidden
+        end
+    end
+
+    -- visual feedback on the toggle square
+    if guisHidden then
+        toggleSquare.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+        toggleSquare.Text = "Unhide"
+    else
+        toggleSquare.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        toggleSquare.Text = "Hide"
+    end
+end)
+-- ==========================================================================
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 260, 0, 140 + 36 + 4)
+frame.Position = UDim2.new(0, 55, 0, 60)
+frame.BackgroundTransparency = 0.12
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 0
+frame.Draggable = true
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -12, 0, 24)
+title.Position = UDim2.new(0, 6, 0, 6)
+title.BackgroundTransparency = 1
+title.Text = "Auto backstab v2.3"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.SourceSansSemibold
+title.TextSize = 16
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 80, 0, 28)
+toggleBtn.Position = UDim2.new(1, -86, 0, 6)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Text = "OFF"
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 14
+toggleBtn.Parent = frame
+
+local proxLabel = Instance.new("TextLabel")
+proxLabel.Size = UDim2.new(0, 60, 0, 20)
+proxLabel.Position = UDim2.new(0, 6, 0, 36)
+proxLabel.BackgroundTransparency = 1
+proxLabel.Text = "Range (N):"
+proxLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+proxLabel.Font = Enum.Font.SourceSans
+proxLabel.TextSize = 14
+proxLabel.TextXAlignment = Enum.TextXAlignment.Left
+proxLabel.Parent = frame
+
+local proxBox = Instance.new("TextBox")
+proxBox.Size = UDim2.new(0, 60, 0, 24)
+proxBox.Position = UDim2.new(0, 72, 0, 36)
+proxBox.Text = tostring(DEFAULT_PROXIMITY)
+proxBox.ClearTextOnFocus = false
+proxBox.Font = Enum.Font.SourceSans
+proxBox.TextSize = 14
+proxBox.Parent = frame
+
+-- Range Mode UI
+local modeLabel = Instance.new("TextLabel")
+modeLabel.Size = UDim2.new(0, 80, 0, 20)
+modeLabel.Position = UDim2.new(0, 6, 0, 72)
+modeLabel.BackgroundTransparency = 1
+modeLabel.Text = "Range Mode:"
+modeLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+modeLabel.Font = Enum.Font.SourceSans
+modeLabel.TextSize = 14
+modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+modeLabel.Parent = frame
+
+local modeBtn = Instance.new("TextButton")
+modeBtn.Size = UDim2.new(0, 90, 0, 24)
+modeBtn.Position = UDim2.new(0, 72, 0, 72)
+modeBtn.Text = "Around" -- default
+modeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+modeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+modeBtn.Font = Enum.Font.SourceSans
+modeBtn.TextSize = 14
+modeBtn.Parent = frame
+
+local DaggerLabel = Instance.new("TextLabel")
+DaggerLabel.Size = UDim2.new(1, -12, 0, 24)
+DaggerLabel.Position = UDim2.new(0, 6, 0, 72 + 36)
+DaggerLabel.BackgroundTransparency = 1
+DaggerLabel.Text = "auto stab when backstab logic"
+DaggerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DaggerLabel.Font = Enum.Font.SourceSansSemibold
+DaggerLabel.TextSize = 16
+DaggerLabel.TextXAlignment = Enum.TextXAlignment.Left
+DaggerLabel.Parent = frame
+
+local daggertoggleBtn = Instance.new("TextButton")
+daggertoggleBtn.Size = UDim2.new(0, 28, 0, 28)
+daggertoggleBtn.Position = UDim2.new(1, -86, 0, 72 + 36)
+daggertoggleBtn.BackgroundColor3 = Color3.fromRGB(211, 211, 211)
+daggertoggleBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+daggertoggleBtn.Text = ""
+daggertoggleBtn.Font = Enum.Font.SourceSansBold
+daggertoggleBtn.TextSize = 14
+daggertoggleBtn.Parent = frame
+
+-- Backstab Type UI (below dagger UI)
+local backstabLabel = Instance.new("TextLabel")
+backstabLabel.Size = UDim2.new(0, 100, 0, 20)
+backstabLabel.Position = UDim2.new(0, 6, 0, 72 + 36 + 36) -- adjust if needed
+backstabLabel.BackgroundTransparency = 1
+backstabLabel.Text = "Backstab type:"
+backstabLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+backstabLabel.Font = Enum.Font.SourceSans
+backstabLabel.TextSize = 14
+backstabLabel.TextXAlignment = Enum.TextXAlignment.Left
+backstabLabel.Parent = frame
+
+local backstabBtn = Instance.new("TextButton")
+backstabBtn.Size = UDim2.new(0, 120, 0, 24)
+backstabBtn.Position = UDim2.new(0, 110, 0, 72 + 36 + 36) -- align to the right of label
+backstabBtn.Text = BACKSTAB_TYPE
+backstabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+backstabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+backstabBtn.Font = Enum.Font.SourceSans
+backstabBtn.TextSize = 14
+backstabBtn.Parent = frame
+
+-- ✓
+
+-- state
+-- near the top, next to your state vars:
+local enabled = false
+local daggerenabled = false
+local lastTrigger = 0
+local rangeMode = "Around" -- "Around" or "Behind"
+
+-- add this ref-count (tracks how many active 'aim' sessions are running)
+local aimRefCount = 0
+
+-- helper to toggle AutoRotate safely for the current humanoid
+local function setAutoRotateForCurrentCharacter(enabledValue)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        pcall(function() hum.AutoRotate = enabledValue end)
+    end
+end
+
+-- ensure we reset counter / autorotate on respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    aimRefCount = 0
+    -- make sure new humanoid has AutoRotate true by default
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum then pcall(function() hum.AutoRotate = true end) end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    if enabled then
+        toggleBtn.Text = "ON"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    else
+        toggleBtn.Text = "OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end
+end)
+
+backstabBtn.MouseButton1Click:Connect(function()
+    if BACKSTAB_TYPE == "lerp" then
+        BACKSTAB_TYPE = "teleport"
+    elseif BACKSTAB_TYPE == "teleport" then
+        BACKSTAB_TYPE = "just aim"
+    else
+        BACKSTAB_TYPE = "lerp"
+    end
+    backstabBtn.Text = BACKSTAB_TYPE
+    backstabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+end)
+
+daggertoggleBtn.MouseButton1Click:Connect(function()
+    daggerenabled = not daggerenabled
+    if daggerenabled then
+        daggertoggleBtn.Text = "✓"
+    else
+        daggertoggleBtn.Text = ""
+    end
+end)
+
+modeBtn.MouseButton1Click:Connect(function()
+    if rangeMode == "Around" then
+        rangeMode = "Behind"
+        modeBtn.Text = "Behind"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    else
+        rangeMode = "Around"
+        modeBtn.Text = "Around"
+        modeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end
+end)
+
+-- movement behind killer
+-- movement / orientation behind killer (supports lerp, teleport and just aim)
+local function activateForKiller(killerModel, duration)
+    if not killerModel then return end
+    local char = getCharacter()
+    local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local khrp = killerModel and killerModel:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not hrp or not khrp then return end
+
+    -- increment ref count and disable autorotate when first aim starts
+    aimRefCount = aimRefCount + 1
+    if aimRefCount == 1 then
+        pcall(function() humanoid.AutoRotate = false end)
+    end
+
+    local function finishAiming()
+        -- decrement and restore only when no aims remain
+        aimRefCount = math.max(0, aimRefCount - 1)
+        if aimRefCount == 0 then
+            -- try to re-enable AutoRotate on the current humanoid (it may have changed)
+            setAutoRotateForCurrentCharacter(true)
+        end
+    end
+
+    local function computeDesiredCFrame()
+        local kCFrame = khrp.CFrame
+        local behindPos = kCFrame.Position - (kCFrame.LookVector.Unit * BEHIND_DISTANCE)
+        behindPos = Vector3.new(behindPos.X, kCFrame.Position.Y, behindPos.Z)
+        return CFrame.new(behindPos, behindPos + kCFrame.LookVector.Unit)
+    end
+
+    if hrp.Anchored then hrp.Anchored = false end
+
+    if BACKSTAB_TYPE == "lerp" then
+        local goalCFrame = computeDesiredCFrame()
+        local tweenInfo = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local ok, tween = pcall(function() return TweenService:Create(hrp, tweenInfo, {CFrame = goalCFrame}) end)
+        if ok and tween then pcall(function() tween:Play() end) else pcall(function() hrp.CFrame = goalCFrame end) end
+
+        local t0 = os.clock()
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not conn then return end
+            if os.clock() - t0 >= duration then
+                conn:Disconnect()
+                conn = nil
+                finishAiming()
+                return
+            end
+            if not khrp or not hrp then return end
+            local desiredCFrame = computeDesiredCFrame()
+            hrp.CFrame = hrp.CFrame:Lerp(desiredCFrame, LERP_SPEED)
+        end)
+
+    elseif BACKSTAB_TYPE == "teleport" then
+        local goalCFrame = computeDesiredCFrame()
+        pcall(function() hrp.CFrame = goalCFrame end)
+
+        local t0 = os.clock()
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not conn then return end
+            if os.clock() - t0 >= duration then
+                conn:Disconnect()
+                conn = nil
+                finishAiming()
+                return
+            end
+            if not khrp or not hrp then return end
+            local desiredCFrame = computeDesiredCFrame()
+            pcall(function() hrp.CFrame = desiredCFrame end)
+        end)
+
+    elseif BACKSTAB_TYPE == "just aim" then
+        local t0 = os.clock()
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not conn then return end
+            if os.clock() - t0 >= duration then
+                conn:Disconnect()
+                conn = nil
+                finishAiming()
+                return
+            end
+            if not khrp or not hrp then return end
+            local lookVec = khrp.CFrame.LookVector
+            local curPos = hrp.Position
+            local targetCFrame = CFrame.new(curPos, curPos + lookVec)
+            pcall(function() hrp.CFrame = targetCFrame end)
+        end)
+    end
+end
+
+-- main watcher
+task.spawn(function()
+    while true do
+        task.wait(CHECK_INTERVAL)
+        if not enabled then
+            -- skip
+        else
+            local range = tonumber(proxBox.Text) or DEFAULT_PROXIMITY
+            local duration = DEFAULT_DURATION
+            local killersFolder = getKillersFolder()
+            if not killersFolder then
+                -- skip
+            else
+                local char = getCharacter()
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, killer in pairs(killersFolder:GetChildren()) do
+                        if isValidKillerModel(killer) then
+                            local khrp = killer:FindFirstChild("HumanoidRootPart")
+                            if khrp then
+                                local dist = (khrp.Position - hrp.Position).Magnitude
+
+                                local shouldTrigger = false
+                                if rangeMode == "Around" then
+                                    -- original behavior: any killer within range
+                                    if dist <= range then
+                                        shouldTrigger = true
+                                    end
+                                else -- "Behind" mode
+                                    -- require player to be behind the killer (relative to killer's lookVector)
+                                    -- compute scalar projection of (player - killer) onto killer.LookVector
+                                    local relative = hrp.Position - khrp.Position
+                                    local forwardDot = relative:Dot(khrp.CFrame.LookVector)
+                                    -- forwardDot < 0.3 means player is behind killer
+                                    local behindDist = -forwardDot
+                                    if forwardDot < 0.3 and behindDist <= range and dist <= range then
+                                        shouldTrigger = true
+                                    end
+                                end
+
+                                if shouldTrigger then
+                                    if os.clock() - lastTrigger >= COOLDOWN then
+                                        lastTrigger = os.clock()
+                                        local daggerbtn = getDaggerButton()
+                                        local cooldowndagger = getDaggerCooldown()
+                                        local cdNum = readCooldownValue(cooldowndagger)
+                                        -- if cooldown available and > 0.1 sec, skip triggering
+                                        if cdNum and cdNum > 0.1 then
+                                            -- still cooling down; skip this killer
+                                        else
+                                            task.spawn(function()
+                                                activateForKiller(killer, duration)
+                                                if daggerenabled then
+                                                    task.wait(DELAY_BEFORE_STAB)
+                                                    tryActivateButton(daggerbtn)
+                                                end
+                                            end)
+                                        end
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    -- keep getCharacter working after respawn
+end)
