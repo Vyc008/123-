@@ -168,17 +168,6 @@ local function initializeGUI()
     FwFButton.TextScaled = true
     originalButtonPositions[FwFButton] = FwFButton.Position
 
-    -- DestroyButton properties
-    DestroyButton.Parent = InnerFrame
-    DestroyButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    DestroyButton.Size = UDim2.new(0.8, 0, 0, 25)
-    DestroyButton.Position = UDim2.new(0.1, 0, 0.53, 0)
-    DestroyButton.Font = Enum.Font.GothamBold
-    DestroyButton.Text = "Destroy"
-    DestroyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DestroyButton.TextScaled = true
-    originalButtonPositions[DestroyButton] = DestroyButton.Position
-
     -- ControllerButton properties
     ControllerButton.Parent = InnerFrame
     ControllerButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
