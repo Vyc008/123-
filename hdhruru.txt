@@ -87,7 +87,7 @@ local function initializeGUI()
     MainFrame.Parent = ScreenGui
     MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     MainFrame.Position = UDim2.new(0.3, 0, 0.5, -100)
-    MainFrame.Size = UDim2.new(0, 170, 0, 190)
+    MainFrame.Size = UDim2.new(0, 170, 0, 170)
     MainFrame.Active = true
     MainFrame.Draggable = true
 
