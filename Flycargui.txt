@@ -81,7 +81,7 @@ local function initializeGUI()
     -- ScreenGui properties
     ScreenGui.Parent = player.PlayerGui
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Name = "VehicleFlyGui"
+    ScreenGui.Name = "VehicleFlyGuiV1"
 
     -- MainFrame properties
     MainFrame.Parent = ScreenGui
