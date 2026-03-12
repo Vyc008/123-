@@ -1,0 +1,240 @@
+--// Universal ESP (Final Fix: No-Team Color Green)
+--// Color for players not assigned a team is now Green.
+--// Original creator: SARpastes
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Define a fallback color for players without a team: GREEN
+local NO_TEAM_COLOR = Color3.fromRGB(0, 255, 0)
+
+-- ================= SETTINGS =================
+local Settings = {
+    BoxESP = false,
+    OutlineESP = false,
+    ShowName = false,
+    ShowDistance = false,
+    ESPTeammates = false
+}
+
+-- ================= GUI (Includes loading fix and previous logic) =================
+local function setupGui()
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "SARpastesESP_Final_Green"
+    Gui.Parent = game:GetService("CoreGui")
+    return Gui
+end
+
+local Gui = setupGui()
+
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 260, 0, 320)
+Main.Position = UDim2.new(0.02, 0, 0.3, 0)
+Main.BackgroundColor3 = Color3.fromRGB(28,28,28)
+Main.Active = true
+Main.Draggable = true
+Main.BorderSizePixel = 0
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+
+local ELEMENTS_TO_HIDE = {} 
+
+local function makeLabel(text,y,size,bold)
+    local l = Instance.new("TextLabel", Main)
+    l.Size = UDim2.new(1,-40,0,size)
+    l.Position = UDim2.new(0,10,0,y)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+    l.TextSize = size
+    l.TextColor3 = Color3.fromRGB(235,235,235)
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    
+    if y > 30 then 
+        table.insert(ELEMENTS_TO_HIDE, l)
+    end
+    return l
+end
+
+makeLabel("Universal ESP",6,18,true)
+makeLabel("Created by SARpastes",30,12,false)
+
+local Min = Instance.new("TextButton", Main)
+Min.Size = UDim2.new(0,28,0,28)
+Min.Position = UDim2.new(1,-34,0,6)
+Min.Text = "-"
+Min.Font = Enum.Font.GothamBold
+Min.TextSize = 18
+Min.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Min.TextColor3 = Color3.new(1,1,1)
+Min.BorderSizePixel = 0
+Instance.new("UICorner", Min)
+
+local minimized=false
+Min.MouseButton1Click:Connect(function()
+    minimized=not minimized
+    Main.Size=minimized and UDim2.new(0,260,0,42) or UDim2.new(0,260,0,320)
+    
+    for _,v in pairs(ELEMENTS_TO_HIDE) do
+        v.Visible=not minimized
+    end
+    Min.Text = minimized and "+" or "-"
+end)
+
+local function Toggle(text,y,key)
+    local b=Instance.new("TextButton",Main)
+    b.Size=UDim2.new(0.9,0,0,28)
+    b.Position=UDim2.new(0.05,0,0,y)
+    b.BackgroundColor3=Color3.fromRGB(45,45,45)
+    b.Font=Enum.Font.Gotham
+    b.TextSize=13
+    b.TextColor3=Color3.new(1,1,1)
+    Instance.new("UICorner",b)
+    table.insert(ELEMENTS_TO_HIDE, b)
+
+    local function refresh()
+        b.Text=text..": "..(Settings[key] and "ON" or "OFF")
+    end
+    refresh()
+
+    b.MouseButton1Click:Connect(function()
+        Settings[key]=not Settings[key]
+        refresh()
+    end)
+end
+
+Toggle("Box ESP",70,"BoxESP")
+Toggle("Outline ESP",105,"OutlineESP")
+Toggle("ESP Name",140,"ShowName")
+Toggle("ESP Distance",175,"ShowDistance")
+Toggle("ESP Teammates",210,"ESPTeammates")
+
+-- ================= ESP (Optimized & Logic Refined) =================
+local ESP={}
+
+local function shouldESP(p)
+    if p==LocalPlayer then return false end
+    
+    local localTeam = LocalPlayer.Team
+    local playerTeam = p.Team
+    
+    if not Settings.ESPTeammates then
+        if localTeam and playerTeam and localTeam == playerTeam then
+            return false
+        end
+        return true
+    end
+    
+    return true
+end
+
+local function getColor(p)
+    -- If player has a team, use the leaderboard color
+    if p.Team then
+        return p.Team.TeamColor.Color
+    end
+    -- If player has NO team, use the defined fallback color (Green)
+    return NO_TEAM_COLOR 
+end
+
+local function setup(p)
+    if ESP[p] then return end 
+
+    local box=Instance.new("SelectionBox")
+    box.LineThickness=0.05
+    box.SurfaceTransparency=1
+    box.Parent=workspace
+
+    local hl=Instance.new("Highlight")
+    hl.FillTransparency=1
+    hl.Parent=workspace
+
+    local bb=Instance.new("BillboardGui")
+    bb.Size=UDim2.new(0,200,0,40)
+    bb.AlwaysOnTop=true
+    bb.StudsOffset=Vector3.new(0,3,0)
+    bb.Parent=workspace
+
+    local txt=Instance.new("TextLabel",bb)
+    txt.Size=UDim2.new(1,0,1,0)
+    txt.BackgroundTransparency=1
+    txt.Font=Enum.Font.Gotham
+    txt.TextStrokeTransparency=0
+    txt.TextSize=13
+
+    ESP[p]={Box=box,HL=hl,BB=bb,TXT=txt}
+end
+
+for _,p in pairs(Players:GetPlayers()) do 
+    if p~=LocalPlayer then 
+        setup(p) 
+    end 
+end
+
+Players.PlayerAdded:Connect(setup)
+Players.PlayerRemoving:Connect(function(p)
+    if ESP[p] then
+        for _,v in pairs(ESP[p]) do v:Destroy() end
+        ESP[p]=nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local showName = Settings.ShowName
+    local showDist = Settings.ShowDistance
+    local showBox = Settings.BoxESP
+    local showOutline = Settings.OutlineESP
+
+    for p,e in pairs(ESP) do
+        local c=p.Character
+        local hrp=c and c:FindFirstChild("HumanoidRootPart")
+        local hum=c and c:FindFirstChildOfClass("Humanoid")
+        
+        local isVisible = hum and hum.Health > 0 and hrp and c and shouldESP(p)
+        
+        if isVisible then
+            local col=getColor(p)
+            
+            e.Box.Color3=col
+            e.HL.OutlineColor=col
+            e.TXT.TextColor3=col
+            
+            e.Box.Visible = showBox
+            e.Box.Adornee = showBox and c or nil 
+
+            e.HL.Enabled = showOutline
+            e.HL.Adornee = showOutline and c or nil 
+
+            local showBB = showName or showDist
+            e.BB.Enabled = showBB
+            e.BB.Adornee = showBB and hrp or nil 
+
+            if showBB then
+                local t = ""
+                if showName then
+                    t = p.Name
+                end
+
+                if showDist then
+                    local dist=math.floor((Camera.CFrame.Position-hrp.Position).Magnitude)
+                    if showName then
+                        t = t .. " [" .. dist .. " studs]"
+                    else
+                        t = dist .. " studs"
+                    end
+                end
+                e.TXT.Text=t
+            end
+        else
+            e.Box.Visible=false
+            e.Box.Adornee=nil
+            e.HL.Enabled=false
+            e.HL.Adornee=nil
+            e.BB.Enabled=false
+            e.BB.Adornee=nil
+        end
+    end
+end)
