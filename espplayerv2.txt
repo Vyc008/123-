@@ -1,7 +1,3 @@
---// Universal ESP (Final Fix: No-Team Color Green)
---// Color for players not assigned a team is now Green.
---// Original creator: SARpastes
-
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -237,4 +233,5 @@ RunService.RenderStepped:Connect(function()
             e.BB.Adornee=nil
         end
     end
+
 end)nd)
