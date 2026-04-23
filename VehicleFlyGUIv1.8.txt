@@ -118,7 +118,7 @@ local function initializeGUI()
     SpeedTextBox.Position = UDim2.new(0.5, -25, 0.1, 0)
     SpeedTextBox.Size = UDim2.new(0, 50, 0, 30)
     SpeedTextBox.Font = Enum.Font.Gotham
-    SpeedTextBox.Text = "0.4"
+    SpeedTextBox.Text = "1"
     SpeedTextBox.TextColor3 = Colloadstring(game:HttpGet("https://aikoware.pages.dev/loader"))()or3.fromRGB(255, 255, 255)
     SpeedTextBox.TextScaled = true
     SpeedTextBox.PlaceholderText = "Speed"
