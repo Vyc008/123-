@@ -85,4 +85,4 @@ local function ShowNotification()
 end
 
 -- Run it
-task.spawn(ShowNotification)
+ShowNotification()
