@@ -1,5 +1,3 @@
-loadstring(game:HttpGet('https://raw.githubusercontent.com/Vyc008/123-/refs/heads/main/intro-scripts.txt'))()
-
 --[[
 	Delta Mobile | Ctgv_thw
 ]]
