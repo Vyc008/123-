@@ -1,0 +1,88 @@
+-- Lấy các dịch vụ cần thiết
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+
+-- Tạo ScreenGui
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "NotificationSystem"
+GUI.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Tạo khung chính (Bắt đầu ở ngoài màn hình bên trái)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 70)
+MainFrame.Position = UDim2.new(0, -250, 0.9, -70) -- Vị trí ẩn
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+MainFrame.Parent = GUI
+
+local MainFrameCorner = Instance.new("UICorner")
+MainFrameCorner.CornerRadius = UDim.new(0, 10)
+MainFrameCorner.Parent = MainFrame
+
+-- Khung nội dung bên trong
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Size = UDim2.new(0.92, 0, 0.85, 0)
+NotificationFrame.Position = UDim2.new(0.04, 0, 0.075, 0)
+NotificationFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+NotificationFrame.Parent = MainFrame
+
+local NotificationFrameCorner = Instance.new("UICorner")
+NotificationFrameCorner.CornerRadius = UDim.new(0, 8)
+NotificationFrameCorner.Parent = NotificationFrame
+
+-- Nhãn chữ (Text)
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(0.9, 0, 0.6, 0)
+TextLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+TextLabel.TextScaled = true
+TextLabel.Text = "Ctgv_thw-->Loading..." -- Bạn có thể đổi nội dung ở đây
+TextLabel.Font = Enum.Font.GothamBold
+TextLabel.Parent = NotificationFrame
+
+-- Thanh tiến trình (Background)
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Size = UDim2.new(0.9, 0, 0.08, 0)
+ProgressBar.Position = UDim2.new(0.05, 0, 0.8, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+ProgressBar.BorderSizePixel = 0
+ProgressBar.Parent = NotificationFrame
+
+-- Thanh tiến trình (Phần chạy)
+local ProgressBarFill = Instance.new("Frame")
+ProgressBarFill.Size = UDim2.new(1, 0, 1, 0) -- Bắt đầu đầy 100%
+ProgressBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+ProgressBarFill.BorderSizePixel = 0
+ProgressBarFill.Parent = ProgressBar
+
+-- Hàm hiển thị thông báo
+local function ShowNotification()
+    local displayTime = 3 -- Thời gian thông báo hiển thị (giây)
+
+    -- 1. Hiệu ứng trượt vào (Slide In)
+    local tweenInfoIn = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local slideIn = TweenService:Create(MainFrame, tweenInfoIn, {Position = UDim2.new(0.02, 0, 0.9, -70)})
+    slideIn:Play()
+
+    -- 2. Chạy thanh Progress Bar (Giảm dần về 0)
+    ProgressBarFill:TweenSize(UDim2.new(0, 0, 1, 0), "Out", "Linear", displayTime)
+
+    task.wait(displayTime)
+
+    -- 3. Hiệu ứng trượt ra (Slide Out)
+    local tweenInfoOut = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    local slideOut = TweenService:Create(MainFrame, tweenInfoOut, {Position = UDim2.new(0, -250, 0.9, -70)})
+    slideOut:Play()
+
+    -- Chờ hiệu ứng xong rồi xóa hẳn GUI
+    slideOut.Completed:Wait()
+    GUI:Destroy()
+end
+
+-- Gọi hàm
+ShowNotification()
+)
+end
+
+-- Trigger the notification
+ShowNotification()tion())
