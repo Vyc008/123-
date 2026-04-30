@@ -1,0 +1,115 @@
+-- THIẾT LẬP DỊCH VỤ
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+-- 1. TẠO GUI CHÍNH
+local IntroGui = Instance.new("ScreenGui")
+IntroGui.Name = "IntroSystem"
+IntroGui.IgnoreGuiInset = true
+IntroGui.Parent = PlayerGui
+
+-- 2. PHÔNG NỀN
+local Background = Instance.new("Frame")
+Background.Size = UDim2.new(1, 0, 1, 0)
+Background.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Background.BorderSizePixel = 0
+Background.Parent = IntroGui
+
+-- 3. KHUNG INTRO (Main Container)
+local MainFrame = Instance.new("Frame")
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Size = UDim2.new(0, 400, 0, 150)
+MainFrame.BackgroundTransparency = 1
+MainFrame.Parent = Background
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0.4, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Đang tải......"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextScaled = true
+TitleLabel.Parent = MainFrame
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0.2, 0)
+StatusLabel.Position = UDim2.new(0, 0, 0.5, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "sắp xong rồi..."
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 18
+StatusLabel.Parent = MainFrame
+
+local ProgressBack = Instance.new("Frame")
+ProgressBack.Size = UDim2.new(0.8, 0, 0.03, 0)
+ProgressBack.Position = UDim2.new(0.1, 0, 0.8, 0)
+ProgressBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ProgressBack.BorderSizePixel = 0
+ProgressBack.Parent = MainFrame
+
+local ProgressFill = Instance.new("Frame")
+ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+ProgressFill.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+ProgressFill.BorderSizePixel = 0
+ProgressFill.Parent = ProgressBack
+
+Instance.new("UICorner", ProgressBack).CornerRadius = UDim.new(1, 0)
+Instance.new("UICorner", ProgressFill).CornerRadius = UDim.new(1, 0)
+
+-- 4. TẠO DÒNG CHỮ HIỆN SAU (Welcome Text)
+local WelcomeLabel = Instance.new("TextLabel")
+WelcomeLabel.Size = UDim2.new(0.8, 0, 0.1, 0)
+WelcomeLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+WelcomeLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+WelcomeLabel.BackgroundTransparency = 1
+WelcomeLabel.Text = "Bạn đã bị troll 🤣" -- Nội dung dòng chữ sau
+WelcomeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+WelcomeLabel.Font = Enum.Font.GothamMedium
+WelcomeLabel.TextSize = 25
+WelcomeLabel.TextTransparency = 1 -- Ẩn đi lúc đầu
+WelcomeLabel.Parent = IntroGui -- Để trực tiếp vào Gui chính
+
+-- 5. HÀM CHẠY
+local function StartIntro()
+    task.wait(0.5)
+    
+    -- Giai đoạn 1: Chạy thanh Loading
+    local loadTime = 3
+    local fillTween = TweenService:Create(ProgressFill, TweenInfo.new(loadTime), {Size = UDim2.new(1, 0, 1, 0)})
+    fillTween:Play()
+    fillTween.Completed:Wait()
+    
+    -- Giai đoạn 2: Làm mờ Intro cũ
+    local fadeInfo = TweenInfo.new(0.8)
+    for _, item in pairs(MainFrame:GetDescendants()) do
+        if item:IsA("TextLabel") then
+            TweenService:Create(item, fadeInfo, {TextTransparency = 1}):Play()
+        elseif item:IsA("Frame") then
+            TweenService:Create(item, fadeInfo, {BackgroundTransparency = 1}):Play()
+        end
+    end
+    task.wait(0.8)
+    MainFrame:Destroy() -- Xóa khung load cho nhẹ
+
+    -- Giai đoạn 3: Hiện dòng chữ mới
+    local welcomeIn = TweenService:Create(WelcomeLabel, TweenInfo.new(1), {TextTransparency = 0})
+    welcomeIn:Play()
+    welcomeIn.Completed:Wait()
+    
+    task.wait(5) -- Giữ dòng chữ hiển thị trong 1.5 giây
+
+    -- Giai đoạn 4: Làm mờ tất cả để vào Game
+    local finalFade = TweenInfo.new(1)
+    TweenService:Create(WelcomeLabel, finalFade, {TextTransparency = 1}):Play()
+    local bgFade = TweenService:Create(Background, finalFade, {BackgroundTransparency = 1})
+    bgFade:Play()
+    
+    bgFade.Completed:Wait()
+    IntroGui:Destroy() -- Xóa hoàn toàn Intro
+end
+
+StartIntro()
