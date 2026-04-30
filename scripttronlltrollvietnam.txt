@@ -38,7 +38,7 @@ local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size = UDim2.new(1, 0, 0.2, 0)
 StatusLabel.Position = UDim2.new(0, 0, 0.5, 0)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "sắp xong rồi..."
+StatusLabel.Text = "sắp xong rồi...5s nữa"
 StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 StatusLabel.Font = Enum.Font.Gotham
 StatusLabel.TextSize = 18
@@ -78,7 +78,7 @@ local function StartIntro()
     task.wait(0.5)
     
     -- Giai đoạn 1: Chạy thanh Loading
-    local loadTime = 3
+    local loadTime = 5
     local fillTween = TweenService:Create(ProgressFill, TweenInfo.new(loadTime), {Size = UDim2.new(1, 0, 1, 0)})
     fillTween:Play()
     fillTween.Completed:Wait()
