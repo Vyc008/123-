@@ -86,6 +86,49 @@ local layout = Instance.new("UIListLayout", scroll)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Padding = UDim.new(0, 1)
 
+local function removeESP(plr)
+	if connections[plr] then 
+		connections[plr]:Disconnect() 
+		connections[plr] = nil
+	end
+	if espFolder:FindFirstChild(plr.Name) then 
+		espFolder[plr.Name]:Destroy() 
+	end
+	if tracers[plr] then 
+		tracers[plr].Visible = false
+		tracers[plr]:Remove() 
+		tracers[plr] = nil 
+	end
+end
+
+local function createESP(plr)
+	if plr == lp then return end
+	
+	-- Dọn dẹp đối tượng cũ trước khi tạo để tránh trùng lặp đè dữ liệu
+	removeESP(plr)
+
+	if espEnabled then
+		local h = Instance.new("Highlight", espFolder)
+		h.Name = plr.Name
+		h.FillColor = currentColor
+		h.FillTransparency = 1
+		h.OutlineColor = Color3.new(1,1,1)
+		h.OutlineTransparency = 0
+		h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		if plr.Character then h.Adornee = plr.Character end
+		connections[plr] = plr.CharacterAdded:Connect(function(char)
+			h.Adornee = char
+		end)
+	end
+	
+	if tracerEnabled then
+		local line = Drawing.new("Line")
+		line.Thickness = 2
+		line.Visible = false
+		tracers[plr] = line
+	end
+end
+
 for name, color in pairs(colorMap) do
 	local btn = Instance.new("TextButton", scroll)
 	btn.Size = UDim2.new(1, 0, 0, 30)
@@ -96,41 +139,17 @@ for name, color in pairs(colorMap) do
 	btn.TextSize = 14
 	btn.MouseButton1Click:Connect(function()
 		currentColor = color
+		-- Cập nhật màu Highlight hiện tại
 		for _,v in pairs(espFolder:GetChildren()) do
 			if v:IsA("Highlight") then
 				v.FillColor = currentColor
 			end
 		end
+		-- Cập nhật màu Tracer hiện tại ngay lập tức mà không cần tạo lại vòng lặp
+		for _, line in pairs(tracers) do
+			if line then line.Color = currentColor end
+		end
 	end)
-end
-
-local function createESP(plr)
-	if plr == lp then return end
-	if espEnabled then
-		local h = Instance.new("Highlight", espFolder)
-		h.Name = plr.Name
-		h.FillColor = currentColor
-		h.FillTransparency = 0.5
-		h.OutlineColor = Color3.new(1,1,1)
-		h.OutlineTransparency = 0
-		h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		if plr.Character then h.Adornee = plr.Character end
-		connections[plr] = plr.CharacterAdded:Connect(function(char)
-			h.Adornee = char
-		end)
-	end
-	if tracerEnabled then
-		local line = Drawing.new("Line")
-		line.Thickness = 1.5
-		line.Visible = false
-		tracers[plr] = line
-	end
-end
-
-local function removeESP(plr)
-	if connections[plr] then connections[plr]:Disconnect() end
-	if espFolder:FindFirstChild(plr.Name) then espFolder[plr.Name]:Destroy() end
-	if tracers[plr] then tracers[plr]:Remove() tracers[plr] = nil end
 end
 
 toggleESP.MouseButton1Click:Connect(function()
@@ -138,8 +157,7 @@ toggleESP.MouseButton1Click:Connect(function()
 	toggleESP.Text = "ESP: " .. (espEnabled and "ON" or "OFF")
 	toggleESP.BackgroundColor3 = espEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(120,0,0)
 	for _,v in Players:GetPlayers() do
-		removeESP(v)
-		createESP(v)
+		if v ~= lp then createESP(v) end
 	end
 end)
 
@@ -148,16 +166,17 @@ toggleTracer.MouseButton1Click:Connect(function()
 	toggleTracer.Text = "Tracer: " .. (tracerEnabled and "ON" or "OFF")
 	toggleTracer.BackgroundColor3 = tracerEnabled and Color3.fromRGB(0,170,0) or Color3.fromRGB(120,0,0)
 	for _,v in Players:GetPlayers() do
-		removeESP(v)
-		createESP(v)
+		if v ~= lp then createESP(v) end
 	end
 end)
 
 closeBtn.MouseButton1Click:Connect(function()
 	gui:Destroy()
 	espFolder:Destroy()
-	for _,v in pairs(connections) do v:Disconnect() end
-	for _,v in pairs(tracers) do v:Remove() end
+	for _,v in pairs(connections) do if v then v:Disconnect() end end
+	for _,v in pairs(tracers) do if v then v.Visible = false v:Remove() end end
+	table.clear(connections)
+	table.clear(tracers)
 end)
 
 minimizeBtn.MouseButton1Click:Connect(function()
@@ -178,17 +197,24 @@ Players.PlayerRemoving:Connect(removeESP)
 
 RunService.RenderStepped:Connect(function()
 	for plr, line in pairs(tracers) do
-		local char = plr.Character
-		if char and char:FindFirstChild("HumanoidRootPart") and tracerEnabled then
-			local pos, visible = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
-			line.Visible = visible
-			if visible then
-				line.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y)
-				line.To = Vector2.new(pos.X, pos.Y)
-				line.Color = currentColor
-			end
+		-- Kiểm tra xem nút Tracer có đang mở thực sự hay không
+		if not tracerEnabled then
+			if line then line.Visible = false end
 		else
-			line.Visible = false
+			local char = plr.Character
+			if char and char:FindFirstChild("HumanoidRootPart") then
+				local pos, visible = workspace.CurrentCamera:WorldToViewportPoint(char.HumanoidRootPart.Position)
+				if visible then
+					line.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, 0)
+					line.To = Vector2.new(pos.X, pos.Y)
+					line.Color = currentColor
+					line.Visible = true
+				else
+					line.Visible = false
+				end
+			else
+				line.Visible = false
+			end
 		end
 	end
 end)
