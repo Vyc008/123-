@@ -1,11 +1,13 @@
 --// Universal ESP Combo (Drawing API + Color Picker Edition)
 --// 100% Fixed Tracer (Top-Center Origin) & Custom Color Panel.
+--// Đã tích hợp Auto-Fix Outline cho Mobile + Nút Fix thủ công
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -15,7 +17,6 @@ if CoreGui:FindFirstChild("Combined_Universal_ESP_GUI") then
 end
 
 -- ================= SETTINGS & STATE =================
--- ĐÃ CHỈNH: Đổi màu mặc định từ Xanh lá sang màu Trắng
 local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255)
 local currentColor = nil 
 
@@ -43,7 +44,7 @@ Gui.Parent = CoreGui
 Gui.ResetOnSpawn = false
 
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 240, 0, 410) 
+Main.Size = UDim2.new(0, 240, 0, 440) -- Mở rộng 1 chút để chứa nút fix
 Main.Position = UDim2.new(0.02, 0, 0.25, 0)
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.Active = true
@@ -67,7 +68,7 @@ local function makeLabel(text, y, size, bold)
     return l
 end
 
-makeLabel("Esp tổng hợp <Ctgv_thw>", 6, 16, true)
+makeLabel("Esp tổng hợp <ctgvỹ>", 6, 16, true)
 
 local Min = Instance.new("TextButton", Main)
 Min.Size = UDim2.new(0, 26, 0, 26)
@@ -83,7 +84,7 @@ Instance.new("UICorner", Min)
 local minimized = false
 Min.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Main.Size = minimized and UDim2.new(0, 240, 0, 40) or UDim2.new(0, 240, 0, 410)
+    Main.Size = minimized and UDim2.new(0, 240, 0, 40) or UDim2.new(0, 240, 0, 440)
     for _, v in pairs(ELEMENTS_TO_HIDE) do v.Visible = not minimized end
     Min.Text = minimized and "+" or "-"
 end)
@@ -119,11 +120,24 @@ CreateToggle("ESP Name", 130, "ShowName")
 CreateToggle("ESP Distance", 160, "ShowDistance")
 CreateToggle("ESP Teammates", 190, "ESPTeammates")
 
-makeLabel("Custom Colors (Override):", 225, 12, true)
+-- Nút Fix Outline khẩn cấp
+local FixBtn = Instance.new("TextButton", Main)
+FixBtn.Size = UDim2.new(0.9, 0, 0, 26)
+FixBtn.Position = UDim2.new(0.05, 0, 0, 220)
+FixBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+FixBtn.Text = "🔄 Sửa Lỗi Tàng Hình Outline"
+FixBtn.Font = Enum.Font.SourceSansBold
+FixBtn.TextSize = 13
+FixBtn.TextColor3 = Color3.new(1, 1, 1)
+FixBtn.BorderSizePixel = 0
+Instance.new("UICorner", FixBtn).CornerRadius = UDim.new(0, 5)
+table.insert(ELEMENTS_TO_HIDE, FixBtn)
+
+makeLabel("Custom Colors (Override):", 255, 12, true)
 
 local scroll = Instance.new("ScrollingFrame", Main)
 scroll.Size = UDim2.new(0.9, 0, 0, 140)
-scroll.Position = UDim2.new(0.05, 0, 0, 245)
+scroll.Position = UDim2.new(0.05, 0, 0, 275)
 scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 scroll.ScrollBarThickness = 5
 scroll.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -230,6 +244,27 @@ for _, p in pairs(Players:GetPlayers()) do setup(p) end
 Players.PlayerAdded:Connect(setup)
 Players.PlayerRemoving:Connect(cleanESP)
 
+-- ================= HÀM FIX LỖI HIGHLIGHT =================
+local function RebuildHighlights()
+    for p, e in pairs(ESP) do
+        if e.HL then
+            e.HL:Destroy() -- Phá huỷ lớp render lỗi
+            -- Tạo lại cái mới hoàn toàn
+            local newHl = Instance.new("Highlight")
+            newHl.FillTransparency = 1
+            newHl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            newHl.Parent = CoreGui
+            e.HL = newHl
+        end
+    end
+end
+
+-- Tự động chạy lại khi bạn mở game trở lại (Tuỳ executor có hỗ trợ không)
+UserInputService.WindowFocused:Connect(RebuildHighlights)
+
+-- Nút thủ công bấm phát là ăn
+FixBtn.MouseButton1Click:Connect(RebuildHighlights)
+
 -- ================= RENDER LOOP =================
 RunService.RenderStepped:Connect(function()
     for p, e in pairs(ESP) do
@@ -243,14 +278,20 @@ RunService.RenderStepped:Connect(function()
             local col = getColor(p)
             
             e.Box.Color3 = col
-            e.HL.OutlineColor = col
             e.TXT.TextColor3 = col
             
             -- Box & Outline
             e.Box.Visible = Settings.BoxESP
             e.Box.Adornee = Settings.BoxESP and c or nil 
-            e.HL.Enabled = Settings.OutlineESP
-            e.HL.Adornee = Settings.OutlineESP and c or nil 
+            
+            if Settings.OutlineESP then
+                e.HL.Enabled = true
+                e.HL.OutlineColor = col
+                e.HL.Adornee = c 
+            else
+                e.HL.Enabled = false
+                e.HL.Adornee = nil
+            end
 
             -- Name & Distance
             local showBB = Settings.ShowName or Settings.ShowDistance
