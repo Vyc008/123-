@@ -1,0 +1,386 @@
+local fov = 136
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Cam = workspace.CurrentCamera
+local Player = game:GetService("Players").LocalPlayer
+
+local FOVring = Drawing.new("Circle")
+FOVring.Visible = false
+FOVring.Thickness = 2
+FOVring.Color = Color3.fromRGB(255, 105, 180)
+FOVring.Filled = false
+FOVring.Radius = fov
+FOVring.Position = Cam.ViewportSize / 2
+
+local isAiming = false
+local validNPCs = {}
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+-- ==========================================
+-- TẠO GIAO DIỆN (UI MENU)
+-- ==========================================
+local CoreGui = game:GetService("CoreGui")
+local ScreenGui = Instance.new("ScreenGui")
+local success, err = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
+
+-- NÚT ẨN/HIỆN MENU NỔI (DÀNH CHO ĐIỆN THOẠI)
+local ToggleUIBtn = Instance.new("TextButton")
+ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleUIBtn.Position = UDim2.new(0, 200, 0, -30) -- Vị trí mặc định bên trái màn hình
+ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleUIBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
+ToggleUIBtn.BorderSizePixel = 2
+ToggleUIBtn.Text = "UI"
+ToggleUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleUIBtn.Font = Enum.Font.GothamBold
+ToggleUIBtn.TextSize = 14
+ToggleUIBtn.Parent = ScreenGui
+
+-- KHUNG MENU CHÍNH (Đã tăng chiều cao lên 270 để chứa bảng màu)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 270)
+MainFrame.Position = UDim2.new(0, 70, 0, 150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
+MainFrame.Active = true
+MainFrame.Visible = false -- Mặc định ẩn, bấm nút "UI" để mở
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = " AIMBOT MENU"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0, 200, 0, 35)
+ToggleButton.Position = UDim2.new(0, 10, 0, 40)
+ToggleButton.Text = "AIMBOT: OFF (Phím T)"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 14
+ToggleButton.Parent = MainFrame
+
+-- FOV Size UI
+local FovLabel = Instance.new("TextLabel")
+FovLabel.Size = UDim2.new(0, 100, 0, 30)
+FovLabel.Position = UDim2.new(0, 10, 0, 85)
+FovLabel.BackgroundTransparency = 1
+FovLabel.Text = "Kích thước FOV:"
+FovLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+FovLabel.Font = Enum.Font.Gotham
+FovLabel.TextSize = 13
+FovLabel.TextXAlignment = Enum.TextXAlignment.Left
+FovLabel.Parent = MainFrame
+
+local FovInput = Instance.new("TextBox")
+FovInput.Size = UDim2.new(0, 90, 0, 30)
+FovInput.Position = UDim2.new(0, 120, 0, 85)
+FovInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+FovInput.Text = tostring(fov)
+FovInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+FovInput.Font = Enum.Font.Gotham
+FovInput.TextSize = 13
+FovInput.Parent = MainFrame
+
+-- FOV Color UI
+local ColorLabel = Instance.new("TextLabel")
+ColorLabel.Size = UDim2.new(0, 200, 0, 20)
+ColorLabel.Position = UDim2.new(0, 10, 0, 125)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.Text = "Màu FOV (Chọn hoặc Nhập):"
+ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+ColorLabel.Font = Enum.Font.Gotham
+ColorLabel.TextSize = 13
+ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+ColorLabel.Parent = MainFrame
+
+-- Ô Nhập Số (R, G, B) - Đẩy xuống Y=185 để nhường chỗ cho bảng màu
+local function createColorInput(posX, defaultVal)
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(0, 60, 0, 30)
+    input.Position = UDim2.new(0, posX, 0, 185)
+    input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    input.Text = tostring(defaultVal)
+    input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    input.Font = Enum.Font.Gotham
+    input.TextSize = 13
+    input.Parent = MainFrame
+    return input
+end
+
+local R_Input = createColorInput(10, 128)
+local G_Input = createColorInput(80, 0)
+local B_Input = createColorInput(150, 128)
+
+local function updateColor()
+    local r = tonumber(R_Input.Text) or 128
+    local g = tonumber(G_Input.Text) or 0
+    local b = tonumber(B_Input.Text) or 128
+    
+    r = math.clamp(r, 0, 255); R_Input.Text = tostring(r)
+    g = math.clamp(g, 0, 255); G_Input.Text = tostring(g)
+    b = math.clamp(b, 0, 255); B_Input.Text = tostring(b)
+
+    FOVring.Color = Color3.fromRGB(r, g, b)
+end
+
+R_Input.FocusLost:Connect(updateColor)
+G_Input.FocusLost:Connect(updateColor)
+B_Input.FocusLost:Connect(updateColor)
+
+-- BẢNG MÀU CÓ SẴN (Color Palette) tại Y=150
+local paletteColors = {
+    {255, 0, 0},     -- Đỏ
+    {0, 255, 0},     -- Xanh lá
+    {0, 150, 255},   -- Xanh dương
+    {255, 255, 0},   -- Vàng
+    {255, 105, 180}, -- Hồng
+    {128, 0, 128}    -- Tím
+}
+
+for i, colorRGB in ipairs(paletteColors) do
+    local colorBtn = Instance.new("TextButton")
+    colorBtn.Size = UDim2.new(0, 25, 0, 25)
+    -- Căn lề các nút cách nhau một khoảng nhỏ
+    colorBtn.Position = UDim2.new(0, 10 + (i - 1) * 34, 0, 150)
+    colorBtn.BackgroundColor3 = Color3.fromRGB(colorRGB[1], colorRGB[2], colorRGB[3])
+    colorBtn.Text = ""
+    colorBtn.Parent = MainFrame
+
+    -- Khi bấm vào ô màu có sẵn
+    colorBtn.Activated:Connect(function()
+        R_Input.Text = tostring(colorRGB[1])
+        G_Input.Text = tostring(colorRGB[2])
+        B_Input.Text = tostring(colorRGB[3])
+        updateColor() -- Cập nhật luôn lên vòng FOV
+    end)
+end
+
+local HintLabel = Instance.new("TextLabel")
+HintLabel.Size = UDim2.new(1, 0, 0, 20)
+HintLabel.Position = UDim2.new(0, 0, 1, -25)
+HintLabel.BackgroundTransparency = 1
+HintLabel.Text = "Đóng Menu nhanh: Nút UI / RShift"
+HintLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HintLabel.Font = Enum.Font.Gotham
+HintLabel.TextSize = 11
+HintLabel.Parent = MainFrame
+
+-- ==========================================
+-- LOGIC CỦA MENU (Kéo thả UI)
+-- ==========================================
+
+-- Chức năng bật/tắt Menu bằng nút "UI"
+ToggleUIBtn.Activated:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Chỉnh FOV Size
+FovInput.FocusLost:Connect(function()
+    local newFov = tonumber(FovInput.Text)
+    if newFov then
+        fov = newFov
+    else
+        FovInput.Text = tostring(fov)
+    end
+end)
+
+-- Hàm hỗ trợ kéo thả cho Object bất kỳ
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = moveObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Áp dụng kéo thả cho Khung Menu (nắm Title) và Nút UI nổi (nắm chính nó)
+makeDraggable(Title, MainFrame)
+makeDraggable(ToggleUIBtn, ToggleUIBtn)
+
+
+-- ==========================================
+-- LOGIC AIMBOT
+-- ==========================================
+
+local function isNPC(obj)
+    return obj:IsA("Model") 
+        and obj:FindFirstChild("Humanoid")
+        and obj.Humanoid.Health > 0
+        and obj:FindFirstChild("Head")
+        and obj:FindFirstChild("HumanoidRootPart")
+        and not game:GetService("Players"):GetPlayerFromCharacter(obj)
+end
+
+local function updateNPCs()
+    local tempTable = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if isNPC(obj) then
+            tempTable[obj] = true
+        end
+    end
+    for i = #validNPCs, 1, -1 do
+        if not tempTable[validNPCs[i]] then
+            table.remove(validNPCs, i)
+        end
+    end
+    for obj in pairs(tempTable) do
+        if not table.find(validNPCs, obj) then
+            table.insert(validNPCs, obj)
+        end
+    end
+end
+
+local function handleDescendant(descendant)
+    if isNPC(descendant) then
+        table.insert(validNPCs, descendant)
+        local humanoid = descendant:WaitForChild("Humanoid")
+        humanoid.Destroying:Connect(function()
+            for i = #validNPCs, 1, -1 do
+                if validNPCs[i] == descendant then
+                    table.remove(validNPCs, i)
+                    break
+                end
+            end
+        end)
+    end
+end
+
+workspace.DescendantAdded:Connect(handleDescendant)
+
+local function updateDrawings()
+    FOVring.Position = Cam.ViewportSize / 2
+    FOVring.Radius = fov * (Cam.ViewportSize.Y / 1080)
+end
+
+local function predictPos(target)
+    local rootPart = target:FindFirstChild("HumanoidRootPart")
+    local head = target:FindFirstChild("Head")
+    if not rootPart or not head then
+        return head and head.Position or rootPart and rootPart.Position
+    end
+    local velocity = rootPart.Velocity
+    local predictionTime = 0.02
+    local basePosition = rootPart.Position + velocity * predictionTime
+    local headOffset = head.Position - rootPart.Position
+    return basePosition + headOffset
+end
+
+local function getTarget()
+    local nearest = nil
+    local minDistance = math.huge
+    local viewportCenter = Cam.ViewportSize / 2
+    raycastParams.FilterDescendantsInstances = {Player.Character}
+    for _, npc in ipairs(validNPCs) do
+        local predictedPos = predictPos(npc)
+        local screenPos, visible = Cam:WorldToViewportPoint(predictedPos)
+        if visible and screenPos.Z > 0 then
+            local ray = workspace:Raycast(
+                Cam.CFrame.Position,
+                (predictedPos - Cam.CFrame.Position).Unit * 1000,
+                raycastParams
+            )
+            if ray and ray.Instance:IsDescendantOf(npc) then
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - viewportCenter).Magnitude
+                if distance < minDistance and distance < (fov * (Cam.ViewportSize.Y / 1080)) then
+                    minDistance = distance
+                    nearest = npc
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function aim(targetPosition)
+    local currentCF = Cam.CFrame
+    local targetDirection = (targetPosition - currentCF.Position).Unit
+    local smoothFactor = 0.581
+    local newLookVector = currentCF.LookVector:Lerp(targetDirection, smoothFactor)
+    Cam.CFrame = CFrame.new(currentCF.Position, currentCF.Position + newLookVector)
+end
+
+local heartbeat = RunService.Heartbeat
+local lastUpdate = 0
+local UPDATE_INTERVAL = 0.4
+
+heartbeat:Connect(function(dt)
+    updateDrawings()
+    lastUpdate = lastUpdate + dt
+    if lastUpdate >= UPDATE_INTERVAL then
+        updateNPCs()
+        lastUpdate = 0
+    end
+    if isAiming then
+        local target = getTarget()
+        if target then
+            local predictedPosition = predictPos(target)
+            aim(predictedPosition)
+        end
+    end
+end)
+
+local function toggleAimbot()
+    isAiming = not isAiming
+    FOVring.Visible = isAiming
+    ToggleButton.Text = "AIMBOT: " .. (isAiming and "ON" or "OFF") .. " (Phím T)"
+    ToggleButton.TextColor3 = isAiming and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+end
+
+ToggleButton.Activated:Connect(toggleAimbot)
+
+-- Phím tắt (Vẫn giữ cho PC)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.T then
+            toggleAimbot()
+        elseif input.KeyCode == Enum.KeyCode.RightShift then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+    end
+end)
+
+updateNPCs()
+workspace.DescendantRemoved:Connect(function(descendant)
+    if isNPC(descendant) then
+        for i = #validNPCs, 1, -1 do
+            if validNPCs[i] == descendant then
+                table.remove(validNPCs, i)
+                break
+            end
+        end
+    end
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function()
+    FOVring:Remove()
+    ScreenGui:Destroy()
+end)
