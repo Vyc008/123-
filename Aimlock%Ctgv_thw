@@ -1,0 +1,350 @@
+local predictionFactor = 0.15 -- Hệ số đoán hướng di chuyển
+local smoothFactor = 0.581    -- Độ mượt khi aim
+local fovRadius = 150         -- Độ rộng của vùng FOV ẩn ở giữa màn hình
+local showFov = false         -- Bật/tắt hiển thị vòng FOV
+
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Cam = workspace.CurrentCamera
+local Player = game:GetService("Players").LocalPlayer
+
+local isAiming = false
+local lockedTarget = nil
+
+-- ==========================================
+-- TẠO VÒNG FOV
+-- ==========================================
+local FOVring = Drawing.new("Circle")
+FOVring.Visible = showFov
+FOVring.Thickness = 1.5
+FOVring.Color = Color3.fromRGB(255, 255, 255)
+FOVring.Filled = false
+FOVring.Radius = fovRadius
+FOVring.Position = Cam.ViewportSize / 2
+
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP GUI
+-- ==========================================
+local function applyUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+end
+
+local function applyUIStroke(instance, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(70, 70, 75)
+    stroke.Thickness = thickness or 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+end
+
+-- ==========================================
+-- TẠO GIAO DIỆN (UI NỔI VÀ MENU)
+-- ==========================================
+local CoreGui = game:GetService("CoreGui")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ModernAimbotUI"
+local success, err = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
+
+-- 1. NÚT MỞ MENU TỐI ƯU
+local ToggleUIBtn = Instance.new("TextButton")
+ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleUIBtn.Position = UDim2.new(0, 10, 0, 150)
+ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+ToggleUIBtn.Text = "UI"
+ToggleUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleUIBtn.Font = Enum.Font.GothamBold
+ToggleUIBtn.TextSize = 14
+ToggleUIBtn.Parent = ScreenGui
+applyUICorner(ToggleUIBtn, 8)
+applyUIStroke(ToggleUIBtn)
+
+-- 2. NÚT AIMBOT NỔI
+local AimbotBtn = Instance.new("TextButton")
+AimbotBtn.Size = UDim2.new(0, 100, 0, 50)
+AimbotBtn.Position = UDim2.new(0, 10, 0, 205) 
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60) 
+AimbotBtn.Text = "AIM\nOFF"
+AimbotBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimbotBtn.Font = Enum.Font.GothamBold
+AimbotBtn.TextSize = 16 
+AimbotBtn.Parent = ScreenGui
+applyUICorner(AimbotBtn, 8)
+applyUIStroke(AimbotBtn, Color3.fromRGB(150, 40, 40), 2)
+
+-- 3. KHUNG MENU CÀI ĐẶT
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 240, 0, 250) 
+MainFrame.Position = UDim2.new(0, 120, 0, 150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Active = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+applyUICorner(MainFrame, 10)
+applyUIStroke(MainFrame)
+
+-- TIÊU ĐỀ
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+Title.Text = "  ⚙️ CÀI ĐẶT AIMBOT"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+applyUICorner(Title, 10)
+
+local TitleCover = Instance.new("Frame")
+TitleCover.Size = UDim2.new(1, 0, 0, 10)
+TitleCover.Position = UDim2.new(0, 0, 1, -10)
+TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+TitleCover.BorderSizePixel = 0
+TitleCover.Parent = Title
+
+-- HÀM TẠO CÁC DÒNG CÀI ĐẶT
+local function createSettingRow(parent, labelText, yPos, defaultValue)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 130, 0, 30)
+    Label.Position = UDim2.new(0, 15, 0, yPos)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = parent
+
+    local Input = Instance.new("TextBox")
+    Input.Size = UDim2.new(0, 75, 0, 30)
+    Input.Position = UDim2.new(0, 150, 0, yPos)
+    Input.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    Input.Text = tostring(defaultValue)
+    Input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Input.Font = Enum.Font.Gotham
+    Input.TextSize = 13
+    Input.Parent = parent
+    applyUICorner(Input, 6)
+    applyUIStroke(Input, Color3.fromRGB(80, 80, 85), 1)
+
+    return Input
+end
+
+local PredictInput = createSettingRow(MainFrame, "Độ đoán hướng:", 50, predictionFactor)
+local SmoothInput = createSettingRow(MainFrame, "Độ mượt (Smooth):", 95, smoothFactor)
+local FovInput = createSettingRow(MainFrame, "Phạm vi FOV:", 140, fovRadius)
+
+-- NÚT HIỂN THỊ/ẨN VÒNG FOV
+local ToggleFovBtn = Instance.new("TextButton")
+ToggleFovBtn.Size = UDim2.new(0, 210, 0, 35)
+ToggleFovBtn.Position = UDim2.new(0, 15, 0, 185)
+ToggleFovBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+ToggleFovBtn.Text = "👁️ Đang ẨN vòng FOV"
+ToggleFovBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleFovBtn.Font = Enum.Font.GothamBold
+ToggleFovBtn.TextSize = 13
+ToggleFovBtn.Parent = MainFrame
+applyUICorner(ToggleFovBtn, 6)
+
+local HintLabel = Instance.new("TextLabel")
+HintLabel.Size = UDim2.new(1, 0, 0, 20)
+HintLabel.Position = UDim2.new(0, 0, 1, -25)
+HintLabel.BackgroundTransparency = 1
+HintLabel.Text = "[T] Bật/tắt Aim  |  [RShift] Ẩn/hiện Menu"
+HintLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+HintLabel.Font = Enum.Font.Gotham
+HintLabel.TextSize = 11
+HintLabel.Parent = MainFrame
+
+-- ==========================================
+-- LOGIC DIỀU KHIỂN GIAO DIỆN & KÉO THẢ
+-- ==========================================
+
+ToggleUIBtn.Activated:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+ToggleFovBtn.Activated:Connect(function()
+    showFov = not showFov
+    FOVring.Visible = showFov
+    if showFov then
+        ToggleFovBtn.Text = "👁️ Đang HIỆN vòng FOV"
+        ToggleFovBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80)
+    else
+        ToggleFovBtn.Text = "👁️ Đang ẨN vòng FOV"
+        ToggleFovBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    end
+end)
+
+PredictInput.FocusLost:Connect(function()
+    local val = tonumber(PredictInput.Text)
+    if val then predictionFactor = val else PredictInput.Text = tostring(predictionFactor) end
+end)
+
+SmoothInput.FocusLost:Connect(function()
+    local val = tonumber(SmoothInput.Text)
+    if val then smoothFactor = math.clamp(val, 0.01, 1) else SmoothInput.Text = tostring(smoothFactor) end
+end)
+
+FovInput.FocusLost:Connect(function()
+    local val = tonumber(FovInput.Text)
+    if val then 
+        fovRadius = val 
+        FOVring.Radius = val
+    else 
+        FovInput.Text = tostring(fovRadius) 
+    end
+end)
+
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(Title, MainFrame)
+makeDraggable(ToggleUIBtn, ToggleUIBtn)
+makeDraggable(AimbotBtn, AimbotBtn)
+
+-- ==========================================
+-- LOGIC AIMBOT
+-- ==========================================
+
+local function toggleAimbot()
+    isAiming = not isAiming
+    AimbotBtn.Text = isAiming and "AIM\nON" or "AIM\nOFF"
+    
+    AimbotBtn.BackgroundColor3 = isAiming and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
+    
+    local stroke = AimbotBtn:FindFirstChildOfClass("UIStroke")
+    if stroke then
+        stroke.Color = isAiming and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(150, 40, 40)
+    end
+    
+    if not isAiming then
+        lockedTarget = nil
+    end
+end
+
+AimbotBtn.Activated:Connect(toggleAimbot)
+
+local function isTargetValid(targetPlayer)
+    if not targetPlayer or not targetPlayer.Parent then return false end
+    local char = targetPlayer.Character
+    if not char then return false end
+    local humanoid = char:FindFirstChild("Humanoid")
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not humanoid or humanoid.Health <= 0 or not rootPart then return false end
+    return true
+end
+
+local function predictPos(targetChar)
+    local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
+    local head = targetChar:FindFirstChild("Head")
+    if not rootPart or not head then return nil end
+    local velocity = rootPart.Velocity
+    return head.Position + (velocity * predictionFactor)
+end
+
+local function getNewTarget()
+    local nearestPlayer = nil
+    local minFovDistance = math.huge 
+    local viewportCenter = Cam.ViewportSize / 2
+    
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= Player and isTargetValid(player) then
+            local char = player.Character
+            local predictedPosition = predictPos(char)
+            
+            if predictedPosition then
+                local screenPos, visible = Cam:WorldToViewportPoint(predictedPosition)
+                
+                if screenPos.Z > 0 then
+                    local fovDistance = (Vector2.new(screenPos.X, screenPos.Y) - viewportCenter).Magnitude
+                    
+                    if fovDistance <= (fovRadius * (Cam.ViewportSize.Y / 1080)) then
+                        if fovDistance < minFovDistance then
+                            minFovDistance = fovDistance
+                            nearestPlayer = player 
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nearestPlayer
+end
+
+local function aim(targetPosition)
+    local currentCF = Cam.CFrame
+    local targetDirection = (targetPosition - currentCF.Position).Unit
+    local newLookVector = currentCF.LookVector:Lerp(targetDirection, smoothFactor)
+    Cam.CFrame = CFrame.new(currentCF.Position, currentCF.Position + newLookVector)
+end
+
+-- ==========================================
+-- ĐÃ CẬP NHẬT: VÒNG LẶP CHÍNH CỦA AIMBOT
+-- ==========================================
+RunService.Heartbeat:Connect(function()
+    FOVring.Position = Cam.ViewportSize / 2
+    FOVring.Radius = fovRadius * (Cam.ViewportSize.Y / 1080)
+
+    if isAiming then
+        -- Chỉ tìm mục tiêu MỚI khi chưa có mục tiêu, hoặc mục tiêu cũ đã chết/thoát game
+        if not isTargetValid(lockedTarget) then
+            lockedTarget = getNewTarget()
+        end
+
+        -- Nếu đang có mục tiêu bị lock, luôn bám theo (bất kể trong hay ngoài FOV)
+        if lockedTarget and lockedTarget.Character then
+            local predictedPosition = predictPos(lockedTarget.Character)
+            if predictedPosition then
+                -- Kiểm tra xem mục tiêu có nằm trước màn hình không
+                local screenPos, visible = Cam:WorldToViewportPoint(predictedPosition)
+                
+                -- Ngăn lỗi camera bẻ 180 độ: Nếu mục tiêu chạy ra khuất lùi hẳn phía sau, bỏ lock
+                if screenPos.Z > 0 then
+                    aim(predictedPosition)
+                else
+                    lockedTarget = nil 
+                end
+            end
+        end
+    else
+        lockedTarget = nil -- Reset khi tắt Aim
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.T then
+            toggleAimbot()
+        elseif input.KeyCode == Enum.KeyCode.RightShift then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+    end
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function(unloadedPlayer)
+    if unloadedPlayer == Player then
+        FOVring:Remove()
+        if ScreenGui then ScreenGui:Destroy() end
+    end
+end)
