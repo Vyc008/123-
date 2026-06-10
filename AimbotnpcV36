@@ -28,7 +28,7 @@ if not success then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
 -- NÚT ẨN/HIỆN MENU NỔI (DÀNH CHO ĐIỆN THOẠI)
 local ToggleUIBtn = Instance.new("TextButton")
 ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
-ToggleUIBtn.Position = UDim2.new(0, 200, 0, -30) -- Vị trí mặc định bên trái màn hình
+ToggleUIBtn.Position = UDim2.new(0, 200, 0, -10) -- Vị trí mặc định bên trái màn hình
 ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 ToggleUIBtn.BorderColor3 = Color3.fromRGB(60, 60, 60)
 ToggleUIBtn.BorderSizePixel = 2
