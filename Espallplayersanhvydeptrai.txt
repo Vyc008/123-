@@ -7,7 +7,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService") -- Đã thêm TweenService
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -57,7 +57,7 @@ Gui.Parent = CoreGui
 Gui.ResetOnSpawn = false
 Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- 1. NÚT ẨN HIỆN MENU (Màn hình chính)
+-- 1. NÚT ẨN HIỆN MENU
 local ToggleBtn = Instance.new("TextButton", Gui)
 ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -20)
@@ -69,35 +69,33 @@ ToggleBtn.Text = "ESP\nMenu"
 ToggleBtn.Active = true
 ToggleBtn.Draggable = true
 ToggleBtn.BorderSizePixel = 0
-ToggleBtn.ZIndex = 100 -- FIX: Set ZIndex cao để không bao giờ bị Menu đè lên
+ToggleBtn.ZIndex = 100 
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(0, 255, 100)
 
 -- 2. KHUNG MENU CHÍNH 
 local Main = Instance.new("Frame", Gui)
 Main.Size = UDim2.new(0, 460, 0, 320) 
-Main.AnchorPoint = Vector2.new(0.5, 0.5) -- FIX: Đổi tâm về giữa để hiệu ứng Scale mượt hơn
+Main.AnchorPoint = Vector2.new(0.5, 0.5) 
 Main.Position = UDim2.new(0.5, 0, 0.5, 0) 
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.Active = true
 Main.Draggable = true
 Main.BorderSizePixel = 0
-Main.ZIndex = 1 -- Đảm bảo Menu nằm dưới nút Toggle
+Main.ZIndex = 1 
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
 local MenuScale = Instance.new("UIScale", Main)
 MenuScale.Scale = 1
 
--- Logic Ẩn/Hiện Menu Kèm Hiệu Ứng
+-- Logic Ẩn/Hiện Menu
 local isMenuOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
-    -- Hiệu ứng nảy cho nút bấm
     TweenService:Create(ToggleBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 40, 0, 40)}):Play()
     task.delay(0.1, function()
         TweenService:Create(ToggleBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 45, 0, 45)}):Play()
     end)
     
-    -- Hiệu ứng tắt/mở Menu
     isMenuOpen = not isMenuOpen
     if isMenuOpen then
         Main.Visible = true
@@ -105,11 +103,8 @@ ToggleBtn.MouseButton1Click:Connect(function()
     else
         local closeTween = TweenService:Create(MenuScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0})
         closeTween:Play()
-        -- Đợi animation xong rồi mới ẩn hoàn toàn
         task.delay(0.2, function()
-            if not isMenuOpen then
-                Main.Visible = false
-            end
+            if not isMenuOpen then Main.Visible = false end
         end)
     end
 end)
@@ -154,7 +149,7 @@ local function CreateToggle(text, x, y, width, key)
     end)
 end
 
--- ================= CỘT 1: CÀI ĐẶT ESP (Bên Trái - Width 210) =================
+-- ================= CỘT 1: CÀI ĐẶT ESP (Bên Trái) =================
 makeLabel("⚙️ CÀI ĐẶT CHỨC NĂNG", 15, 35, 210, 14, true)
 
 CreateToggle("Box ESP", 15, 60, 210, "BoxESP")
@@ -176,7 +171,7 @@ FixBtn.BorderSizePixel = 0
 FixBtn.ZIndex = 2
 Instance.new("UICorner", FixBtn).CornerRadius = UDim.new(0, 5)
 
--- ================= CỘT 2: DANH SÁCH & MÀU SẮC (Bên Phải - Width 210) =================
+-- ================= CỘT 2: DANH SÁCH & MÀU SẮC (Bên Phải) =================
 makeLabel("👤 DANH SÁCH PLAYER", 235, 35, 210, 14, true)
 
 local SelectedLabel = Instance.new("TextLabel", Main)
@@ -248,8 +243,6 @@ local function RefreshPlayerList()
     end
 end
 
-Players.PlayerAdded:Connect(RefreshPlayerList)
-Players.PlayerRemoving:Connect(RefreshPlayerList)
 RefreshPlayerList()
 
 makeLabel("🎨 BẢNG MÀU SẮC", 235, 185, 210, 14, true)
@@ -370,9 +363,31 @@ local function setup(p)
     ESP[p] = {Box = box, HL = hl, BB = bb, TXT = txt, Tracer = tracer}
 end
 
-for _, p in pairs(Players:GetPlayers()) do setup(p) end
-Players.PlayerAdded:Connect(setup)
-Players.PlayerRemoving:Connect(cleanESP)
+-- ================= QUẢN LÝ AUTO LOAD TÊN & DỌN DẸP =================
+for _, p in pairs(Players:GetPlayers()) do 
+    setup(p) 
+end
+
+Players.PlayerAdded:Connect(function(p)
+    setup(p)
+    RefreshPlayerList() -- Tự động Load tên vào Menu
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    cleanESP(p) -- Hủy UI ESP
+    
+    -- Xóa màu Custom lưu trong bộ nhớ
+    if CustomPlayerColors[p.Name] then
+        CustomPlayerColors[p.Name] = nil
+    end
+    
+    -- Nếu đang chọn target này mà nó thoát game -> tự reset về "TẤT CẢ"
+    if SelectedPlayerName == p.Name then
+        SetSelectedPlayer(nil)
+    end
+    
+    RefreshPlayerList() -- Tự động Load lại Menu
+end)
 
 -- ================= HÀM FIX LỖI HIGHLIGHT =================
 local function RebuildHighlights()
@@ -394,6 +409,12 @@ FixBtn.MouseButton1Click:Connect(RebuildHighlights)
 -- ================= RENDER LOOP =================
 RunService.RenderStepped:Connect(function()
     for p, e in pairs(ESP) do
+        -- FIX: Kiểm tra xem player còn ở trong game không, nếu không thì xóa dứt điểm ESP ngay
+        if not p or p.Parent ~= Players then
+            cleanESP(p)
+            continue
+        end
+
         local c = p.Character
         local hrp = c and c:FindFirstChild("HumanoidRootPart")
         local hum = c and c:FindFirstChildOfClass("Humanoid")
