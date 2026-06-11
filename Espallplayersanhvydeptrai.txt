@@ -131,7 +131,7 @@ local function makeLabel(text, x, y, width, size, bold)
     return l
 end
 
-makeLabel("Esp tổng hợp <Tối Ưu Hóa>", 15, 8, 400, 16, true)
+makeLabel("Esp tổng hợp <Ctgv_thw>", 15, 8, 400, 16, true)
 
 local function CreateToggle(text, x, y, width, key)
     local b = Instance.new("TextButton", Main)
