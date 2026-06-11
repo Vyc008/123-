@@ -49,31 +49,28 @@ local StatusLabel = Instance.new("TextLabel")
 local NoclipButton = Instance.new("TextButton")
 local NoclipCorner = Instance.new("UICorner")
 
-local CreditsButton = Instance.new("TextButton")
-local CreditsCorner = Instance.new("UICorner")
-
 --// GUI Properties
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.Name = GuiName
 ScreenGui.ResetOnSpawn = false
 
--- Giao diện chính (MainFrame)
+-- Giao diện chính (MainFrame) - Tăng nhẹ chiều cao lên 110 để chứa nút to hơn
 MainFrame.Name = FrameName
 MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35) -- Màu nền tối hiện đại
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
-MainFrame.Size = UDim2.new(0, 260, 0, 160)
+MainFrame.Size = UDim2.new(0, 250, 0, 110) 
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.ClipsDescendants = true
 
-MainCorner.CornerRadius = UDim.new(0, 10) -- Bo góc
+MainCorner.CornerRadius = UDim.new(0, 10)
 MainCorner.Parent = MainFrame
 
 MainStroke.Parent = MainFrame
 MainStroke.Thickness = 2
-MainStroke.Color = Color3.fromRGB(60, 60, 70) -- Viền nổi khối
+MainStroke.Color = Color3.fromRGB(60, 60, 70)
 
 -- Thanh tiêu đề (TopBar)
 TopBar.Name = "TopBar"
@@ -101,7 +98,7 @@ MinimizeButton.Position = UDim2.new(1, -70, 0, 0)
 MinimizeButton.Size = UDim2.new(0, 35, 0, 35)
 MinimizeButton.Font = Enum.Font.GothamBold
 MinimizeButton.Text = "-"
-MinimizeButton.TextColor3 = Color3.fromRGB(255, 210, 50) -- Màu vàng cảnh báo
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 210, 50)
 MinimizeButton.TextSize = 22
 
 CloseButton.Name = "CloseButton"
@@ -111,25 +108,25 @@ CloseButton.Position = UDim2.new(1, -35, 0, 0)
 CloseButton.Size = UDim2.new(0, 35, 0, 35)
 CloseButton.Font = Enum.Font.GothamBold
 CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.fromRGB(255, 80, 80) -- Màu đỏ hiện đại
+CloseButton.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseButton.TextSize = 18
 
 -- Label trạng thái
 StatusLabel.Name = "StatusLabel"
 StatusLabel.Parent = MainFrame
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0, 45)
+StatusLabel.Position = UDim2.new(0, 0, 0, 40)
 StatusLabel.Size = UDim2.new(1, 0, 0, 20)
 StatusLabel.Font = Enum.Font.GothamSemibold
 StatusLabel.Text = "Trạng thái: Tắt"
 StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 StatusLabel.TextSize = 14
 
--- Nút Noclip
+-- Nút Noclip - Đã tăng kích thước (chiều cao 35) và cỡ chữ (16)
 NoclipButton.Name = ButtonName
 NoclipButton.Parent = MainFrame
 NoclipButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-NoclipButton.Position = UDim2.new(0.1, 0, 0.45, 0)
+NoclipButton.Position = UDim2.new(0.1, 0, 0, 65)
 NoclipButton.Size = UDim2.new(0.8, 0, 0, 35)
 NoclipButton.Font = Enum.Font.GothamBold
 NoclipButton.Text = "Bật Noclip"
@@ -139,23 +136,8 @@ NoclipButton.TextSize = 16
 NoclipCorner.CornerRadius = UDim.new(0, 6)
 NoclipCorner.Parent = NoclipButton
 
--- Nút Credits
-CreditsButton.Name = "CreditsButton"
-CreditsButton.Parent = MainFrame
-CreditsButton.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-CreditsButton.Position = UDim2.new(0.1, 0, 0.7, 0)
-CreditsButton.Size = UDim2.new(0.8, 0, 0, 35)
-CreditsButton.Font = Enum.Font.GothamBold
-CreditsButton.Text = "Anh thích"
-CreditsButton.TextColor3 = Color3.fromRGB(255, 210, 50)
-CreditsButton.TextSize = 16
-
-CreditsCorner.CornerRadius = UDim.new(0, 6)
-CreditsCorner.Parent = CreditsButton
-
 --// Variables
 local noclipEnabled = false
-local showingCredits = false
 local isMinimized = false
 local connection
 
@@ -163,7 +145,6 @@ local connection
 local function toggleNoclip()
     noclipEnabled = not noclipEnabled
     
-    -- Hiệu ứng đổi màu và text
     StatusLabel.Text = noclipEnabled and "đi vào tim em" or "em ko cho vào"
     StatusLabel.TextColor3 = noclipEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(150, 150, 150)
     NoclipButton.Text = noclipEnabled and "Tắt Noclip" or "Bật Noclip"
@@ -192,12 +173,23 @@ local function toggleNoclip()
     end
 end
 
+-- Fix lỗi ẩn Menu triệt để
 local function toggleMinimize()
     isMinimized = not isMinimized
     if isMinimized then
-        MainFrame:TweenSize(UDim2.new(0, 260, 0, 35), "Out", "Quad", 0.3, true)
+        -- Ép ẩn các nút ngay lập tức trước khi thu nhỏ
+        StatusLabel.Visible = false
+        NoclipButton.Visible = false
+        MainFrame:TweenSize(UDim2.new(0, 250, 0, 35), "Out", "Quad", 0.3, true)
     else
-        MainFrame:TweenSize(UDim2.new(0, 260, 0, 160), "Out", "Quad", 0.3, true)
+        MainFrame:TweenSize(UDim2.new(0, 250, 0, 110), "Out", "Quad", 0.3, true)
+        -- Đợi Frame giãn ra một chút rồi mới hiện nút lại cho mượt
+        task.delay(0.15, function()
+            if not isMinimized then
+                StatusLabel.Visible = true
+                NoclipButton.Visible = true
+            end
+        end)
     end
 end
 
@@ -206,28 +198,13 @@ NoclipButton.MouseButton1Click:Connect(toggleNoclip)
 MinimizeButton.MouseButton1Click:Connect(toggleMinimize)
 
 CloseButton.MouseButton1Click:Connect(function()
-    -- Ngắt kết nối noclip trước khi xóa GUI để tránh lỗi memory leak
     if connection then
         connection:Disconnect()
     end
     ScreenGui:Destroy()
 end)
 
-CreditsButton.MouseButton1Click:Connect(function()
-    showingCredits = not showingCredits
-
-    local fadeOut = TweenService:Create(CreditsButton, TweenInfo.new(0.2), {TextTransparency = 1})
-    local fadeIn = TweenService:Create(CreditsButton, TweenInfo.new(0.2), {TextTransparency = 0})
-
-    fadeOut:Play()
-    fadeOut.Completed:Wait()
-
-    CreditsButton.Text = showingCredits and "Chơi gay" or "Anh thích"
-
-    fadeIn:Play()
-end)
-
--- Hover Effects Mượt Mà
+-- Hover Effects
 local function addHover(button)
     local originalColor = button.BackgroundColor3
     local hoverColor = Color3.fromRGB(originalColor.R * 255 + 20, originalColor.G * 255 + 20, originalColor.B * 255 + 20)
@@ -241,11 +218,18 @@ local function addHover(button)
 end
 
 addHover(NoclipButton)
-addHover(CreditsButton)
 
--- Hiệu ứng hiện GUI lúc đầu (Fade In)
+-- Khởi động GUI
 ScreenGui.Enabled = false
-MainFrame.Size = UDim2.new(0, 260, 0, 35)
+MainFrame.Size = UDim2.new(0, 250, 0, 35)
+StatusLabel.Visible = false
+NoclipButton.Visible = false
 task.wait(0.1)
 ScreenGui.Enabled = true
-MainFrame:TweenSize(UDim2.new(0, 260, 0, 160), "Out", "Back", 0.5, true)
+
+-- Hiệu ứng mở rộng lúc mới chạy script
+MainFrame:TweenSize(UDim2.new(0, 250, 0, 110), "Out", "Back", 0.5, true)
+task.delay(0.3, function()
+    StatusLabel.Visible = true
+    NoclipButton.Visible = true
+end)
