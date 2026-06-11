@@ -45,7 +45,7 @@ local Settings = {
     OutlineESP = true, 
     ShowName = false,
     ShowDistance = false,
-    ESPTeammates = false,
+    ESPTeammates = true,
     TracerESP = false
 }
 
