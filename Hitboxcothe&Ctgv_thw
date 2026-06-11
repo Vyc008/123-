@@ -121,7 +121,7 @@ applyUIStroke(MainFrame)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-Title.Text = "  ⚙️ HITBOX EXPANDER CHÍNH HÃNG"
+Title.Text = "  ⚙️ HITBOX Vip <Ctgv-thw>"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
