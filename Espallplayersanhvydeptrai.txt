@@ -1,5 +1,5 @@
 --// Universal ESP Combo (Ultra Compact UI + Toggle Button)
---// 100% Fixed Tracer (Top-Center Origin) & Custom Color Panel.
+--// Optimized Version: Fixed Memory Leaks, Render Performance & Compatibility
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -11,10 +11,22 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+-- Tương thích Executor tốt hơn (Bảo vệ UI)
+local TargetGui = (gethui and pcall(gethui)) and gethui() or CoreGui
+
 -- Dọn dẹp GUI cũ nếu chạy lại Script
-if CoreGui:FindFirstChild("Combined_Universal_ESP_GUI") then
-    CoreGui["Combined_Universal_ESP_GUI"]:Destroy()
+if TargetGui:FindFirstChild("Combined_Universal_ESP_GUI") then
+    TargetGui["Combined_Universal_ESP_GUI"]:Destroy()
 end
+
+-- ================= QUẢN LÝ BỘ NHỚ CHO DRAWING API =================
+-- Fix lỗi đọng rác (line kẹt trên màn hình) khi Execute lại script
+if getgenv()._ESP_Tracer_Cache then
+    for _, tracer in pairs(getgenv()._ESP_Tracer_Cache) do
+        pcall(function() tracer:Remove() end)
+    end
+end
+getgenv()._ESP_Tracer_Cache = {}
 
 -- ================= SETTINGS & STATE =================
 local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255)
@@ -31,7 +43,6 @@ local Settings = {
     TracerESP = false
 }
 
--- Cố định màu Trắng trên cùng
 local colorOrder = {
     {name = "White",   color = Color3.fromRGB(255, 255, 255)},
     {name = "Red",     color = Color3.fromRGB(255, 0, 0)},
@@ -53,11 +64,10 @@ local colorOrder = {
 -- ================= GUI SETUP =================
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "Combined_Universal_ESP_GUI"
-Gui.Parent = CoreGui
+Gui.Parent = TargetGui
 Gui.ResetOnSpawn = false
 Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- 1. NÚT ẨN HIỆN MENU
 local ToggleBtn = Instance.new("TextButton", Gui)
 ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -20)
@@ -73,7 +83,6 @@ ToggleBtn.ZIndex = 100
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(0, 255, 100)
 
--- 2. KHUNG MENU CHÍNH 
 local Main = Instance.new("Frame", Gui)
 Main.Size = UDim2.new(0, 460, 0, 320) 
 Main.AnchorPoint = Vector2.new(0.5, 0.5) 
@@ -88,7 +97,6 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 local MenuScale = Instance.new("UIScale", Main)
 MenuScale.Scale = 1
 
--- Logic Ẩn/Hiện Menu
 local isMenuOpen = true
 ToggleBtn.MouseButton1Click:Connect(function()
     TweenService:Create(ToggleBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 40, 0, 40)}):Play()
@@ -123,7 +131,7 @@ local function makeLabel(text, x, y, width, size, bold)
     return l
 end
 
-makeLabel("Esp tổng hợp <Ctgv_thw>", 15, 8, 400, 16, true)
+makeLabel("Esp tổng hợp <Tối Ưu Hóa>", 15, 8, 400, 16, true)
 
 local function CreateToggle(text, x, y, width, key)
     local b = Instance.new("TextButton", Main)
@@ -149,9 +157,7 @@ local function CreateToggle(text, x, y, width, key)
     end)
 end
 
--- ================= CỘT 1: CÀI ĐẶT ESP (Bên Trái) =================
 makeLabel("⚙️ CÀI ĐẶT CHỨC NĂNG", 15, 35, 210, 14, true)
-
 CreateToggle("Box ESP", 15, 60, 210, "BoxESP")
 CreateToggle("Outline ESP", 15, 90, 210, "OutlineESP")
 CreateToggle("Tracer (Line) ESP", 15, 120, 210, "TracerESP")
@@ -171,7 +177,6 @@ FixBtn.BorderSizePixel = 0
 FixBtn.ZIndex = 2
 Instance.new("UICorner", FixBtn).CornerRadius = UDim.new(0, 5)
 
--- ================= CỘT 2: DANH SÁCH & MÀU SẮC (Bên Phải) =================
 makeLabel("👤 DANH SÁCH PLAYER", 235, 35, 210, 14, true)
 
 local SelectedLabel = Instance.new("TextLabel", Main)
@@ -277,6 +282,7 @@ for _, cData in ipairs(colorOrder) do
             CustomPlayerColors[SelectedPlayerName] = cData.color
         else
             currentColor = cData.color
+            table.clear(CustomPlayerColors) 
         end
     end)
 end
@@ -294,11 +300,13 @@ resetColorBtn.MouseButton1Click:Connect(function()
         CustomPlayerColors[SelectedPlayerName] = nil
     else
         currentColor = nil
+        table.clear(CustomPlayerColors) 
     end
 end)
 
 -- ================= ESP CORE LOGIC =================
 local ESP = {}
+local activeHighlights = 0 -- Theo dõi giới hạn 31 Highlight của Roblox
 
 local function shouldESP(p)
     if p == LocalPlayer then return false end
@@ -320,9 +328,16 @@ end
 local function cleanESP(p)
     if ESP[p] then
         pcall(function() if ESP[p].Box then ESP[p].Box:Destroy() end end)
-        pcall(function() if ESP[p].HL then ESP[p].HL:Destroy() end end)
+        pcall(function() if ESP[p].HL then ESP[p].HL:Destroy(); activeHighlights = activeHighlights - 1 end end)
         pcall(function() if ESP[p].BB then ESP[p].BB:Destroy() end end)
-        pcall(function() if ESP[p].Tracer then ESP[p].Tracer:Remove() end end)
+        pcall(function() 
+            if ESP[p].Tracer then 
+                ESP[p].Tracer:Remove() 
+                -- Xóa khỏi Cache
+                local idx = table.find(getgenv()._ESP_Tracer_Cache, ESP[p].Tracer)
+                if idx then table.remove(getgenv()._ESP_Tracer_Cache, idx) end
+            end 
+        end)
         ESP[p] = nil
     end
 end
@@ -334,24 +349,28 @@ local function setup(p)
     local box = Instance.new("SelectionBox")
     box.LineThickness = 0.05
     box.SurfaceTransparency = 1
-    box.Parent = CoreGui
+    box.Parent = TargetGui
 
     local hl = Instance.new("Highlight")
     hl.FillTransparency = 1
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Parent = CoreGui
+    hl.Enabled = false -- Mặc định tắt để quản lý giới hạn
+    if activeHighlights < 31 then
+        hl.Parent = TargetGui
+        activeHighlights = activeHighlights + 1
+    end
 
     local bb = Instance.new("BillboardGui")
     bb.Size = UDim2.new(0, 200, 0, 40)
     bb.AlwaysOnTop = true
     bb.StudsOffset = Vector3.new(0, 3, 0)
-    bb.Parent = CoreGui
+    bb.Parent = TargetGui
 
     local txt = Instance.new("TextLabel", bb)
     txt.Size = UDim2.new(1, 0, 1, 0)
     txt.BackgroundTransparency = 1
     txt.Font = Enum.Font.SourceSansBold
-    txt.TextStrokeTransparency = 0
+    txt.TextStrokeTransparency = 0.5 -- Thêm nhẹ Stroke cho dễ đọc
     txt.TextSize = 13
 
     local tracer = Drawing.new("Line")
@@ -359,6 +378,9 @@ local function setup(p)
     tracer.Color = Color3.new(1, 1, 1)
     tracer.Thickness = 1.5
     tracer.Transparency = 1
+    
+    -- Lưu Tracer vào Cache để tránh rác memory
+    table.insert(getgenv()._ESP_Tracer_Cache, tracer)
 
     ESP[p] = {Box = box, HL = hl, BB = bb, TXT = txt, Tracer = tracer}
 end
@@ -370,35 +392,32 @@ end
 
 Players.PlayerAdded:Connect(function(p)
     setup(p)
-    RefreshPlayerList() -- Tự động Load tên vào Menu
+    RefreshPlayerList()
 end)
 
 Players.PlayerRemoving:Connect(function(p)
-    cleanESP(p) -- Hủy UI ESP
-    
-    -- Xóa màu Custom lưu trong bộ nhớ
-    if CustomPlayerColors[p.Name] then
-        CustomPlayerColors[p.Name] = nil
-    end
-    
-    -- Nếu đang chọn target này mà nó thoát game -> tự reset về "TẤT CẢ"
-    if SelectedPlayerName == p.Name then
-        SetSelectedPlayer(nil)
-    end
-    
-    RefreshPlayerList() -- Tự động Load lại Menu
+    cleanESP(p) 
+    if CustomPlayerColors[p.Name] then CustomPlayerColors[p.Name] = nil end
+    if SelectedPlayerName == p.Name then SetSelectedPlayer(nil) end
+    RefreshPlayerList() 
 end)
 
 -- ================= HÀM FIX LỖI HIGHLIGHT =================
 local function RebuildHighlights()
+    activeHighlights = 0
     for p, e in pairs(ESP) do
         if e.HL then
             e.HL:Destroy()
-            local newHl = Instance.new("Highlight")
-            newHl.FillTransparency = 1
-            newHl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            newHl.Parent = CoreGui
-            e.HL = newHl
+            if activeHighlights < 31 then
+                local newHl = Instance.new("Highlight")
+                newHl.FillTransparency = 1
+                newHl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                newHl.Parent = TargetGui
+                e.HL = newHl
+                activeHighlights = activeHighlights + 1
+            else
+                e.HL = nil -- Vượt quá giới hạn thì không tạo nữa
+            end
         end
     end
 end
@@ -406,10 +425,13 @@ end
 UserInputService.WindowFocused:Connect(RebuildHighlights)
 FixBtn.MouseButton1Click:Connect(RebuildHighlights)
 
--- ================= RENDER LOOP =================
+-- ================= RENDER LOOP (TỐI ƯU HÓA) =================
 RunService.RenderStepped:Connect(function()
+    -- Caching Camera Position ra ngoài vòng lặp để giảm thiểu tính toán thừa
+    local CamPos = Camera.CFrame.Position 
+    local ViewportCenter = Vector2.new(Camera.ViewportSize.X / 2, 0)
+
     for p, e in pairs(ESP) do
-        -- FIX: Kiểm tra xem player còn ở trong game không, nếu không thì xóa dứt điểm ESP ngay
         if not p or p.Parent ~= Players then
             cleanESP(p)
             continue
@@ -427,20 +449,18 @@ RunService.RenderStepped:Connect(function()
             e.Box.Color3 = col
             e.TXT.TextColor3 = col
             
-            -- Box & Outline
             e.Box.Visible = Settings.BoxESP
             e.Box.Adornee = Settings.BoxESP and c or nil 
             
-            if Settings.OutlineESP then
+            if Settings.OutlineESP and e.HL then
                 e.HL.Enabled = true
                 e.HL.OutlineColor = col
                 e.HL.Adornee = c 
-            else
+            elseif e.HL then
                 e.HL.Enabled = false
                 e.HL.Adornee = nil
             end
 
-            -- Name & Distance
             local showBB = Settings.ShowName or Settings.ShowDistance
             e.BB.Enabled = showBB
             e.BB.Adornee = showBB and hrp or nil 
@@ -449,17 +469,16 @@ RunService.RenderStepped:Connect(function()
                 local t = ""
                 if Settings.ShowName then t = p.Name end
                 if Settings.ShowDistance then
-                    local dist = math.floor((Camera.CFrame.Position - hrp.Position).Magnitude)
+                    local dist = math.floor((CamPos - hrp.Position).Magnitude)
                     t = Settings.ShowName and (t .. " [" .. dist .. "m]") or (dist .. "m")
                 end
                 e.TXT.Text = t
             end
 
-            -- TRACER (DRAWING API)
             if Settings.TracerESP then
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                 if onScreen then
-                    e.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, 0)
+                    e.Tracer.From = ViewportCenter
                     e.Tracer.To = Vector2.new(pos.X, pos.Y)
                     e.Tracer.Color = col
                     e.Tracer.Visible = true
@@ -472,8 +491,10 @@ RunService.RenderStepped:Connect(function()
         else
             e.Box.Visible = false
             e.Box.Adornee = nil
-            e.HL.Enabled = false
-            e.HL.Adornee = nil
+            if e.HL then
+                e.HL.Enabled = false
+                e.HL.Adornee = nil
+            end
             e.BB.Enabled = false
             e.BB.Adornee = nil
             e.Tracer.Visible = false
