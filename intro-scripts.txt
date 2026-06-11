@@ -62,7 +62,7 @@ local function ShowNotification()
     tween:Play()
 
     -- Start the progress bar countdown
-    local countdownTime = 2 -- Countdown time in seconds
+    local countdownTime = 1 -- Countdown time in seconds
     local startTime = tick()
 
     while tick() - startTime < countdownTime do
