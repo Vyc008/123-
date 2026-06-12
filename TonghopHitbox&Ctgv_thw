@@ -1,0 +1,147 @@
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
+
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP GUI (THUẦN LUA)
+-- ==========================================
+local function applyUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+end
+
+local function applyUIStroke(instance, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(70, 70, 75)
+    stroke.Thickness = thickness or 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+end
+
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ==========================================
+-- KHỞI TẠO BẢNG MENU GIAO DIỆN MỚI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ModernHitboxMenu"
+
+-- Hỗ trợ đưa GUI vào an toàn
+local success, err = pcall(function() 
+    ScreenGui.Parent = CoreGui 
+end)
+if not success then 
+    ScreenGui.Parent = Player:WaitForChild("PlayerGui") 
+end
+
+-- Khung chính của bảng Menu
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 160) -- Kích thước bảng
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -80) -- Nằm giữa màn hình
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+applyUICorner(MainFrame, 10)
+applyUIStroke(MainFrame)
+
+-- Thanh Tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+Title.Text = "  ⚙️ Menu Tổng Hợp Hitbox"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+applyUICorner(Title, 10)
+
+-- Lấp đầy góc vuông bên dưới của thanh tiêu đề để nối liền với MainFrame
+local TitleCover = Instance.new("Frame")
+TitleCover.Size = UDim2.new(1, 0, 0, 10)
+TitleCover.Position = UDim2.new(0, 0, 1, -10)
+TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+TitleCover.BorderSizePixel = 0
+TitleCover.Parent = Title
+
+-- Container chứa các nút bấm
+local ButtonContainer = Instance.new("Frame")
+ButtonContainer.Size = UDim2.new(1, 0, 1, -35)
+ButtonContainer.Position = UDim2.new(0, 0, 0, 35)
+ButtonContainer.BackgroundTransparency = 1
+ButtonContainer.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ButtonContainer
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 15) -- Khoảng cách giữa 2 nút
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+-- ==========================================
+-- TẠO CÁC NÚT CHỨC NĂNG
+-- ==========================================
+
+-- 1. Nút "Hitbox đầu"
+local HitboxHeadBtn = Instance.new("TextButton")
+HitboxHeadBtn.Size = UDim2.new(0, 240, 0, 38)
+HitboxHeadBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+HitboxHeadBtn.Text = "Hitbox đầu"
+HitboxHeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxHeadBtn.Font = Enum.Font.GothamBold
+HitboxHeadBtn.TextSize = 13
+HitboxHeadBtn.Parent = ButtonContainer
+applyUICorner(HitboxHeadBtn, 6)
+applyUIStroke(HitboxHeadBtn, Color3.fromRGB(80, 80, 85), 1)
+
+HitboxHeadBtn.Activated:Connect(function()
+    -- Chạy script Hitbox đầu
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Vyc008/123-/refs/heads/main/Hitboxdau%26Ctgv_thw"))()
+    
+    -- Xóa giao diện ngay sau khi nhấn
+    ScreenGui:Destroy()
+end)
+
+-- 2. Nút "Hitbox thân"
+local HitboxBodyBtn = Instance.new("TextButton")
+HitboxBodyBtn.Size = UDim2.new(0, 240, 0, 38)
+HitboxBodyBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+HitboxBodyBtn.Text = "Hitbox thân"
+HitboxBodyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxBodyBtn.Font = Enum.Font.GothamBold
+HitboxBodyBtn.TextSize = 13
+HitboxBodyBtn.Parent = ButtonContainer
+applyUICorner(HitboxBodyBtn, 6)
+applyUIStroke(HitboxBodyBtn, Color3.fromRGB(80, 80, 85), 1)
+
+HitboxBodyBtn.Activated:Connect(function()
+    -- Chạy script Hitbox thân
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Vyc008/123-/refs/heads/main/Hitboxthan%26Ctgv_thw"))()
+    
+    -- Xóa giao diện ngay sau khi nhấn
+    ScreenGui:Destroy()
+end)
+
+-- Cho phép kéo thả bảng menu bằng cách nhấn giữ vào phần Tiêu đề
+makeDraggable(Title, MainFrame)
