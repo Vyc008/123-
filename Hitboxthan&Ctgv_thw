@@ -1,0 +1,486 @@
+--[[
+
+Open source
+Made by Ctgv_thw
+Credits to me
+
+Credits to the Owner Who Made The ESP Script
+Modified & Optimized by Gemini AI (Hitbox Torso Auto, ESP moved, Rejoin removed)
+
+]]
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
+
+-- Khởi tạo cấu hình gốc
+getgenv().HitboxSize = 7
+getgenv().HitboxTransparency = 0.7
+getgenv().HitboxStatus = false
+getgenv().TeamCheck = false
+
+getgenv().Walkspeed = 16
+getgenv().Jumppower = 50
+getgenv().loopW = false
+getgenv().loopJ = false
+
+getgenv().TPSpeed = 3
+getgenv().TPWalk = false
+getgenv().Noclip = false
+getgenv().InfJ = false
+
+-- Khởi tạo chỉ số ban đầu từ nhân vật
+local function updateLocalStats()
+    local char = Player.Character
+    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        getgenv().Walkspeed = hum.WalkSpeed
+        getgenv().Jumppower = hum.JumpPower
+    end
+end
+updateLocalStats()
+Player.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    updateLocalStats()
+end)
+
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP GUI (THUẦN LUA)
+-- ==========================================
+local function applyUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+end
+
+local function applyUIStroke(instance, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(70, 70, 75)
+    stroke.Thickness = thickness or 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+end
+
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ==========================================
+-- KHỞI TẠO HỆ THỐNG GIAO DIỆN
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ModernHitboxUI"
+local success, err = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
+
+local ToggleUIBtn = Instance.new("TextButton")
+ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleUIBtn.Position = UDim2.new(0, 10, 0, 150)
+ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+ToggleUIBtn.Text = "UI"
+ToggleUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleUIBtn.Font = Enum.Font.GothamBold
+ToggleUIBtn.TextSize = 14
+ToggleUIBtn.Parent = ScreenGui
+applyUICorner(ToggleUIBtn, 8)
+applyUIStroke(ToggleUIBtn)
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 340, 0, 380) 
+MainFrame.Position = UDim2.new(0, 120, 0, 150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Active = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+applyUICorner(MainFrame, 10)
+applyUIStroke(MainFrame)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+Title.Text = "  ⚙️ HITBOX Auto Torso <Ctgv-thw>"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+applyUICorner(Title, 10)
+
+local TitleCover = Instance.new("Frame")
+TitleCover.Size = UDim2.new(1, 0, 0, 10)
+TitleCover.Position = UDim2.new(0, 0, 1, -10)
+TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+TitleCover.BorderSizePixel = 0
+TitleCover.Parent = Title
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, 0, 1, -60)
+ScrollFrame.Position = UDim2.new(0, 0, 0, 35)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 3
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 105)
+ScrollFrame.Parent = MainFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Parent = ScrollFrame
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 8)
+
+local UIPadding = Instance.new("UIPadding")
+UIPadding.PaddingTop = UDim.new(0, 10)
+UIPadding.PaddingLeft = UDim.new(0, 15)
+UIPadding.PaddingRight = UDim.new(0, 15)
+UIPadding.Parent = ScrollFrame
+
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
+end)
+
+local HintLabel = Instance.new("TextLabel")
+HintLabel.Size = UDim2.new(1, 0, 0, 25)
+HintLabel.Position = UDim2.new(0, 0, 1, -25)
+HintLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+HintLabel.Text = "[T] Bật/tắt Hitbox  |  [RShift] Hiện Menu"
+HintLabel.TextColor3 = Color3.fromRGB(160, 160, 165)
+HintLabel.Font = Enum.Font.Gotham
+HintLabel.TextSize = 11
+HintLabel.Parent = MainFrame
+applyUICorner(HintLabel, 10)
+
+-- ==========================================
+-- HÀM KHỞI TẠO THÀNH PHẦN ROW TRONG MENU
+-- ==========================================
+local function createSection(text)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.BackgroundTransparency = 1
+    Label.Text = "─── " .. string.upper(text) .. " ───"
+    Label.TextColor3 = Color3.fromRGB(120, 120, 125)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 10
+    Label.TextXAlignment = Enum.TextXAlignment.Center
+    Label.Parent = ScrollFrame
+end
+
+local function createTextBoxRow(labelText, defaultValue, callback)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 30)
+    Container.BackgroundTransparency = 1
+    Container.Parent = ScrollFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 200, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(210, 210, 215)
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
+
+    local Input = Instance.new("TextBox")
+    Input.Size = UDim2.new(0, 90, 1, 0)
+    Input.Position = UDim2.new(1, -90, 0, 0)
+    Input.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    Input.Text = tostring(defaultValue)
+    Input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Input.Font = Enum.Font.Gotham
+    Input.TextSize = 12
+    Input.Parent = Container
+    applyUICorner(Input, 6)
+    applyUIStroke(Input, Color3.fromRGB(80, 80, 85), 1)
+
+    Input.FocusLost:Connect(function()
+        callback(Input.Text)
+    end)
+    return Input
+end
+
+local function createToggleRow(labelText, defaultState, callback)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 30)
+    Container.BackgroundTransparency = 1
+    Container.Parent = ScrollFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 200, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(210, 210, 215)
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
+
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 90, 1, 0)
+    Btn.Position = UDim2.new(1, -90, 0, 0)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 11
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Parent = Container
+    applyUICorner(Btn, 6)
+
+    local state = defaultState
+    local function updateVisuals()
+        Btn.Text = state and "ON" or "OFF"
+        Btn.BackgroundColor3 = state and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
+    end
+    updateVisuals()
+
+    Btn.Activated:Connect(function()
+        state = not state
+        updateVisuals()
+        callback(state)
+    end)
+    return function(externalState)
+        state = externalState
+        updateVisuals()
+    end
+end
+
+local function createButtonRow(btnText, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 32)
+    Btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+    Btn.Text = btnText
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 12
+    Btn.Parent = ScrollFrame
+    applyUICorner(Btn, 6)
+    applyUIStroke(Btn, Color3.fromRGB(80, 80, 85), 1)
+
+    Btn.Activated:Connect(callback)
+    return Btn
+end
+
+-- ==========================================
+-- GẮN LOGIC CHỨC NĂNG VÀO GIAO DIỆN
+-- ==========================================
+
+createSection("Cấu hình chính")
+
+local syncStatusToggle
+local function setHitboxState(state)
+    getgenv().HitboxStatus = state
+    if syncStatusToggle then syncStatusToggle(state) end
+end
+
+syncStatusToggle = createToggleRow("Trạng thái Hitbox:", getgenv().HitboxStatus, function(state)
+    setHitboxState(state)
+end)
+
+createToggleRow("Kiểm tra đội (Team):", getgenv().TeamCheck, function(state)
+    getgenv().TeamCheck = state
+end)
+
+createTextBoxRow("Kích thước Size:", getgenv().HitboxSize, function(val)
+    if tonumber(val) then getgenv().HitboxSize = tonumber(val) end
+end)
+
+createTextBoxRow("Độ trong suốt:", getgenv().HitboxTransparency, function(val)
+    if tonumber(val) then getgenv().HitboxTransparency = tonumber(val) end
+end)
+
+createToggleRow("Highlight nhân vật (ESP):", false, function(state)
+    getgenv().enabled = state
+    getgenv().filluseteamcolor = true
+    getgenv().outlineuseteamcolor = true
+    getgenv().fillcolor = Color3.new(0, 0, 0)
+    getgenv().outlinecolor = Color3.new(1, 1, 1)
+    getgenv().filltrans = 0.5
+    getgenv().outlinetrans = 0.5
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Vcsk/RobloxScripts/main/Highlight-ESP.lua"))()
+end)
+
+createSection("Thể chất người chơi")
+createTextBoxRow("Tốc độ WalkSpeed:", getgenv().Walkspeed, function(val)
+    if tonumber(val) then
+        getgenv().Walkspeed = tonumber(val)
+        pcall(function() Player.Character.Humanoid.WalkSpeed = tonumber(val) end)
+    end
+end)
+createToggleRow("Khóa liên tục Speed:", getgenv().loopW, function(s) getgenv().loopW = s end)
+
+createTextBoxRow("Sức nhảy JumpPower:", getgenv().Jumppower, function(val)
+    if tonumber(val) then
+        getgenv().Jumppower = tonumber(val)
+        pcall(function() Player.Character.Humanoid.JumpPower = tonumber(val) end)
+    end
+end)
+createToggleRow("Khóa liên tục Sức nhảy:", getgenv().loopJ, function(s) getgenv().loopJ = s end)
+
+createSection("Hỗ trợ di chuyển")
+createTextBoxRow("Tốc độ dịch chuyển:", getgenv().TPSpeed, function(val)
+    getgenv().TPSpeed = val
+end)
+
+createToggleRow("Đi bộ dịch chuyển (TP):", getgenv().TPWalk, function(state)
+    getgenv().TPWalk = state
+    if state then
+        task.spawn(function()
+            while getgenv().TPWalk do
+                RunService.Heartbeat:Wait()
+                local chr = Player.Character
+                local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+                if chr and hum and hum.Parent and hum.MoveDirection.Magnitude > 0 then
+                    local speed = tonumber(getgenv().TPSpeed)
+                    if speed then
+                        chr:TranslateBy(hum.MoveDirection * speed)
+                    else
+                        chr:TranslateBy(hum.MoveDirection)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+createTextBoxRow("Tầm nhìn Cam (FOV):", game.Workspace.CurrentCamera.FieldOfView, function(val)
+    if tonumber(val) then game.Workspace.CurrentCamera.FieldOfView = tonumber(val) end
+end)
+
+createToggleRow("Đi xuyên tường (Noclip):", getgenv().Noclip, function(s) getgenv().Noclip = s end)
+createToggleRow("Nhảy vô hạn (Inf Jump):", getgenv().InfJ, function(s) getgenv().InfJ = s end)
+
+if game.PlaceId == 3082002798 then
+    createSection("Tính năng Game")
+    createButtonRow("Xóa thời gian hồi chiêu", function()
+        for _, v in ipairs(game:GetService('ReplicatedStorage')['Shared_Modules'].Tools:GetDescendants()) do
+            if v:IsA('ModuleScript') then
+                local Module = require(v)
+                if Module.DEBOUNCE then Module.DEBOUNCE = 0 end
+            end
+        end
+    end)
+end
+
+-- ==========================================
+-- ĐỒNG BỘ ĐIỀU KHIỂN
+-- ==========================================
+ToggleUIBtn.Activated:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.T then
+            setHitboxState(not getgenv().HitboxStatus)
+        elseif input.KeyCode == Enum.KeyCode.RightShift then
+            MainFrame.Visible = not MainFrame.Visible
+        end
+    end
+end)
+
+makeDraggable(Title, MainFrame)
+makeDraggable(ToggleUIBtn, ToggleUIBtn)
+
+-- ==========================================
+-- LOGIC HITBOX ĐÃ TỐI ƯU HÓA (CHỈ XỬ LÝ THÂN TỰ ĐỘNG)
+-- ==========================================
+local function applyHitboxLogic(v, enable)
+    local char = v.Character
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if enable then
+        local sizeNum = tonumber(getgenv().HitboxSize) or 15
+        local transNum = tonumber(getgenv().HitboxTransparency) or 0.9
+        local targetSize = Vector3.new(sizeNum, sizeNum, sizeNum)
+
+        -- Chỉ cập nhật thuộc tính nếu giá trị thực tế bị sai (Tối ưu hóa tránh lag vật lý)
+        if hrp.Size ~= targetSize then
+            hrp.Size = targetSize
+            hrp.Transparency = transNum
+            hrp.BrickColor = BrickColor.new("Really black")
+            hrp.Material = Enum.Material.Neon
+            hrp.CanCollide = false
+        end
+    else
+        local defaultSize = Vector3.new(2, 2, 1)
+        if hrp.Size ~= defaultSize then
+            hrp.Size = defaultSize
+            hrp.Transparency = 1
+            hrp.BrickColor = BrickColor.new("Medium stone grey")
+            hrp.Material = Enum.Material.Plastic
+            hrp.CanCollide = false
+        end
+    end
+end
+
+-- VÒNG LẶP RENDER CHẠY CỰC MƯỢT
+RunService.RenderStepped:Connect(function()
+    local isHitboxOn = getgenv().HitboxStatus
+    local isTeamCheckOn = getgenv().TeamCheck
+    local localTeam = Player.Team
+    
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= Player then
+            if isHitboxOn then
+                if isTeamCheckOn and v.Team == localTeam then
+                    applyHitboxLogic(v, false)
+                else
+                    applyHitboxLogic(v, true)
+                end
+            else
+                applyHitboxLogic(v, false)
+            end
+        end
+    end
+end)
+
+-- Vòng lặp cho các tính năng phụ của người chơi (Tối ưu hóa loop)
+RunService.Heartbeat:Connect(function()
+    local char = Player.Character
+    local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+    if not (char and hum) then return end
+    
+    if getgenv().loopW then 
+        local targetWS = tonumber(getgenv().Walkspeed) or 16
+        if hum.WalkSpeed ~= targetWS then hum.WalkSpeed = targetWS end 
+    end
+    
+    if getgenv().loopJ then 
+        local targetJP = tonumber(getgenv().Jumppower) or 50
+        if hum.JumpPower ~= targetJP then hum.JumpPower = targetJP end 
+    end
+    
+    if getgenv().Noclip then
+        for _, part in ipairs(char:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if getgenv().InfJ then
+        local char = Player.Character
+        local hum = char and char:FindFirstChildOfClass('Humanoid')
+        if hum then hum:ChangeState("Jumping") end
+    end
+end)
