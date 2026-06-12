@@ -16,7 +16,7 @@ local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 
 -- Khởi tạo cấu hình gốc
-getgenv().HitboxSize = 7
+getgenv().HitboxSize = 6
 getgenv().HitboxTransparency = 0.7
 getgenv().HitboxStatus = false
 getgenv().TeamCheck = false
