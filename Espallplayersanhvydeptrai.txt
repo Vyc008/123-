@@ -183,11 +183,13 @@ FixBtn.BorderSizePixel = 0
 FixBtn.ZIndex = 2
 Instance.new("UICorner", FixBtn).CornerRadius = UDim.new(0, 5)
 
+-- ================= PHẦN DANH SÁCH PLAYER (CẬP NHẬT TÌM KIẾM) =================
 makeLabel("👤 DANH SÁCH PLAYER", 235, 35, 210, 14, true)
 
+-- 1. Nhãn Trạng thái đang chọn (Ghim cố định)
 local SelectedLabel = Instance.new("TextLabel", Main)
 SelectedLabel.Size = UDim2.new(0, 210, 0, 15)
-SelectedLabel.Position = UDim2.new(0, 235, 0, 55)
+SelectedLabel.Position = UDim2.new(0, 235, 0, 53)
 SelectedLabel.BackgroundTransparency = 1
 SelectedLabel.Font = Enum.Font.SourceSansBold
 SelectedLabel.TextSize = 13
@@ -196,9 +198,24 @@ SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
 SelectedLabel.TextXAlignment = Enum.TextXAlignment.Center
 SelectedLabel.ZIndex = 2
 
+-- 2. Thanh Tìm Kiếm Người Chơi
+local SearchBar = Instance.new("TextBox", Main)
+SearchBar.Size = UDim2.new(0, 210, 0, 22)
+SearchBar.Position = UDim2.new(0, 235, 0, 70)
+SearchBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SearchBar.TextColor3 = Color3.new(1, 1, 1)
+SearchBar.PlaceholderText = "🔍 Tìm kiếm tên..."
+SearchBar.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+SearchBar.Font = Enum.Font.SourceSans
+SearchBar.TextSize = 13
+SearchBar.BorderSizePixel = 0
+SearchBar.ZIndex = 2
+Instance.new("UICorner", SearchBar).CornerRadius = UDim.new(0, 5)
+
+-- 3. Khung Danh Sách Cuộn Player
 local PlayerScroll = Instance.new("ScrollingFrame", Main)
-PlayerScroll.Size = UDim2.new(0, 210, 0, 100)
-PlayerScroll.Position = UDim2.new(0, 235, 0, 75) 
+PlayerScroll.Size = UDim2.new(0, 210, 0, 85) -- Chỉnh nhỏ lại một chút để nhường chỗ cho thanh tìm kiếm
+PlayerScroll.Position = UDim2.new(0, 235, 0, 95) 
 PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 PlayerScroll.ScrollBarThickness = 5
 PlayerScroll.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -210,6 +227,8 @@ Instance.new("UICorner", PlayerScroll).CornerRadius = UDim.new(0, 5)
 local playerLayout = Instance.new("UIListLayout", PlayerScroll)
 playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 playerLayout.Padding = UDim.new(0, 1)
+
+local currentSearchQuery = ""
 
 local function SetSelectedPlayer(name)
     SelectedPlayerName = name
@@ -227,6 +246,7 @@ local function RefreshPlayerList()
         if v:IsA("TextButton") then v:Destroy() end
     end
     
+    -- Nút Chọn Tất Cả luôn luôn nằm trên cùng
     local btnAll = Instance.new("TextButton", PlayerScroll)
     btnAll.Size = UDim2.new(1, 0, 0, 26)
     btnAll.Text = "[ TẤT CẢ MỌI NGƯỜI ]"
@@ -238,23 +258,36 @@ local function RefreshPlayerList()
     btnAll.ZIndex = 3
     btnAll.MouseButton1Click:Connect(function() SetSelectedPlayer(nil) end)
     
+    -- Lọc danh sách Player theo thanh tìm kiếm
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            local btn = Instance.new("TextButton", PlayerScroll)
-            btn.Size = UDim2.new(1, 0, 0, 26)
-            btn.Text = p.Name
-            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-            btn.TextColor3 = Color3.new(1, 1, 1)
-            btn.Font = Enum.Font.SourceSans
-            btn.TextSize = 13
-            btn.BorderSizePixel = 0
-            btn.ZIndex = 3
-            btn.MouseButton1Click:Connect(function() SetSelectedPlayer(p.Name) end)
+            local nameLower = string.lower(p.Name)
+            local displayLower = string.lower(p.DisplayName)
+            
+            if currentSearchQuery == "" or string.find(nameLower, currentSearchQuery) or string.find(displayLower, currentSearchQuery) then
+                local btn = Instance.new("TextButton", PlayerScroll)
+                btn.Size = UDim2.new(1, 0, 0, 26)
+                btn.Text = p.Name
+                btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                btn.TextColor3 = Color3.new(1, 1, 1)
+                btn.Font = Enum.Font.SourceSans
+                btn.TextSize = 13
+                btn.BorderSizePixel = 0
+                btn.ZIndex = 3
+                btn.MouseButton1Click:Connect(function() SetSelectedPlayer(p.Name) end)
+            end
         end
     end
 end
 
+-- Cập nhật danh sách khi gõ vào thanh tìm kiếm
+SearchBar:GetPropertyChangedSignal("Text"):Connect(function()
+    currentSearchQuery = string.lower(SearchBar.Text)
+    RefreshPlayerList()
+end)
+
 RefreshPlayerList()
+-- ================= KẾT THÚC PHẦN DANH SÁCH PLAYER =================
 
 makeLabel("🎨 BẢNG MÀU SẮC", 235, 185, 210, 14, true)
 
@@ -351,9 +384,6 @@ local function setup(p)
     if p == LocalPlayer then return end
     cleanESP(p)
 
-    -- FIX CHÍNH LÀ Ở ĐÂY: Chuyển Parent = TargetGui thành Parent = Gui
-    -- Khi Gui bị Destroy lúc chạy lại script, toàn bộ Box, HL, BB sẽ tự động bị xóa theo (không bị mồ côi)
-
     local box = Instance.new("SelectionBox")
     box.LineThickness = 0.05
     box.SurfaceTransparency = 1
@@ -419,7 +449,7 @@ local function RebuildHighlights()
                 local newHl = Instance.new("Highlight")
                 newHl.FillTransparency = 1
                 newHl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                newHl.Parent = Gui -- Sửa ở đây luôn
+                newHl.Parent = Gui 
                 e.HL = newHl
                 activeHighlights = activeHighlights + 1
             else
@@ -433,7 +463,6 @@ UserInputService.WindowFocused:Connect(RebuildHighlights)
 FixBtn.MouseButton1Click:Connect(RebuildHighlights)
 
 -- ================= RENDER LOOP (TỐI ƯU HÓA) =================
--- Lưu Connection vào genv để dọn dẹp khi Re-execute
 getgenv()._ESP_RenderLoop = RunService.RenderStepped:Connect(function()
     local CamPos = Camera.CFrame.Position 
     local ViewportCenter = Vector2.new(Camera.ViewportSize.X / 2, 0)
