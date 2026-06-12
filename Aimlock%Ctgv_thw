@@ -1,4 +1,4 @@
---// Modern Aimbot v4.5.2 - ABSOLUTE STICKY LOCK (Không bao giờ buông)
+--// Modern Aimbot v4.5.4 - CUSTOMIZED ABSOLUTE LOCK
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local RunService = game:GetService("RunService")
@@ -8,15 +8,16 @@ local Cam = workspace.CurrentCamera
 local Player = Players.LocalPlayer
 
 -- ==========================================
--- CẤU HÌNH AN TOÀN
+-- CẤU HÌNH HỆ THỐNG
 -- ==========================================
 local Settings = {
     Prediction = 0.05,      
+    EnablePrediction = true, -- Bật/tắt đoán hướng
     Smooth = 1,             
     FovRadius = 150,
     ShowFov = true,         
     FovColor = Color3.fromRGB(255, 255, 255),
-    LockTarget = true,      -- Chế độ Khóa cứng tuyệt đối
+    LockTarget = true,      -- KHÔNG BAO GIỜ BUÔNG (360 độ ngoài FOV)
     TeamCheck = false,   
     WallCheck = true,       
     DeadCheck = true,    
@@ -33,7 +34,7 @@ if getgenv()._Aimbot_FOV then pcall(function() getgenv()._Aimbot_FOV:Remove() en
 if getgenv()._Aimbot_FocusCircle then pcall(function() getgenv()._Aimbot_FocusCircle:Remove() end) end
 
 local FOVring = Drawing.new("Circle")
-FOVring.Visible = Settings.ShowFov
+FOVring.Visible = false -- Mặc định ẩn khi mới chạy vì Aimbot đang OFF
 FOVring.Thickness = 1.5
 FOVring.Color = Settings.FovColor
 FOVring.Filled = false
@@ -111,7 +112,7 @@ applyUIStroke(MainFrame)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-Title.Text = "  ⚙️ CÀI ĐẶT AIMBOT (V4.5.2 ABSOLUTE LOCK)"
+Title.Text = "  ⚙️ CÀI ĐẶT AIMBOT (V4.5.4 STICKY)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -158,7 +159,7 @@ local function createToggleButton(parent, textOn, textOff, xPos, yPos, configKey
     btn.Size = UDim2.new(0, 190, 0, 30)
     btn.Position = UDim2.new(0, xPos, 0, yPos)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11 -- Thu nhỏ text size một chút để chữ vừa khung
+    btn.TextSize = 11
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Parent = parent
     applyUICorner(btn, 6)
@@ -172,24 +173,26 @@ local function createToggleButton(parent, textOn, textOff, xPos, yPos, configKey
     btn.Activated:Connect(function()
         Settings[configKey] = not Settings[configKey]
         updateButtonUI()
-        if configKey == "ShowFov" then FOVring.Visible = Settings.ShowFov end
+        if configKey == "ShowFov" then 
+            FOVring.Visible = isAiming and Settings.ShowFov 
+        end
     end)
     updateButtonUI()
     return btn
 end
 
-local PredictInput = createSettingRow(MainFrame, "Đoán hướng (Pred):", 15, 45, Settings.Prediction)
+local PredictInput = createSettingRow(MainFrame, "Đoán hướng (Value):", 15, 45, Settings.Prediction)
 local SmoothInput = createSettingRow(MainFrame, "Độ mượt (Smooth):", 15, 80, Settings.Smooth)
 local FovInput = createSettingRow(MainFrame, "Phạm vi FOV:", 15, 115, Settings.FovRadius)
 
-createToggleButton(MainFrame, "👁️ FOV: HIỆN", "👁️ FOV: ẨN", 15, 150, "ShowFov")
--- Đã đổi Text cho nút Cố định theo ý bạn
-createToggleButton(MainFrame, "🔒 KHÔNG BAO GIỜ BUÔNG", "🔒 KHÔNG BUÔNG: OFF", 15, 185, "LockTarget")
-createToggleButton(MainFrame, "👥 Team Check: ON", "👥 Team Check: OFF", 15, 220, "TeamCheck")
+-- NÚT ĐIỀU CHỈNH THEO YÊU CẦU
+createToggleButton(MainFrame, "🚀 ĐOÁN HƯỚNG: ON", "🚀 ĐOÁN HƯỚNG: OFF", 225, 45, "EnablePrediction")
+createToggleButton(MainFrame, "👁️ FOV: HIỆN CHÂN THỰC", "👁️ FOV: ẨN HOÀN TOÀN", 15, 150, "ShowFov")
+createToggleButton(MainFrame, "🔒 LUÔN LUÔN AIM (RA FOV KHÔNG BUÔNG)", "🔒 KHÔNG BUÔNG: OFF", 15, 185, "LockTarget")
 
-createToggleButton(MainFrame, "🧱 Check Walls: ON", "🧱 Check Walls: OFF", 225, 45, "WallCheck")
-createToggleButton(MainFrame, "❤️ Check Dead: ON", "❤️ Check Dead: OFF", 225, 80, "DeadCheck")
-createToggleButton(MainFrame, "🎯 Show Focus: ON", "🎯 Show Focus: OFF", 225, 115, "ShowFocus")
+createToggleButton(MainFrame, "👥 Team Check: ON", "👥 Team Check: OFF", 15, 220, "TeamCheck")
+createToggleButton(MainFrame, "🧱 Check Walls: ON", "🧱 Check Walls: OFF", 225, 80, "WallCheck")
+createToggleButton(MainFrame, "❤️ Check Dead: ON", "❤️ Check Dead: OFF", 225, 115, "DeadCheck")
 
 local AimModeBtn = Instance.new("TextButton")
 AimModeBtn.Size = UDim2.new(0, 190, 0, 30)
@@ -323,13 +326,20 @@ local function toggleAimbot()
     isAiming = not isAiming
     AimbotBtn.Text = isAiming and "AIM\nON" or "AIM\nOFF"
     AimbotBtn.BackgroundColor3 = isAiming and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
-    if not isAiming then lockedTarget = nil end
+    
+    -- ĐỒNG BỘ FOV: Bật aimbot thì hiện fov, tắt aimbot thì ẩn fov ngay lập tức
+    FOVring.Visible = isAiming and Settings.ShowFov
+    
+    if not isAiming then 
+        lockedTarget = nil 
+        FocusCircle.Visible = false
+    end
 end
 AimbotBtn.Activated:Connect(toggleAimbot)
 
 local function getTargetPart(character)
     if not character then return nil end
-    return character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+    return character:FindFirstChild(Settings.FocusPart) or character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
 end
 
 local function checkWall(targetPlayer, targetPart)
@@ -368,7 +378,7 @@ local function isTargetValid(targetPlayer)
     return true
 end
 
--- Hàm quét tìm mục tiêu mới ban đầu (Lúc này vẫn cần địch phải ở trong FOV)
+-- Hàm tìm địch trong FOV ban đầu
 local function getBestTarget()
     local bestTarget = nil
     local minFovDistance = math.huge
@@ -418,7 +428,7 @@ local function aim(targetPosition)
 end
 
 -- ==========================================
--- THUẬT TOÁN ABSOLUTE LOCK (BỎ GIỚI HẠN FOV KHI ĐÃ KHÓA)
+-- THUẬT TOÁN ĐÃ TÙY CHỈNH THEO YÊU CẦU
 -- ==========================================
 RunService.RenderStepped:Connect(function()
     FOVring.Position = Cam.ViewportSize / 2
@@ -429,13 +439,10 @@ RunService.RenderStepped:Connect(function()
         
         if lockedTarget and isTargetValid(lockedTarget) then
             if Settings.LockTarget then
-                -- Nếu bật chế độ "Không Bao Giờ Buông": 
-                -- Chỉ cần địch còn hợp lệ (Máu > 0, Không vướng tường) là giữ mãi
-                -- Bỏ qua điều kiện phải nằm trong FOV hay hiện trên màn hình
+                -- YÊU CẦU: Khóa cứng, chạy ra khỏi vòng tròn FOV vẫn KHÔNG BUÔNG
                 holdCurrentTarget = true
             else
-                -- Nếu TẮT chế độ "Không Bao Giờ Buông":
-                -- Khi địch văng ra khỏi FOV sẽ tự động nhả để tìm địch khác
+                -- Chế độ thường: Địch ra ngoài FOV sẽ buông
                 local tPart = getTargetPart(lockedTarget.Character)
                 if tPart then
                     local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
@@ -447,12 +454,10 @@ RunService.RenderStepped:Connect(function()
         end
 
         if Settings.LockTarget then
-            -- Chế độ KHÓA CỨNG: Nếu mục tiêu cũ mất, mới đi quét mục tiêu mới
             if not holdCurrentTarget then 
                 lockedTarget = getBestTarget() 
             end
         else
-            -- Chế độ Bình thường: Linh hoạt đổi mục tiêu nếu có người gần tâm hơn
             local potentialTarget = getBestTarget()
             if holdCurrentTarget and potentialTarget and potentialTarget ~= lockedTarget then
                 local oldPart = getTargetPart(lockedTarget.Character)
@@ -472,14 +477,17 @@ RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- DI CHUYỂN CAMERA (Bám sát mục tiêu ở mọi góc độ)
+        -- DI CHUYỂN CAMERA VÀ XỬ LÝ ĐOÁN HƯỚNG (PREDICTION ON/OFF)
         if lockedTarget and lockedTarget.Character then
             local targetPart = getTargetPart(lockedTarget.Character)
             if targetPart then
+                -- YÊU CẦU: Xử lý nút bật/tắt Đoán hướng
                 local velocity = targetPart.AssemblyLinearVelocity
                 if velocity.Magnitude > 100 then velocity = velocity.Unit * 100 end
                 
-                local finalPos = targetPart.Position + (velocity * Settings.Prediction)
+                local currentPrediction = Settings.EnablePrediction and Settings.Prediction or 0
+                local finalPos = targetPart.Position + (velocity * currentPrediction)
+                
                 aim(finalPos)
                 
                 if Settings.ShowFocus then
@@ -503,4 +511,3 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         elseif input.KeyCode == Enum.KeyCode.RightShift then MainFrame.Visible = not MainFrame.Visible end
     end
 end)
-      
