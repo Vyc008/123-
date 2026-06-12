@@ -43,83 +43,206 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Mouse = LocalPlayer:GetMouse()
 
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP (MODERN UI)
+-- ==========================================
+local function applyStyle(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = instance
+    
+    if instance:IsA("GuiButton") or instance:IsA("Frame") then
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(60, 60, 65)
+        stroke.Thickness = 1.5
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = instance
+    end
+end
+
+-- ==========================================
+-- KHỞI TẠO GIAO DIỆN
+-- ==========================================
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "HeightAdjusterGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 150)
-frame.Position = UDim2.new(0.5, -125, 0, 0)
-frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+frame.Size = UDim2.new(0, 260, 0, 200) -- Tăng chiều cao lên 200 để chứa thêm nút Mode
+frame.Position = UDim2.new(0.5, -130, 0.4, -90)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 frame.Active = true
-frame.Draggable = true
+frame.Draggable = false 
 frame.Parent = screenGui
+applyStyle(frame, 12)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "🫡🫡🫡"
-title.TextColor3 = Color3.fromRGB(255, 100, 0)
-title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "HEIGHT ADJUSTER"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+title.Active = true
 title.Parent = frame
+applyStyle(title, 12)
 
 local sliderFrame = Instance.new("Frame")
-sliderFrame.Size = UDim2.new(1, -20, 0, 40)
-sliderFrame.Position = UDim2.new(0, 10, 0, 40)
-sliderFrame.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+sliderFrame.Size = UDim2.new(1, -40, 0, 20)
+sliderFrame.Position = UDim2.new(0, 20, 0, 60)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 sliderFrame.Parent = frame
+applyStyle(sliderFrame, 10)
 
 local sliderBar = Instance.new("Frame")
-sliderBar.Size = UDim2.new(1, -20, 0, 10)
-sliderBar.Position = UDim2.new(0, 10, 0.5, -5)
-sliderBar.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+sliderBar.Size = UDim2.new(1, 0, 1, 0)
+sliderBar.BackgroundTransparency = 1
 sliderBar.Parent = sliderFrame
 
 local sliderButton = Instance.new("TextButton")
 sliderButton.Size = UDim2.new(0, 20, 0, 20)
 sliderButton.Position = UDim2.new(0, 0, 0.5, -10)
-sliderButton.Text = "⬅️➡️"
-sliderButton.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+sliderButton.Text = ""
+sliderButton.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
 sliderButton.Parent = sliderFrame
+applyStyle(sliderButton, 10)
 
-local addButton = Instance.new("TextButton")
-addButton.Size = UDim2.new(0.45, -5, 0, 30)
-addButton.Position = UDim2.new(0, 10, 0, 100)
-addButton.Text = "Chọn"
-addButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-addButton.Parent = frame
+local hintLabel = Instance.new("TextLabel")
+hintLabel.Size = UDim2.new(1, 0, 0, 20)
+hintLabel.Position = UDim2.new(0, 0, 0, 85)
+hintLabel.BackgroundTransparency = 1
+hintLabel.Text = "Bật chế độ và nhấn đúp để Chọn/Bỏ Block"
+hintLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+hintLabel.Font = Enum.Font.GothamMedium
+hintLabel.TextSize = 11
+hintLabel.Parent = frame
 
-local removeButton = Instance.new("TextButton")
-removeButton.Size = UDim2.new(0.45, -5, 0, 30)
-removeButton.Position = UDim2.new(0.55, 0, 0, 100)
-removeButton.Text = "Bỏ"
-removeButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-removeButton.Parent = frame
+-- NÚT BẬT/TẮT CHẾ ĐỘ CLICK
+local toggleClickButton = Instance.new("TextButton")
+toggleClickButton.Size = UDim2.new(1, -40, 0, 30)
+toggleClickButton.Position = UDim2.new(0, 20, 0, 110)
+toggleClickButton.Text = "CHẾ ĐỘ CHỌN: TẮT"
+toggleClickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleClickButton.Font = Enum.Font.GothamBold
+toggleClickButton.TextSize = 12
+toggleClickButton.BackgroundColor3 = Color3.fromRGB(80, 80, 85) -- Màu xám khi đang tắt
+toggleClickButton.Parent = frame
+applyStyle(toggleClickButton, 8)
+
+-- NÚT RESET
+local resetButton = Instance.new("TextButton")
+resetButton.Size = UDim2.new(1, -40, 0, 30)
+resetButton.Position = UDim2.new(0, 20, 0, 150)
+resetButton.Text = "LÀM MỚI (RESET BẢN GỐC)"
+resetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetButton.Font = Enum.Font.GothamBold
+resetButton.TextSize = 12
+resetButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) 
+resetButton.Parent = frame
+applyStyle(resetButton, 8)
 
 local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 55, 0, 55)
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
 toggleButton.Position = UDim2.new(0, 10, 0, 60)
-toggleButton.Text = "Bật"
-toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.Text = "👉👌"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 20
+toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 toggleButton.Parent = screenGui
+applyStyle(toggleButton, 12)
 
+-- ==========================================
+-- HỆ THỐNG KÉO MENU MỚI (CHỈ KÉO Ở TITLE)
+-- ==========================================
+local draggingMenu = false
+local dragInput, dragStart, startPos
+
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingMenu = true
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingMenu = false
+            end
+        end)
+    end
+end)
+
+title.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and draggingMenu then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ==========================================
+-- LOGIC HỆ THỐNG
+-- ==========================================
 local targets = {}
-local dragging = false
+local originalSizes = {} 
+local draggingSlider = false
 local sliderValue = 0
 local lastCheck = 0
+local isClickModeEnabled = false -- Mặc định tắt để tránh ấn nhầm
 
-local function getFootPart()
-    local character = LocalPlayer.Character
-    if not character then return nil end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-    local ray = Ray.new(root.Position, Vector3.new(0, -5, 0))
-    local part = workspace:FindPartOnRay(ray, character)
-    return part
-end
+-- LOGIC NÚT BẬT/TẮT CHẾ ĐỘ
+toggleClickButton.MouseButton1Click:Connect(function()
+    isClickModeEnabled = not isClickModeEnabled
+    if isClickModeEnabled then
+        toggleClickButton.Text = "CHẾ ĐỘ CHỌN: ĐANG BẬT"
+        toggleClickButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50) -- Xanh lá
+    else
+        toggleClickButton.Text = "CHẾ ĐỘ CHỌN: TẮT"
+        toggleClickButton.BackgroundColor3 = Color3.fromRGB(80, 80, 85) -- Xám
+    end
+end)
 
-local function ensureHighlight(part)
+-- LOGIC NHẤN ĐÚP CHUỘT (DOUBLE CLICK)
+local lastClickTime = 0
+local lastClickedPart = nil
+
+Mouse.Button1Down:Connect(function()
+    if not isClickModeEnabled then return end -- Nếu đang TẮT thì bỏ qua không làm gì cả
+
+    local target = Mouse.Target
+    if not target then return end
+    if target:IsDescendantOf(LocalPlayer.Character) then return end
+
+    local currentTime = tick()
+    if target == lastClickedPart and (currentTime - lastClickTime) <= 0.4 then
+        if targets[target] then
+            targets[target] = nil
+            removeHighlight(target)
+        else
+            targets[target] = true
+            ensureHighlight(target)
+            
+            if not originalSizes[target] then
+                originalSizes[target] = target.Size
+            end
+        end
+        lastClickedPart = nil 
+    else
+        lastClickedPart = target
+    end
+    lastClickTime = currentTime
+end)
+
+-- LOGIC HIGHLIGHT
+function ensureHighlight(part)
     if not part or not part:IsA("BasePart") then return end
     local highlight = part:FindFirstChild("PersistentHighlight")
     if not highlight then
@@ -128,19 +251,18 @@ local function ensureHighlight(part)
         highlight.Adornee = part
         highlight.FillColor = Color3.fromRGB(255, 255, 255)
         highlight.FillTransparency = 1
-        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 100, 0)
         highlight.OutlineTransparency = 0
         highlight.Parent = part
     end
 end
 
-local function removeHighlight(part)
+function removeHighlight(part)
     local highlight = part and part:FindFirstChild("PersistentHighlight")
-    if highlight then
-        highlight:Destroy()
-    end
+    if highlight then highlight:Destroy() end
 end
 
+-- LOGIC KÉO SLIDER
 local function updateSlider(inputX)
     local barPos = sliderBar.AbsolutePosition.X
     local barSize = sliderBar.AbsoluteSize.X
@@ -156,18 +278,18 @@ end
 
 sliderButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
+        draggingSlider = true
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
+        draggingSlider = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         updateSlider(input.Position.X)
     end
 end)
@@ -178,22 +300,18 @@ sliderBar.InputBegan:Connect(function(input)
     end
 end)
 
-addButton.MouseButton1Click:Connect(function()
-    local part = getFootPart()
-    if part and not targets[part] then
-        if part.Size.X > 35 and part.Size.Z > 35 then
-            targets[part] = true
-            ensureHighlight(part)
+-- LOGIC NÚT RESET
+resetButton.MouseButton1Click:Connect(function()
+    for part, _ in pairs(targets) do
+        if part and part:IsA("BasePart") and originalSizes[part] then
+            part.Size = originalSizes[part] 
+            removeHighlight(part) 
         end
     end
-end)
-
-removeButton.MouseButton1Click:Connect(function()
-    local part = getFootPart()
-    if part and targets[part] then
-        targets[part] = nil
-        removeHighlight(part)
-    end
+    table.clear(targets)
+    table.clear(originalSizes)
+    
+    sliderButton.Position = UDim2.new(0, -10, 0.5, -10)
 end)
 
 toggleButton.MouseButton1Click:Connect(function()
