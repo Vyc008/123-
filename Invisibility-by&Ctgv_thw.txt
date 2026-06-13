@@ -1,65 +1,19 @@
---[[
-    invisibility 0.36 (Ultra Compact UI)
-    Theme: Smooth Rainbow Stroke, Orange/Black
-]]
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
--- ==================== SMOOTH RAINBOW FUNCTION ====================
-local function createSmoothRainbow(stroke)
-    local colors = {
-        Color3.new(1, 0, 0),     -- Red
-        Color3.new(1, 0.5, 0),   -- Orange
-        Color3.new(1, 1, 0),     -- Yellow
-        Color3.new(0, 1, 0),     -- Green
-        Color3.new(0, 0.5, 1),   -- Light Blue
-        Color3.new(0.5, 0, 1),   -- Purple
-        Color3.new(1, 0, 1)      -- Pink
-    }
-    
-    local currentIndex = 2
-    local nextIndex = 3
-    local progress = 0
-    
-    while stroke and stroke.Parent do
-        local currentColor = colors[currentIndex]
-        local nextColor = colors[nextIndex]
-        
-        -- Interpolate between colors
-        local r = currentColor.R + (nextColor.R - currentColor.R) * progress
-        local g = currentColor.G + (nextColor.G - currentColor.G) * progress
-        local b = currentColor.B + (nextColor.B - currentColor.B) * progress
-        
-        stroke.Color = Color3.new(r, g, b)
-        
-        progress = progress + 0.02 -- Smooth transition speed
-        
-        if progress >= 1 then
-            progress = 0
-            currentIndex = nextIndex
-            nextIndex = currentIndex % #colors + 1
-        end
-        
-        task.wait(0.016) -- ~60 FPS
-    end
-end
-
 -- ==================== CLEANUP HỆ THỐNG CŨ ====================
--- Cơ chế Cleanup mới giúp ngắt kết nối dứt điểm khi Execute lần 2
 if _G.NuclearBobo5_Cleanup then
     pcall(_G.NuclearBobo5_Cleanup)
 end
 
--- Variables
 local character, humanoid, rootPart
 local invisible = false
 local parts = {}
 local connections = {}
 local uiVisible = true
-local gui, mainFrame
+local gui, mainFrame, toggleOpenBtn
 
 _G.NuclearBobo5_Cleanup = function()
     for _, conn in pairs(connections) do
@@ -70,22 +24,34 @@ _G.NuclearBobo5_Cleanup = function()
     end
 end
 
--- Simple Configuration
+-- CẤU HÌNH PHÍM TẮT
 local Config = {
     ToggleKey = Enum.KeyCode.X,
     UIToggleKey = Enum.KeyCode.M,
     TeleportHeight = -200000,
     Transparency = 0.7,
-    
-    -- Orange/Black Theme
-    PrimaryColor = Color3.new(1, 0.5, 0),
-    SecondaryColor = Color3.new(0.2, 0.2, 0.2),
-    BackgroundColor = Color3.fromRGB(10, 10, 10),
-    TextColor = Color3.new(1, 1, 1),
-    ActiveColor = Color3.new(0, 1, 0),
 }
 
--- Character Setup
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP (MODERN UI)
+-- ==========================================
+local function applyStyle(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+    
+    if instance:IsA("GuiButton") or instance:IsA("Frame") then
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(60, 60, 65)
+        stroke.Thickness = 1.2
+        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        stroke.Parent = instance
+    end
+end
+
+-- ==========================================
+-- LOGIC TÀNG HÌNH
+-- ==========================================
 local function setupCharacter()
     character = player.Character or player.CharacterAdded:Wait()
     humanoid = character:WaitForChild("Humanoid")
@@ -105,141 +71,169 @@ local function setupCharacter()
     end
 end
 
--- Update UI State
 local function updateUI()
     if mainFrame then
         local toggleBtn = mainFrame:FindFirstChild("ToggleBtn")
-        local statusLabel = mainFrame:FindFirstChild("StatusFrame") and mainFrame.StatusFrame:FindFirstChild("StatusLabel")
+        local statusLabel = mainFrame:FindFirstChild("StatusLabel")
         
         if toggleBtn then
-            toggleBtn.Text = invisible and "✓" or "X"
-            toggleBtn.BackgroundColor3 = invisible and Config.ActiveColor or Config.PrimaryColor
+            if invisible then
+                toggleBtn.Text = "TÀNG HÌNH: BẬT"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+            else
+                toggleBtn.Text = "TÀNG HÌNH: TẮT"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+            end
         end
         
         if statusLabel then
-            statusLabel.Text = invisible and "Tàng Hình BẬT" or "Tàng Hình TẮT"
-            statusLabel.TextColor3 = invisible and Config.ActiveColor or Config.PrimaryColor
+            statusLabel.Text = invisible and "Trạng thái: 🟢" or "Trạng thái: 🔴"
         end
     end
 end
 
--- Invisibility Toggle
 local function toggleInvisibility()
     invisible = not invisible
-    
     for _, part in pairs(parts) do
         if part:IsA("BasePart") then
             part.Transparency = invisible and Config.Transparency or 0
         end
     end
-    
     updateUI()
 end
 
--- UI Toggle
 local function toggleUI()
     uiVisible = not uiVisible
-    if gui then
-        gui.Enabled = uiVisible
+    if mainFrame then
+        mainFrame.Visible = uiVisible
+    end
+    if toggleOpenBtn then
+        toggleOpenBtn.Text = uiVisible and "👉👌" or "🥵"
     end
 end
 
--- Create Ultra Compact Main UI
+-- ==========================================
+-- TẠO GIAO DIỆN SIÊU NHỎ GỌN (ULTRA COMPACT)
+-- ==========================================
 local function createMainUI()
     if gui then gui:Destroy() end
     
     gui = Instance.new("ScreenGui")
-    gui.Name = "NuclearBobo5UI"
+    gui.Name = "BatmanGuiUI"
     gui.ResetOnSpawn = false
     gui.Parent = player.PlayerGui
     
-    -- Ultra Compact Main Frame
+    -- MAIN FRAME (Thu nhỏ đáng kể kích thước)
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 160, 0, 70)
-    mainFrame.Position = UDim2.new(0.5, -80, 0.1, 0)
-    mainFrame.BackgroundColor3 = Config.BackgroundColor
-    mainFrame.BackgroundTransparency = 0.1
-    mainFrame.BorderSizePixel = 0
+    mainFrame.Size = UDim2.new(0, 140, 0, 95)
+    mainFrame.Position = UDim2.new(0.5, -70, 0.4, 0)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
     mainFrame.Active = true
-    mainFrame.Draggable = true
+    mainFrame.Draggable = false 
+    mainFrame.Parent = gui
+    applyStyle(mainFrame, 10)
     
-    -- Smooth Rainbow Border
-    local mainBorder = Instance.new("UIStroke")
-    mainBorder.Color = Config.PrimaryColor
-    mainBorder.Thickness = 2
-    mainBorder.Transparency = 0
-    mainBorder.Parent = mainFrame
+    -- TITLE (Đổi tên thành Batman Gui <Ctgv-thw>)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 28)
+    title.Text = "Batman Gui <Ctgv-thw>"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 11
+    title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    title.Active = true
+    title.Parent = mainFrame
+    applyStyle(title, 10)
     
-    task.spawn(function()
-        createSmoothRainbow(mainBorder)
-    end)
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = mainFrame
-    
-    -- Status Display
-    local statusFrame = Instance.new("Frame")
-    statusFrame.Name = "StatusFrame"
-    statusFrame.Size = UDim2.new(1, -16, 0, 20)
-    statusFrame.Position = UDim2.new(0, 8, 0, 8)
-    statusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    statusFrame.BackgroundTransparency = 0.3
-    statusFrame.BorderSizePixel = 0
-    
-    local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 4)
-    statusCorner.Parent = statusFrame
-    
+    -- STATUS HINT (Rút ngắn văn bản để vừa khung nhỏ)
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(1, 0, 1, 0)
+    statusLabel.Size = UDim2.new(1, 0, 0, 18)
+    statusLabel.Position = UDim2.new(0, 0, 0, 32)
     statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Tàng Hình TẮT"
-    statusLabel.TextColor3 = Config.PrimaryColor
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextSize = 10
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Center
-    statusLabel.Parent = statusFrame
+    statusLabel.Text = "Trạng thái: 🔴"
+    statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    statusLabel.Font = Enum.Font.GothamMedium
+    statusLabel.TextSize = 11
+    statusLabel.Parent = mainFrame
     
-    statusFrame.Parent = mainFrame
+    -- HOTKEY HINT (Làm mờ nhỏ gọn bên dưới)
+    local hotkeyLabel = Instance.new("TextLabel")
+    hotkeyLabel.Size = UDim2.new(1, 0, 0, 12)
+    hotkeyLabel.Position = UDim2.new(0, 0, 0, 50)
+    hotkeyLabel.BackgroundTransparency = 1
+    hotkeyLabel.Text = "Phím tắt: X | Ẩn: M"
+    hotkeyLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+    hotkeyLabel.Font = Enum.Font.Gotham
+    hotkeyLabel.TextSize = 9
+    hotkeyLabel.Parent = mainFrame
 
-    -- Main Toggle Button
+    -- TOGGLE BUTTON
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "ToggleBtn"
-    toggleBtn.Size = UDim2.new(1, -16, 0, 30)
-    toggleBtn.Position = UDim2.new(0, 8, 0, 32)
-    toggleBtn.Text = "X"
-    toggleBtn.BackgroundColor3 = Config.PrimaryColor
-    toggleBtn.TextColor3 = Config.TextColor
+    toggleBtn.Size = UDim2.new(1, -20, 0, 24)
+    toggleBtn.Position = UDim2.new(0, 10, 0, 64)
+    toggleBtn.Text = "TÀNG HÌNH: TẮT"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     toggleBtn.Font = Enum.Font.GothamBold
-    toggleBtn.TextSize = 12
-    toggleBtn.AutoButtonColor = false
-    
-    -- Button rainbow stroke
-    local toggleStroke = Instance.new("UIStroke")
-    toggleStroke.Color = Color3.new(1, 1, 1)
-    toggleStroke.Thickness = 1
-    toggleStroke.Transparency = 0.7
-    toggleStroke.Parent = toggleBtn
-    
-    task.spawn(function()
-        createSmoothRainbow(toggleStroke)
-    end)
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = toggleBtn
-    
-    toggleBtn.MouseButton1Click:Connect(function()
-        toggleInvisibility()
-    end)
+    toggleBtn.TextSize = 10
     toggleBtn.Parent = mainFrame
+    applyStyle(toggleBtn, 6)
     
-    mainFrame.Parent = gui
+    toggleBtn.MouseButton1Click:Connect(toggleInvisibility)
+    
+    -- NÚT ẨN/HIỆN GIAO DIỆN CHÍNH
+    toggleOpenBtn = Instance.new("TextButton")
+    toggleOpenBtn.Size = UDim2.new(0, 35, 0, 35)
+    toggleOpenBtn.Position = UDim2.new(0, 10, 0, 60)
+    toggleOpenBtn.Text = "👉👌"
+    toggleOpenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleOpenBtn.Font = Enum.Font.GothamBold
+    toggleOpenBtn.TextSize = 16
+    toggleOpenBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    toggleOpenBtn.Parent = gui
+    applyStyle(toggleOpenBtn, 8)
+    
+    toggleOpenBtn.MouseButton1Click:Connect(toggleUI)
+    
+    -- ==========================================
+    -- HỆ THỐNG KÉO MENU (DRAG THEO TITLE)
+    -- ==========================================
+    local draggingMenu = false
+    local dragInput, dragStart, startPos
+
+    title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingMenu = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    draggingMenu = false
+                end
+            end)
+        end
+    end)
+
+    title.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and draggingMenu then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 end
 
--- Teleport Loop
+-- ==========================================
+-- TELEPORT LOOP (LÕI TÀNG HÌNH)
+-- ==========================================
 local function startTeleportLoop()
     connections.Heartbeat = RunService.Heartbeat:Connect(function()
         if invisible and character and rootPart and humanoid then
@@ -258,12 +252,13 @@ local function startTeleportLoop()
     end)
 end
 
--- Initialize
+-- ==========================================
+-- KHỞI CHẠY VÀ KẾT NỐI SỰ KIỆN
+-- ==========================================
 setupCharacter()
 createMainUI()
 startTeleportLoop()
 
--- Keybinds
 connections.KeyToggle = UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -274,17 +269,13 @@ connections.KeyToggle = UserInputService.InputBegan:Connect(function(input, game
     end
 end)
 
--- Character Handling (ĐÃ SỬA LỖI 2 MAIN GUI)
 connections.CharacterAdded = player.CharacterAdded:Connect(function()
     invisible = false
-    task.wait(0.5) -- Đợi một chút để tải character
+    task.wait(0.5) 
     setupCharacter()
-    
-    -- Chỉ cập nhật lại UI chứ KHÔNG tạo thêm Main GUI mới
     updateUI()
 end)
 
--- Cleanup khi rời game
 connections.PlayerLeaving = player:GetPropertyChangedSignal("Parent"):Connect(function()
     if not player.Parent then
         if _G.NuclearBobo5_Cleanup then
@@ -292,13 +283,3 @@ connections.PlayerLeaving = player:GetPropertyChangedSignal("Parent"):Connect(fu
         end
     end
 end)
-
--- Success Message
-print([[
-    
-╔══════════════════════════════════════════╗
-║     FIXED: ULTRA COMPACT UI LOADED       ║
-║   Key System: Bypass • Rainbow Stroke    ║
-╚══════════════════════════════════════════╝
-
-]])
