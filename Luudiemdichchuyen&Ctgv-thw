@@ -1,0 +1,339 @@
+--[[
+    Multi-Waypoint Teleport Hub (Batman GUI Style)
+    Optimized for PC & Mobile
+    Update: Buttons ordered from Right to Left (TP -> Delete -> Edit)
+]]
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+
+-- Bảng lưu trữ các vị trí: { [tên_địa_điểm] = CFrame }
+local savedLocations = {}
+local locationCount = 0
+
+-- ==========================================
+-- HÀM HỖ TRỢ LÀM ĐẸP & TỐI ƯU GUI
+-- ==========================================
+local function applyUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+end
+
+local function applyUIStroke(instance, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(70, 70, 75)
+    stroke.Thickness = thickness or 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+end
+
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ==========================================
+-- KHỞI TẠO GIAO DIỆN CHÍNH
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MultiTeleportHub"
+ScreenGui.ResetOnSpawn = false
+local success, _ = pcall(function() ScreenGui.Parent = CoreGui end)
+if not success then ScreenGui.Parent = Player:WaitForChild("PlayerGui") end
+
+-- Nút nổi bật/tắt UI (Hình tròn)
+local ToggleUIBtn = Instance.new("TextButton")
+ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleUIBtn.Position = UDim2.new(0, 15, 0, 15)
+ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+ToggleUIBtn.Text = "Ẩn/hiện"
+ToggleUIBtn.TextColor3 = Color3.fromRGB(100, 170, 255)
+ToggleUIBtn.Font = Enum.Font.GothamBold
+ToggleUIBtn.TextSize = 14
+ToggleUIBtn.Parent = ScreenGui
+applyUICorner(ToggleUIBtn, 50)
+applyUIStroke(ToggleUIBtn, Color3.fromRGB(100, 170, 255), 2)
+makeDraggable(ToggleUIBtn, ToggleUIBtn)
+
+-- Khung chính (Main Frame)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 0, 0, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.ClipsDescendants = true
+MainFrame.Active = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+applyUICorner(MainFrame, 10)
+applyUIStroke(MainFrame)
+
+-- Thanh tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+Title.Text = "Lưu Điểm Dịch Chuyển <Ctgv-thw>"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+applyUICorner(Title, 10)
+makeDraggable(Title, MainFrame)
+
+local TitleCover = Instance.new("Frame")
+TitleCover.Size = UDim2.new(1, 0, 0, 10)
+TitleCover.Position = UDim2.new(0, 0, 1, -10)
+TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+TitleCover.BorderSizePixel = 0
+TitleCover.Parent = Title
+
+-- Khu vực nhập liệu (Tên địa điểm)
+local InputFrame = Instance.new("Frame")
+InputFrame.Size = UDim2.new(1, -20, 0, 35)
+InputFrame.Position = UDim2.new(0, 10, 0, 45)
+InputFrame.BackgroundTransparency = 1
+InputFrame.Parent = MainFrame
+
+local NameInput = Instance.new("TextBox")
+NameInput.Size = UDim2.new(0.68, 0, 1, 0)
+NameInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+NameInput.PlaceholderText = "Nhập tên điểm..."
+NameInput.Text = ""
+NameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+NameInput.Font = Enum.Font.Gotham
+NameInput.TextSize = 11
+NameInput.Parent = InputFrame
+applyUICorner(NameInput, 6)
+applyUIStroke(NameInput)
+
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(0.28, 0, 1, 0)
+SaveBtn.Position = UDim2.new(0.72, 0, 0, 0)
+SaveBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 80)
+SaveBtn.Text = "💾 Lưu"
+SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.TextSize = 11
+SaveBtn.Parent = InputFrame
+applyUICorner(SaveBtn, 6)
+
+-- Đường kẻ ngang phân cách
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, -20, 0, 1)
+Divider.Position = UDim2.new(0, 10, 0, 90)
+Divider.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
+Divider.BorderSizePixel = 0
+Divider.Parent = MainFrame
+
+-- Khu vực danh sách các điểm đã lưu (ScrollingFrame)
+local ListScroll = Instance.new("ScrollingFrame")
+ListScroll.Size = UDim2.new(1, -20, 1, -100)
+ListScroll.Position = UDim2.new(0, 10, 0, 95)
+ListScroll.BackgroundTransparency = 1
+ListScroll.BorderSizePixel = 0
+ListScroll.ScrollBarThickness = 3
+ListScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 105)
+ListScroll.Parent = MainFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Parent = ListScroll
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 6)
+
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ListScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- ==========================================
+-- HIỆU ỨNG TWEEN ẨN/HIỆN MENU
+-- ==========================================
+local isMenuOpen = false
+
+local function toggleMenu()
+    isMenuOpen = not isMenuOpen
+    if isMenuOpen then
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 300, 0, 350)
+        }):Play()
+    else
+        local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        closeTween:Play()
+        closeTween.Completed:Connect(function()
+            if not isMenuOpen then MainFrame.Visible = false end
+        end)
+    end
+end
+
+ToggleUIBtn.Activated:Connect(toggleMenu)
+
+-- ==========================================
+-- LOGIC XỬ LÝ LƯU, DỊCH CHUYỂN, SỬA TÊN & XÓA
+-- ==========================================
+local function createLocationRow(locName, locCFrame)
+    local oldName = locName
+
+    local Row = Instance.new("Frame")
+    Row.Size = UDim2.new(1, -6, 0, 35)
+    Row.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Row.Parent = ListScroll
+    applyUICorner(Row, 6)
+    applyUIStroke(Row, Color3.fromRGB(60, 60, 65), 1)
+
+    -- Ô Text hiển thị / Sửa tên địa điểm (Chiếm nửa bên trái dòng)
+    local RowNameInput = Instance.new("TextBox")
+    RowNameInput.Size = UDim2.new(0.44, 0, 1, 0)
+    RowNameInput.Position = UDim2.new(0.02, 0, 0, 0)
+    RowNameInput.BackgroundTransparency = 1
+    RowNameInput.Text = oldName
+    RowNameInput.TextColor3 = Color3.fromRGB(220, 220, 225)
+    RowNameInput.Font = Enum.Font.GothamMedium
+    RowNameInput.TextSize = 11
+    RowNameInput.TextXAlignment = Enum.TextXAlignment.Left
+    RowNameInput.TextEditable = false
+    RowNameInput.ClearTextOnFocus = false
+    RowNameInput.Parent = Row
+
+    -- [SẮP XẾP TỪ PHẢI SANG TRÁI]
+    
+    -- 1. Nút TP (Nằm ngoài cùng bên phải)
+    local TPBtn = Instance.new("TextButton")
+    TPBtn.Size = UDim2.new(0.16, 0, 0, 25)
+    TPBtn.Position = UDim2.new(0.82, 0, 0.5, -12.5) -- Đẩy sát lề phải (Vị trí 82%)
+    TPBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
+    TPBtn.Text = "TP"
+    TPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TPBtn.Font = Enum.Font.GothamBold
+    TPBtn.TextSize = 10
+    TPBtn.Parent = Row
+    applyUICorner(TPBtn, 5)
+
+    -- 2. Nút Xóa (Đứng ở giữa, bên trái nút TP)
+    local DelBtn = Instance.new("TextButton")
+    DelBtn.Size = UDim2.new(0.12, 0, 0, 25)
+    DelBtn.Position = UDim2.new(0.68, 0, 0.5, -12.5) -- Vị trí 68%
+    DelBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+    DelBtn.Text = "🗑️"
+    DelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DelBtn.Font = Enum.Font.GothamBold
+    DelBtn.TextSize = 10
+    DelBtn.Parent = Row
+    applyUICorner(DelBtn, 5)
+
+    -- 3. Nút Sửa Tên (Đứng đầu hàng nút, bên trái nút Xóa)
+    local EditBtn = Instance.new("TextButton")
+    EditBtn.Size = UDim2.new(0.12, 0, 0, 25)
+    EditBtn.Position = UDim2.new(0.54, 0, 0.5, -12.5) -- Vị trí 54%
+    EditBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+    EditBtn.Text = "✏️"
+    EditBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    EditBtn.Font = Enum.Font.GothamBold
+    EditBtn.TextSize = 10
+    EditBtn.Parent = Row
+    applyUICorner(EditBtn, 5)
+
+    -- [Sự kiện] Dịch chuyển
+    TPBtn.Activated:Connect(function()
+        local char = Player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = savedLocations[oldName]
+            
+            local oldColor = TPBtn.BackgroundColor3
+            TPBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+            task.wait(0.2)
+            TPBtn.BackgroundColor3 = oldColor
+        end
+    end)
+
+    -- [Sự kiện] Xóa
+    DelBtn.Activated:Connect(function()
+        savedLocations[oldName] = nil
+        Row:Destroy()
+    end)
+
+    -- [Sự kiện] Kích hoạt chế độ sửa tên
+    EditBtn.Activated:Connect(function()
+        RowNameInput.TextEditable = true
+        RowNameInput:CaptureFocus()
+        EditBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 50)
+    end)
+
+    -- [Sự kiện] Lưu tên khi hoàn tất sửa
+    RowNameInput.FocusLost:Connect(function()
+        RowNameInput.TextEditable = false
+        EditBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+        
+        local newName = RowNameInput.Text
+        
+        if newName == oldName or newName:match("^%s*$") then
+            RowNameInput.Text = oldName
+            return
+        end
+        
+        if savedLocations[newName] then
+            RowNameInput.Text = oldName
+            local oc = EditBtn.BackgroundColor3
+            EditBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+            task.wait(0.5)
+            EditBtn.BackgroundColor3 = oc
+            return
+        end
+        
+        savedLocations[newName] = savedLocations[oldName]
+        savedLocations[oldName] = nil
+        oldName = newName
+    end)
+end
+
+SaveBtn.Activated:Connect(function()
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local currentCFrame = char.HumanoidRootPart.CFrame
+        local inputName = NameInput.Text
+        
+        if inputName == "" or inputName:match("^%s*$") then
+            locationCount = locationCount + 1
+            inputName = "Vị trí " .. locationCount
+        end
+
+        if savedLocations[inputName] then
+            NameInput.Text = "Tên đã tồn tại!"
+            task.wait(1)
+            NameInput.Text = ""
+            return
+        end
+
+        savedLocations[inputName] = currentCFrame
+        createLocationRow(inputName, currentCFrame)
+        
+        NameInput.Text = ""
+        SaveBtn.Text = "✅ Đã lưu"
+        task.wait(0.5)
+        SaveBtn.Text = "💾 Lưu"
+    end
+end)
