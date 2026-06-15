@@ -1,0 +1,420 @@
+--// The Flash V2.3 (Màu Sắc Tùy Chỉnh: Vàng - Trắng - Đỏ) - ĐÃ UPGRADE SÉT
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local LocalPlayer = Players.LocalPlayer
+
+if _G.FlashConnections then
+    for _, conn in pairs(_G.FlashConnections) do pcall(function() conn:Disconnect() end) end
+end
+_G.FlashConnections = {}
+local function registerConn(conn) table.insert(_G.FlashConnections, conn); return conn end
+
+local CoreGui = game:GetService("CoreGui")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+for _, gui in pairs(CoreGui:GetChildren()) do if gui.Name == "FlashSpeedMenu" then gui:Destroy() end end
+for _, gui in pairs(PlayerGui:GetChildren()) do if gui.Name == "FlashSpeedMenu" then gui:Destroy() end end
+
+local FLASH_SPEED = 150 
+local NORMAL_FOV = 70
+
+local isSpeeding = false
+local isSpeedToggled = false
+local wasMovingFast = false
+local lastAfterImage = 0 
+
+local currentTrails = {}
+local currentSparks, currentLightning, currentLight = nil, nil, nil
+
+-- ==========================================
+-- BẢNG MÀU MẶC ĐỊNH MỚI CỦA BẠN
+-- ==========================================
+local effectColors = {
+    Trail = Color3.fromRGB(255, 255, 0),       -- Vàng
+    Sparks = Color3.fromRGB(255, 255, 0),      -- Vàng
+    Lightning = Color3.fromRGB(255, 255, 255), -- Trắng
+    Afterimage = Color3.fromRGB(255, 0, 0),    -- Đỏ
+    Light = Color3.fromRGB(255, 255, 0)        -- Vàng
+}
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlashSpeedMenu"
+screenGui.ResetOnSpawn = false
+local success = pcall(function() screenGui.Parent = CoreGui end)
+if not success then screenGui.Parent = PlayerGui end
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 280) 
+frame.Position = UDim2.new(0.5, -125, 0.8, -290)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+frame.Active = true
+frame.Draggable = true 
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = frame
+local mainStroke = Instance.new("UIStroke") mainStroke.Color = effectColors.Trail mainStroke.Thickness = 2 mainStroke.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "⚡ THE FLASH (V2.3 - Ctgv-thw)"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.Parent = frame
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0.5, 0, 0, 30)
+speedLabel.Position = UDim2.new(0, 15, 0, 40)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Tốc độ chạy:"
+speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+speedLabel.Font = Enum.Font.GothamMedium
+speedLabel.TextSize = 13
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = frame
+
+local speedInput = Instance.new("TextBox")
+speedInput.Size = UDim2.new(0, 80, 0, 30)
+speedInput.Position = UDim2.new(0.5, 30, 0, 40)
+speedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.Font = Enum.Font.GothamBold
+speedInput.TextSize = 14
+speedInput.Text = tostring(FLASH_SPEED)
+speedInput.Parent = frame
+local inputCorner = Instance.new("UICorner") inputCorner.CornerRadius = UDim.new(0, 6) inputCorner.Parent = speedInput
+
+local targets = {
+    {name = "Tia Đuôi (Trail)", key = "Trail"},
+    {name = "Tia Sét (Lightning)", key = "Lightning"},
+    {name = "Hạt Điện (Sparks)", key = "Sparks"},
+    {name = "Bóng Hình (Clone)", key = "Afterimage"},
+    {name = "Đèn Sáng (Light)", key = "Light"}
+}
+local currentTargetIndex = 1
+
+local targetLabel = Instance.new("TextLabel")
+targetLabel.Size = UDim2.new(0.4, 0, 0, 20)
+targetLabel.Position = UDim2.new(0, 15, 0, 80)
+targetLabel.BackgroundTransparency = 1
+targetLabel.Text = "Đang chỉnh:"
+targetLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+targetLabel.Font = Enum.Font.GothamMedium
+targetLabel.TextSize = 13
+targetLabel.TextXAlignment = Enum.TextXAlignment.Left
+targetLabel.Parent = frame
+
+local targetBtn = Instance.new("TextButton")
+targetBtn.Size = UDim2.new(0, 130, 0, 25)
+targetBtn.Position = UDim2.new(0.4, 10, 0, 78)
+targetBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+targetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+targetBtn.Font = Enum.Font.GothamBold
+targetBtn.TextSize = 12
+targetBtn.Text = targets[currentTargetIndex].name
+targetBtn.Parent = frame
+local targetBtnCorner = Instance.new("UICorner") targetBtnCorner.CornerRadius = UDim.new(0, 6) targetBtnCorner.Parent = targetBtn
+
+targetBtn.Activated:Connect(function()
+    currentTargetIndex = currentTargetIndex % #targets + 1
+    targetBtn.Text = targets[currentTargetIndex].name
+end)
+
+local paletteFrame = Instance.new("Frame")
+paletteFrame.Size = UDim2.new(1, 0, 0, 30)
+paletteFrame.Position = UDim2.new(0, 0, 0, 115)
+paletteFrame.BackgroundTransparency = 1
+paletteFrame.Parent = frame
+
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Horizontal
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.VerticalAlignment = Enum.VerticalAlignment.Center
+layout.Padding = UDim.new(0, 6) 
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = paletteFrame
+
+local colorOptions = {
+    Color3.fromRGB(0, 255, 255),   
+    Color3.fromRGB(255, 50, 50),   
+    Color3.fromRGB(50, 255, 50),   
+    Color3.fromRGB(50, 100, 255),  
+    Color3.fromRGB(255, 50, 255),  
+    Color3.fromRGB(170, 0, 255),   
+    Color3.fromRGB(255, 255, 0),   
+    Color3.fromRGB(255, 255, 255)  
+}
+
+local colorButtons = {}
+
+for _, color in ipairs(colorOptions) do
+    local colorBtn = Instance.new("TextButton")
+    colorBtn.Size = UDim2.new(0, 22, 0, 22)
+    colorBtn.BackgroundColor3 = color
+    colorBtn.Text = ""
+    colorBtn.Parent = paletteFrame
+    
+    local btnCorner = Instance.new("UICorner") btnCorner.CornerRadius = UDim.new(1, 0) btnCorner.Parent = colorBtn
+    local btnStroke = Instance.new("UIStroke") btnStroke.Thickness = 2 btnStroke.Color = Color3.fromRGB(255, 255, 255) btnStroke.Transparency = 0.8 btnStroke.Parent = colorBtn
+    
+    table.insert(colorButtons, btnStroke)
+
+    colorBtn.Activated:Connect(function()
+        local currentKey = targets[currentTargetIndex].key
+        effectColors[currentKey] = color
+        for _, strokeElem in ipairs(colorButtons) do strokeElem.Transparency = 0.8 end
+        btnStroke.Transparency = 0
+        mainStroke.Color = color 
+        
+        local colorSeq = ColorSequence.new(color)
+        if currentKey == "Trail" then
+            for _, trail in ipairs(currentTrails) do trail.Color = colorSeq end
+        elseif currentKey == "Sparks" and currentSparks then currentSparks.Color = colorSeq
+        elseif currentKey == "Lightning" and currentLightning then currentLightning.Color = colorSeq
+        elseif currentKey == "Light" and currentLight then currentLight.Color = color
+        end
+    end)
+end
+
+local toggleSpeedBtn = Instance.new("TextButton")
+toggleSpeedBtn.Size = UDim2.new(1, -30, 0, 35)
+toggleSpeedBtn.Position = UDim2.new(0, 15, 0, 175)
+toggleSpeedBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+toggleSpeedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleSpeedBtn.Font = Enum.Font.GothamBold
+toggleSpeedBtn.TextSize = 13
+toggleSpeedBtn.Text = "CHẾ ĐỘ CHẠY: TẮT"
+toggleSpeedBtn.Parent = frame
+local btnCornerMain = Instance.new("UICorner") btnCornerMain.CornerRadius = UDim.new(0, 6) btnCornerMain.Parent = toggleSpeedBtn
+
+local toggleText = Instance.new("TextLabel")
+toggleText.Size = UDim2.new(1, 0, 0, 20)
+toggleText.Position = UDim2.new(0, 0, 0, 225)
+toggleText.BackgroundTransparency = 1
+toggleText.Text = "(Hoặc giữ SHIFT để chạy)"
+toggleText.TextColor3 = Color3.fromRGB(150, 150, 150)
+toggleText.Font = Enum.Font.Gotham
+toggleText.TextSize = 11
+toggleText.Parent = frame
+
+local function getDynamicFOV()
+    return math.clamp(NORMAL_FOV + (FLASH_SPEED * 0.2), NORMAL_FOV, 120)
+end
+
+local function updateEffectsState(state)
+    isSpeeding = state
+    local cam = workspace.CurrentCamera
+    if isSpeeding then
+        for _, trail in ipairs(currentTrails) do trail.Enabled = true end
+        if currentLight then currentLight.Enabled = true end
+        if cam then TweenService:Create(cam, TweenInfo.new(0.4), {FieldOfView = getDynamicFOV()}):Play() end
+    else
+        for _, trail in ipairs(currentTrails) do trail.Enabled = false end
+        if currentLight then currentLight.Enabled = false end
+        if cam then TweenService:Create(cam, TweenInfo.new(0.3), {FieldOfView = NORMAL_FOV}):Play() end
+    end
+end
+
+speedInput.FocusLost:Connect(function()
+    local newSpeed = tonumber(speedInput.Text)
+    if newSpeed then FLASH_SPEED = newSpeed if isSpeeding then updateEffectsState(true) end
+    else speedInput.Text = tostring(FLASH_SPEED) end
+end)
+
+toggleSpeedBtn.Activated:Connect(function()
+    isSpeedToggled = not isSpeedToggled
+    if isSpeedToggled then
+        toggleSpeedBtn.Text = "CHẾ ĐỘ CHẠY: ĐANG BẬT"
+        toggleSpeedBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        updateEffectsState(true)
+    else
+        toggleSpeedBtn.Text = "CHẾ ĐỘ CHẠY: TẮT"
+        toggleSpeedBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
+        if not UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then updateEffectsState(false) end
+    end
+end)
+
+local function createLimbTrail(part)
+    local a0 = Instance.new("Attachment", part) a0.Position = Vector3.new(0, 0.15, 0) 
+    local a1 = Instance.new("Attachment", part) a1.Position = Vector3.new(0, -0.15, 0) 
+    local trail = Instance.new("Trail")
+    trail.Attachment0 = a0 trail.Attachment1 = a1
+    trail.Color = ColorSequence.new(effectColors.Trail) trail.FaceCamera = true trail.LightEmission = 1
+    trail.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1)})
+    trail.Lifetime = 2.0 trail.Enabled = false trail.Parent = part
+    return trail
+end
+
+local function createSparks(parent)
+    local emitter = Instance.new("ParticleEmitter")
+    emitter.Color = ColorSequence.new(effectColors.Sparks)
+    emitter.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0)})
+    emitter.Lifetime = NumberRange.new(0.5, 1.0) 
+    emitter.Rate = 0
+    emitter.Speed = NumberRange.new(5, 15) 
+    emitter.SpreadAngle = Vector2.new(180, 180)
+    emitter.EmissionDirection = Enum.NormalId.Back 
+    emitter.ZOffset = 1
+    emitter.Parent = parent
+    return emitter
+end
+
+-- ==========================================
+-- ĐÃ CẢI TIẾN: HỆ THỐNG TIA SÉT DÀY VÀ ĐẸP HƠN
+-- ==========================================
+local function createLightningEmitter(parent)
+    local emitter = Instance.new("ParticleEmitter")
+    emitter.Color = ColorSequence.new(effectColors.Lightning)
+    -- Kích thước tia sét to và rõ hơn ở điểm giữa
+    emitter.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.15, 3.5), NumberSequenceKeypoint.new(1, 0)})
+    -- Thời gian tồn tại cực ngắn giúp sét chớp giật liên tục, không bị kéo vệt giống khói
+    emitter.Lifetime = NumberRange.new(0.15, 0.4) 
+    emitter.Rate = 0
+    -- Tốc độ phóng tia sét nhanh và bung rộng hơn
+    emitter.Speed = NumberRange.new(15, 35) 
+    emitter.SpreadAngle = Vector2.new(360, 360) 
+    emitter.EmissionDirection = Enum.NormalId.Back 
+    emitter.LightEmission = 1
+    emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
+    -- Tăng độ dẹp dài (Squash) làm hạt kéo dãn ra nhìn như tia sét thực thụ
+    emitter.Squash = NumberSequence.new(6) 
+    emitter.Drag = 2 
+    emitter.ZOffset = 1.5
+    emitter.Parent = parent
+    return emitter
+end
+
+local validLimbs = {
+    ["Left Leg"] = true, ["Right Leg"] = true, ["Left Arm"] = true, ["Right Arm"] = true,
+    ["LeftFoot"] = true, ["RightFoot"] = true, ["LeftHand"] = true, ["RightHand"] = true,
+    ["UpperTorso"] = true, ["LowerTorso"] = true, ["Head"] = true
+}
+
+local function setupCharacter(char)
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if not hrp or not humanoid then return end
+
+    for _, t in ipairs(currentTrails) do t:Destroy() end
+    currentTrails = {}
+    if currentSparks then currentSparks:Destroy() end
+    if currentLightning then currentLightning:Destroy() end
+    if currentLight then currentLight:Destroy() end
+
+    for _, part in pairs(char:GetChildren()) do
+        if part:IsA("BasePart") and validLimbs[part.Name] then
+            table.insert(currentTrails, createLimbTrail(part))
+        end
+    end
+    table.insert(currentTrails, createLimbTrail(hrp))
+
+    currentSparks = createSparks(hrp)
+    currentLightning = createLightningEmitter(hrp)
+
+    currentLight = Instance.new("PointLight")
+    currentLight.Color = effectColors.Light
+    currentLight.Range = 15 currentLight.Brightness = 3 currentLight.Enabled = false currentLight.Parent = hrp
+end
+
+if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+registerConn(LocalPlayer.CharacterAdded:Connect(setupCharacter))
+
+-- ==========================================
+-- HỆ THỐNG BÓNG HÌNH ĐỈNH CAO (RÕ HƠN, ẨN LÂU HƠN)
+-- ==========================================
+local function createAfterImage(char)
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Transparency < 1 then
+            part.Archivable = true
+            local success, clonePart = pcall(function() return part:Clone() end)
+            if success and clonePart then
+                clonePart.Anchored = true 
+                clonePart.CanCollide = false 
+                clonePart.CFrame = part.CFrame
+                clonePart.Material = Enum.Material.Neon 
+                clonePart.Color = effectColors.Afterimage 
+                clonePart.Transparency = 0.1
+                clonePart.Massless = true
+                
+                for _, child in pairs(clonePart:GetChildren()) do 
+                    if not child:IsA("DataModelMesh") and not child:IsA("SpecialMesh") then 
+                        child:Destroy() 
+                    end 
+                end
+                
+                clonePart.Parent = workspace
+                
+                local tweenInfo = TweenInfo.new(1.2, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+                local tween = TweenService:Create(clonePart, tweenInfo, {Transparency = 1})
+                tween:Play()
+                
+                Debris:AddItem(clonePart, 1.2) 
+            end
+        end
+    end
+end
+
+-- ==========================================
+-- VÒNG LẶP TRẠNG THÁI (CORE ENGINE)
+-- ==========================================
+registerConn(RunService.Heartbeat:Connect(function(deltaTime)
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+    
+    if hrp and humanoid then
+        local isMoving = humanoid.MoveDirection.Magnitude > 0
+        local activeSpeeding = isSpeedToggled or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+        local currState = humanoid:GetState()
+
+        if activeSpeeding and isMoving then
+            local moveVector = humanoid.MoveDirection * (FLASH_SPEED * deltaTime)
+            hrp.CFrame = hrp.CFrame + moveVector
+            
+            if currentSparks then currentSparks.Rate = 75 end
+            -- TĂNG MẠNH: Đẩy số lượng hạt tia sét từ 40 lên hẳn 180 hạt/giây cực kỳ dày đặc
+            if currentLightning then currentLightning.Rate = 180 end 
+            
+            wasMovingFast = true
+
+            if tick() - lastAfterImage > 0.02 then
+                createAfterImage(char)
+                lastAfterImage = tick()
+            end
+        else
+            if currentSparks then currentSparks.Rate = 0 end
+            if currentLightning then currentLightning.Rate = 0 end
+            
+            if wasMovingFast then
+                wasMovingFast = false
+                if currState ~= Enum.HumanoidStateType.Jumping and currState ~= Enum.HumanoidStateType.Freefall then
+                    local lookDir = hrp.CFrame.LookVector
+                    task.spawn(function()
+                        for i = 1, 10 do
+                            local dt = RunService.Heartbeat:Wait()
+                            if hrp then
+                                hrp.CFrame = hrp.CFrame + (lookDir * (FLASH_SPEED * 0.15 * (1 - i/10) * dt))
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end))
+
+registerConn(UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.LeftShift then updateEffectsState(true) end
+end))
+
+registerConn(UserInputService.InputEnded:Connect(function(input, gpe)
+    if input.KeyCode == Enum.KeyCode.LeftShift and not isSpeedToggled then updateEffectsState(false) end
+end))
