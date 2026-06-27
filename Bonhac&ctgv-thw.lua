@@ -35,7 +35,7 @@ sound.Looped = true
 sound.PlaybackSpeed = 1 
 
 local savedSongs = {} 
-local currentSpeedStep = 0.5 
+local currentSpeedStep = 0.05 
 
 -- ================= HÀM XỬ LÝ FOLDER & FILE =================
 local function SanitizeFileName(name) return string.gsub(name, '[\\/:*?"<>|]', "_") end
