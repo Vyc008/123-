@@ -5,6 +5,7 @@
     - Buttons ordered (TP -> Delete -> Edit)
     - Local File Saving (1 JSON per waypoint)
     - Game-specific Folders (prevents cross-game coordinate glitches)
+    - [NEW] Added Search Bar to filter saved locations
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -18,35 +19,28 @@ local Player = Players.LocalPlayer
 -- ==========================================
 -- HỆ THỐNG LƯU TRỮ LOCAL (FILE SYSTEM)
 -- ==========================================
--- Tạo thư mục riêng cho từng tựa game để tránh trùng tọa độ gây lỗi map
 local FOLDER_NAME = "BatmanTeleports_" .. tostring(game.PlaceId)
-
 local savedLocations = {}
 local locationCount = 0
 
--- Lọc ký tự đặc biệt để tên file không bị lỗi hệ điều hành
 local function SanitizeFileName(name)
     return string.gsub(name, '[\\/:*?"<>|]', "_")
 end
 
--- Khởi tạo thư mục
 local function InitFolder()
     if makefolder and not isfolder(FOLDER_NAME) then
         makefolder(FOLDER_NAME)
     end
 end
 
--- Đóng gói CFrame (Tọa độ) thành Array để lưu vào JSON
 local function SerializeCFrame(cf)
     return {cf:GetComponents()}
 end
 
--- Giải nén Array thành CFrame khi tải từ JSON
 local function DeserializeCFrame(tab)
     return CFrame.new(unpack(tab))
 end
 
--- Lưu điểm vào file JSON
 local function SavePointToFile(name, cf)
     InitFolder()
     if writefile then
@@ -60,7 +54,6 @@ local function SavePointToFile(name, cf)
     end
 end
 
--- Xóa file JSON của điểm
 local function DeletePointFile(name)
     if delfile then
         local safeName = SanitizeFileName(name)
@@ -150,7 +143,7 @@ applyUIStroke(MainFrame)
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-Title.Text = "Lưu Điểm Dịch Chuyển <Ctgv-thw>"
+Title.Text = "  Lưu Điểm Dịch Chuyển <Ctgv-thw>"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 12
@@ -166,6 +159,7 @@ TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 TitleCover.BorderSizePixel = 0
 TitleCover.Parent = Title
 
+-- [KHU VỰC LƯU MỚI]
 local InputFrame = Instance.new("Frame")
 InputFrame.Size = UDim2.new(1, -20, 0, 35)
 InputFrame.Position = UDim2.new(0, 10, 0, 45)
@@ -175,7 +169,7 @@ InputFrame.Parent = MainFrame
 local NameInput = Instance.new("TextBox")
 NameInput.Size = UDim2.new(0.68, 0, 1, 0)
 NameInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-NameInput.PlaceholderText = "Nhập tên điểm..."
+NameInput.PlaceholderText = "Nhập tên điểm để lưu..."
 NameInput.Text = ""
 NameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 NameInput.Font = Enum.Font.Gotham
@@ -195,16 +189,31 @@ SaveBtn.TextSize = 11
 SaveBtn.Parent = InputFrame
 applyUICorner(SaveBtn, 6)
 
+-- [KHU VỰC TÌM KIẾM MỚI THÊM]
+local SearchInput = Instance.new("TextBox")
+SearchInput.Size = UDim2.new(1, -20, 0, 30)
+SearchInput.Position = UDim2.new(0, 10, 0, 85)
+SearchInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SearchInput.PlaceholderText = "🔍 Tìm kiếm địa điểm đã lưu..."
+SearchInput.Text = ""
+SearchInput.TextColor3 = Color3.fromRGB(150, 200, 255)
+SearchInput.Font = Enum.Font.Gotham
+SearchInput.TextSize = 11
+SearchInput.Parent = MainFrame
+applyUICorner(SearchInput, 6)
+applyUIStroke(SearchInput, Color3.fromRGB(80, 120, 180), 1)
+
 local Divider = Instance.new("Frame")
 Divider.Size = UDim2.new(1, -20, 0, 1)
-Divider.Position = UDim2.new(0, 10, 0, 90)
+Divider.Position = UDim2.new(0, 10, 0, 122)
 Divider.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
 Divider.BorderSizePixel = 0
 Divider.Parent = MainFrame
 
+-- [DANH SÁCH CUỘN]
 local ListScroll = Instance.new("ScrollingFrame")
-ListScroll.Size = UDim2.new(1, -20, 1, -100)
-ListScroll.Position = UDim2.new(0, 10, 0, 95)
+ListScroll.Size = UDim2.new(1, -20, 1, -135)
+ListScroll.Position = UDim2.new(0, 10, 0, 128)
 ListScroll.BackgroundTransparency = 1
 ListScroll.BorderSizePixel = 0
 ListScroll.ScrollBarThickness = 3
@@ -221,15 +230,16 @@ ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 -- ==========================================
--- HIỆU ỨNG TWEEN ẨN/HIỆN MENU
+-- HIỆU ỨNG TWEEN & LOGIC TÌM KIẾM
 -- ==========================================
 local isMenuOpen = false
 local function toggleMenu()
     isMenuOpen = not isMenuOpen
     if isMenuOpen then
         MainFrame.Visible = true
+        -- Tăng chiều cao UI lên 390 để chứa vừa thanh tìm kiếm
         TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 300, 0, 350)
+            Size = UDim2.new(0, 300, 0, 390)
         }):Play()
     else
         local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -242,6 +252,24 @@ local function toggleMenu()
     end
 end
 ToggleUIBtn.Activated:Connect(toggleMenu)
+
+-- Logic Lọc (Tìm kiếm)
+SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+    local searchText = string.lower(SearchInput.Text)
+    for _, child in ipairs(ListScroll:GetChildren()) do
+        if child:IsA("Frame") then
+            local nameBox = child:FindFirstChildOfClass("TextBox")
+            if nameBox then
+                local locName = string.lower(nameBox.Text)
+                if string.find(locName, searchText, 1, true) then
+                    child.Visible = true
+                else
+                    child.Visible = false
+                end
+            end
+        end
+    end
+end)
 
 -- ==========================================
 -- LOGIC XỬ LÝ LƯU, DỊCH CHUYỂN, SỬA TÊN & XÓA
@@ -316,7 +344,7 @@ local function createLocationRow(locName, locCFrame)
     DelBtn.Activated:Connect(function()
         savedLocations[oldName] = nil
         Row:Destroy()
-        DeletePointFile(oldName) -- Xóa luôn file JSON khi bấm Xóa
+        DeletePointFile(oldName) 
     end)
 
     EditBtn.Activated:Connect(function()
@@ -347,11 +375,9 @@ local function createLocationRow(locName, locCFrame)
         
         local cfToSave = savedLocations[oldName]
         
-        -- Cập nhật vào bảng lưu trữ (Ram)
         savedLocations[newName] = cfToSave
         savedLocations[oldName] = nil
         
-        -- Cập nhật vào File Hệ thống (Bộ nhớ máy)
         DeletePointFile(oldName) 
         SavePointToFile(newName, cfToSave)
         
@@ -377,11 +403,9 @@ SaveBtn.Activated:Connect(function()
             return
         end
 
-        -- Lưu vào bảng nội bộ và tạo UI
         savedLocations[inputName] = currentCFrame
         createLocationRow(inputName, currentCFrame)
         
-        -- LƯU THẲNG VÀO FILE JSON TRÊN MÁY
         SavePointToFile(inputName, currentCFrame)
         
         NameInput.Text = ""
@@ -392,7 +416,7 @@ SaveBtn.Activated:Connect(function()
 end)
 
 -- ==========================================
--- HÀM TẢI DỮ LIỆU TỪ MÁY (LOAD LOCAL FILES)
+-- HÀM TẢI DỮ LIỆU TỪ MÁY
 -- ==========================================
 local function LoadPointsFromFile()
     if isfolder and isfolder(FOLDER_NAME) and listfiles then
@@ -405,7 +429,6 @@ local function LoadPointsFromFile()
                     if s2 and data.Name and data.CFrameData then
                         local cf = DeserializeCFrame(data.CFrameData)
                         
-                        -- Chỉ tạo nếu nó chưa tồn tại trong danh sách
                         if not savedLocations[data.Name] then
                             savedLocations[data.Name] = cf
                             createLocationRow(data.Name, cf)
@@ -418,5 +441,4 @@ local function LoadPointsFromFile()
     end
 end
 
--- Tự động quét và tải tọa độ cũ lên ngay khi script vừa chạy xong
 LoadPointsFromFile()
