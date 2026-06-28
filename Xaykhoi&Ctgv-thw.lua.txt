@@ -44,6 +44,7 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera -- Khai báo Camera để xử lý lỗi di chuyển màn hình
 
 -- ==========================================
 -- HÀM HỖ TRỢ LÀM ĐẸP (MODERN UI)
@@ -71,7 +72,6 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
--- Thu hẹp độ rộng từ 280 xuống 240
 frame.Size = UDim2.new(0, 240, 0, 280) 
 frame.Position = UDim2.new(0.5, -120, 0.4, -140)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
@@ -104,13 +104,12 @@ hintLabel.Parent = frame
 -- === BỘ CÔNG CỤ (MOVE, SCALE, ROTATE) ===
 local toolMode = "Scale"
 
--- Căn chỉnh lại 3 nút cho vừa độ rộng 240
 local btnMove = Instance.new("TextButton")
 btnMove.Size = UDim2.new(0, 65, 0, 30)
 btnMove.Position = UDim2.new(0, 15, 0, 70)
 btnMove.Text = "DI CHUYỂN"
 btnMove.Font = Enum.Font.GothamBold
-btnMove.TextSize = 9 -- Giảm size một chút để chữ tiếng Việt không bị tràn viền
+btnMove.TextSize = 9 
 btnMove.TextColor3 = Color3.fromRGB(200, 200, 200)
 btnMove.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 btnMove.Parent = frame
@@ -161,7 +160,7 @@ toggleSizeButton.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
 toggleSizeButton.Parent = frame
 applyStyle(toggleSizeButton, 8)
 
--- NÚT XÓA (BÊN TRÁI)
+-- NÚT XÓA 
 local btnDelete = Instance.new("TextButton")
 btnDelete.Size = UDim2.new(0, 100, 0, 30)
 btnDelete.Position = UDim2.new(0, 15, 0, 195)
@@ -173,7 +172,7 @@ btnDelete.BackgroundColor3 = Color3.fromRGB(180, 70, 40)
 btnDelete.Parent = frame
 applyStyle(btnDelete, 8)
 
--- NÚT KHÔI PHỤC / UNDO (BÊN PHẢI)
+-- NÚT KHÔI PHỤC
 local btnRestore = Instance.new("TextButton")
 btnRestore.Size = UDim2.new(0, 100, 0, 30)
 btnRestore.Position = UDim2.new(0, 125, 0, 195)
@@ -298,6 +297,8 @@ local function createHandle(part)
         handle.MouseButton1Down:Connect(function()
             startSize = part.Size
             startCFrame = part.CFrame
+            -- [FIX]: KHÓA CAMERA KHI BẮT ĐẦU KÉO 
+            Camera.CameraType = Enum.CameraType.Scriptable
         end)
 
         handle.MouseDrag:Connect(function(face, distance)
@@ -321,6 +322,9 @@ local function createHandle(part)
         end)
         
         handle.MouseButton1Up:Connect(function()
+            -- [FIX]: MỞ KHÓA CAMERA KHI THẢ CHUỘT
+            Camera.CameraType = Enum.CameraType.Custom
+            
             if startSize and startCFrame then
                 if startSize ~= part.Size or startCFrame ~= part.CFrame then
                     table.insert(undoStack, {{
@@ -342,6 +346,8 @@ local function createHandle(part)
 
         handle.MouseButton1Down:Connect(function()
             startCFrame = part.CFrame
+            -- [FIX]: KHÓA CAMERA KHI BẮT ĐẦU XOAY
+            Camera.CameraType = Enum.CameraType.Scriptable
         end)
 
         local axisVectors = {
@@ -356,6 +362,9 @@ local function createHandle(part)
         end)
         
         handle.MouseButton1Up:Connect(function()
+            -- [FIX]: MỞ KHÓA CAMERA KHI THẢ CHUỘT
+            Camera.CameraType = Enum.CameraType.Custom
+            
             if startCFrame and startCFrame ~= part.CFrame then
                 table.insert(undoStack, {{
                     action = "Transform", 
