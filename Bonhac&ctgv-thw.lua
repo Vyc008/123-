@@ -1,7 +1,7 @@
 --[[
     =========================================================
     🎵 ROBLOX MUSIC PLAYER & PLAYLIST (BATMAN GUI STYLE)
-    👤 Cập nhật: Sóng nhạc lan từ 4 thanh giữa ra, Đổi màu theo độ cao & Đổi icon nút Mở/Tắt
+    👤 Cập nhật: Thêm bộ kiểm tra ID thông minh báo lỗi nếu nhạc hỏng
     =========================================================
 ]]
 
@@ -35,7 +35,7 @@ sound.Looped = true
 sound.PlaybackSpeed = 1 
 
 local savedSongs = {} 
-local currentSpeedStep = 0.05 
+local currentSpeedStep = 0.25 
 
 -- ================= HÀM XỬ LÝ FOLDER & FILE =================
 local function SanitizeFileName(name) return string.gsub(name, '[\\/:*?"<>|]', "_") end
@@ -82,14 +82,11 @@ local function makeDraggable(dragObject, moveObject)
     end)
 end
 
--- Hàm chuyển màu dựa trên độ cao: Xanh -> Vàng -> Đỏ
 local function getHeightColor(height)
-    local pct = math.clamp((height - 5) / 40, 0, 1) -- Normalize độ cao từ 5 -> 45
+    local pct = math.clamp((height - 5) / 40, 0, 1) 
     if pct <= 0.5 then
-        -- Nửa dưới: Xanh lơ chuyển sang Vàng
         return Color3.fromRGB(0, 255, 150):Lerp(Color3.fromRGB(255, 220, 0), pct * 2)
     else
-        -- Nửa trên: Vàng chuyển sang Đỏ
         return Color3.fromRGB(255, 220, 0):Lerp(Color3.fromRGB(255, 20, 20), (pct - 0.5) * 2)
     end
 end
@@ -100,7 +97,6 @@ ScreenGui.Name = "BatmanMusicGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = TargetGui
 
--- ================= ĐÃ SỬA: Đổi dấu + thành icon 🎵 =================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
@@ -111,7 +107,6 @@ ToggleBtn.Parent = ScreenGui
 applyUICorner(ToggleBtn, 50)
 applyUIStroke(ToggleBtn, Color3.fromRGB(0, 255, 150), 2)
 makeDraggable(ToggleBtn, ToggleBtn)
--- =================================================================
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 0, 0, 0); MainFrame.AnchorPoint = Vector2.new(0.5, 0.5); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -140,7 +135,6 @@ PageContainer.Size = UDim2.new(1, 0, 1, -85); PageContainer.Position = UDim2.new
 local PlayerPage = Instance.new("Frame", PageContainer)
 PlayerPage.Size = UDim2.new(1, 0, 1, 0); PlayerPage.BackgroundTransparency = 1; PlayerPage.Visible = true
 
--- KHU VỰC TRÊN CÙNG: Sóng nhạc, Thanh thời gian & Text hiển thị
 local VisFrame = Instance.new("Frame", PlayerPage)
 VisFrame.Size = UDim2.new(1, -30, 0, 45)
 VisFrame.Position = UDim2.new(0, 15, 0, 0)
@@ -155,40 +149,25 @@ local bars = {}; local numBars = 36
 for i = 1, numBars do
     local bar = Instance.new("Frame", VisFrame)
     bar.Size = UDim2.new(0, 8, 0, 5)
-    bar.BackgroundColor3 = Color3.fromRGB(0, 255, 150) -- Màu gốc lúc thấp nhất
+    bar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
     bar.BorderSizePixel = 0
     applyUICorner(bar, 3)
     table.insert(bars, bar)
 end
 
--- THANH THỜI GIAN ĐỎ (Có thể click & kéo)
 local ProgressBg = Instance.new("TextButton", PlayerPage)
 ProgressBg.Size = UDim2.new(1, -30, 0, 8) 
 ProgressBg.Position = UDim2.new(0, 15, 0, 50)
 ProgressBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-ProgressBg.AutoButtonColor = false
-ProgressBg.Text = ""
-ProgressBg.BorderSizePixel = 0
-applyUICorner(ProgressBg, 4)
+ProgressBg.AutoButtonColor = false; ProgressBg.Text = ""; ProgressBg.BorderSizePixel = 0; applyUICorner(ProgressBg, 4)
 
 local ProgressFill = Instance.new("Frame", ProgressBg)
-ProgressFill.Size = UDim2.new(0, 0, 1, 0)
-ProgressFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-ProgressFill.BorderSizePixel = 0
-applyUICorner(ProgressFill, 4)
+ProgressFill.Size = UDim2.new(0, 0, 1, 0); ProgressFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0); ProgressFill.BorderSizePixel = 0; applyUICorner(ProgressFill, 4)
 
--- TEXT HIỂN THỊ THỜI GIAN BÀI HÁT
 local TimeLabel = Instance.new("TextLabel", PlayerPage)
-TimeLabel.Size = UDim2.new(1, -30, 0, 15)
-TimeLabel.Position = UDim2.new(0, 15, 0, 62)
-TimeLabel.BackgroundTransparency = 1
-TimeLabel.Text = "00:00 / 00:00"
-TimeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-TimeLabel.Font = Enum.Font.GothamMedium
-TimeLabel.TextSize = 11
-TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
+TimeLabel.Size = UDim2.new(1, -30, 0, 15); TimeLabel.Position = UDim2.new(0, 15, 0, 62); TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "00:00 / 00:00"; TimeLabel.TextColor3 = Color3.fromRGB(180, 180, 180); TimeLabel.Font = Enum.Font.GothamMedium; TimeLabel.TextSize = 11; TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 
--- CỘT TRÁI: Speed Control
 local SpeedFrame = Instance.new("Frame", PlayerPage)
 SpeedFrame.Size = UDim2.new(0.5, -20, 0, 30); SpeedFrame.Position = UDim2.new(0, 15, 0, 90); SpeedFrame.BackgroundTransparency = 1
 
@@ -203,17 +182,14 @@ FastBtn.Size = UDim2.new(0.2, 0, 1, 0); FastBtn.Position = UDim2.new(0.8, 0, 0, 
 
 local StepDropdownFrame = Instance.new("Frame", PlayerPage)
 StepDropdownFrame.Size = UDim2.new(0.5, -20, 0, 70); StepDropdownFrame.Position = UDim2.new(0, 15, 0, 130); StepDropdownFrame.BackgroundTransparency = 1
-
 local StepToggleBtn = Instance.new("TextButton", StepDropdownFrame)
 StepToggleBtn.Size = UDim2.new(1, 0, 0, 25); StepToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50); StepToggleBtn.Text = "Mức nhảy: " .. currentSpeedStep .. " ▼"; StepToggleBtn.TextColor3 = Color3.new(1, 1, 1); StepToggleBtn.Font = Enum.Font.GothamBold; StepToggleBtn.TextSize = 11; applyUICorner(StepToggleBtn, 5); applyUIStroke(StepToggleBtn, Color3.fromRGB(80, 80, 85), 1)
-
 local StepListScroll = Instance.new("ScrollingFrame", StepDropdownFrame)
 StepListScroll.Size = UDim2.new(1, 0, 0, 35); StepListScroll.Position = UDim2.new(0, 0, 0, 30); StepListScroll.BackgroundTransparency = 1; StepListScroll.ScrollBarThickness = 3; StepListScroll.BorderSizePixel = 0; StepListScroll.Visible = false
-
 local StepLayout = Instance.new("UIListLayout", StepListScroll)
 StepLayout.FillDirection = Enum.FillDirection.Horizontal; StepLayout.SortOrder = Enum.SortOrder.LayoutOrder; StepLayout.Padding = UDim.new(0, 5); StepLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
-local presetSpeeds = {"0.01", "0.05", "0.10", "0.15", "0.20", "0.25", "0.50"}
+local presetSpeeds = {"0.1", "0.5", "0.10", "0.15", "0.20", "0.25", "0.50"}
 local stepButtons = {}
 for _, v in ipairs(presetSpeeds) do
     local btn = Instance.new("TextButton", StepListScroll)
@@ -230,7 +206,6 @@ end
 StepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() StepListScroll.CanvasSize = UDim2.new(0, StepLayout.AbsoluteContentSize.X, 0, 0) end)
 StepToggleBtn.Activated:Connect(function() StepListScroll.Visible = not StepListScroll.Visible; StepToggleBtn.Text = "Mức nhảy: " .. currentSpeedStep .. (StepListScroll.Visible and " ▲" or " ▼") end)
 
--- CỘT PHẢI: Play, Stop, Loop
 local MusicBox = Instance.new("TextBox", PlayerPage)
 MusicBox.Size = UDim2.new(0.5, -15, 0, 30); MusicBox.Position = UDim2.new(0.5, 5, 0, 90); MusicBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MusicBox.TextColor3 = Color3.fromRGB(255, 255, 255); MusicBox.PlaceholderText = "NHẬP ID NHẠC..."; MusicBox.Font = Enum.Font.GothamBold; MusicBox.TextSize = 12; applyUICorner(MusicBox, 5); applyUIStroke(MusicBox)
 
@@ -299,8 +274,7 @@ end
 
 ProgressBg.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isDraggingProgress = true
-        updateSongPosition(input)
+        isDraggingProgress = true; updateSongPosition(input)
     end
 end)
 
@@ -316,7 +290,53 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- ================= LOGIC CHƠI NHẠC & THEO DÕI =================
+-- ================= HỆ THỐNG KIỂM TRA & PHÁT NHẠC THÔNG MINH =================
+local isChecking = false
+
+local function PlayMusicWithCheck(id, songName)
+    if isChecking then return end
+    isChecking = true
+    
+    sound:Stop()
+    sound.SoundId = "rbxassetid://" .. id
+    
+    -- Cập nhật thanh trạng thái báo đang load
+    StatusLabel.Text = "⏳ Đang tải & kiểm tra " .. (songName and ("("..songName..")") or "ID: " .. id)
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0) -- Màu Vàng
+    
+    -- Chuyển về màn hình Player để người dùng xem kết quả
+    switchTab("Player")
+    MusicBox.Text = id 
+    
+    -- Tạo Thread riêng biệt để không làm đơ game trong lúc đợi tải nhạc
+    task.spawn(function()
+        local timeout = 4 -- Giới hạn chờ 4 giây
+        local elapsed = 0
+        
+        -- Chờ âm thanh load xong
+        while not sound.IsLoaded and elapsed < timeout do
+            task.wait(0.2)
+            elapsed = elapsed + 0.2
+        end
+        
+        -- Sau khi tải xong (hoặc hết 4 giây), kiểm tra xem nhạc có độ dài không
+        if sound.IsLoaded and sound.TimeLength > 0 then
+            sound.TimePosition = 0
+            sound:Play()
+            StatusLabel.Text = "▶ Đang phát: " .. (songName or ("ID " .. id))
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150) -- Xanh lá
+        else
+            -- Báo lỗi nếu ID sai, bị xóa, hoặc không công khai (Private)
+            StatusLabel.Text = "❌ Lỗi: ID sai, bị xóa hoặc bị tác giả ẩn (Private)!"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80) -- Đỏ
+            sound:Stop()
+        end
+        
+        isChecking = false
+    end)
+end
+
+-- ================= GẮN NÚT ĐIỀU KHIỂN =================
 local function setSpeed(newSpeed) newSpeed = math.clamp(newSpeed, 0.1, 10.0); sound.PlaybackSpeed = newSpeed; SpeedLabel.Text = string.format("Tốc độ: %.2fx", newSpeed) end
 SlowBtn.Activated:Connect(function() setSpeed(sound.PlaybackSpeed - currentSpeedStep) end)
 FastBtn.Activated:Connect(function() setSpeed(sound.PlaybackSpeed + currentSpeedStep) end)
@@ -333,14 +353,13 @@ end)
 PlayBtn.MouseButton1Click:Connect(function()
     local id = MusicBox.Text:match("%d+") 
     if id then
-        sound.SoundId = "rbxassetid://" .. id; sound.TimePosition = 0; sound:Play()
-        StatusLabel.Text = "Trạng thái: Đang phát (ID: " .. id .. ")"
-        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+        PlayMusicWithCheck(id, nil)
     else
         StatusLabel.Text = "❌ Vui lòng nhập đúng ID số!"
         StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
     end
 end)
+
 StopBtn.MouseButton1Click:Connect(function()
     sound:Stop()
     StatusLabel.Text = "Trạng thái: Đã dừng"
@@ -363,7 +382,9 @@ local function createSongRow(name, id)
     local PlayRowBtn = Instance.new("TextButton", Row); PlayRowBtn.Size = UDim2.new(0, 25, 0, 25); PlayRowBtn.Position = UDim2.new(1, -60, 0.5, -12.5); PlayRowBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 80); PlayRowBtn.Text = "▶"; PlayRowBtn.TextColor3 = Color3.new(1,1,1); applyUICorner(PlayRowBtn, 5)
     local DelRowBtn = Instance.new("TextButton", Row); DelRowBtn.Size = UDim2.new(0, 25, 0, 25); DelRowBtn.Position = UDim2.new(1, -30, 0.5, -12.5); DelRowBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); DelRowBtn.Text = "X"; DelRowBtn.TextColor3 = Color3.new(1,1,1); applyUICorner(DelRowBtn, 5)
 
-    PlayRowBtn.Activated:Connect(function() MusicBox.Text = id; sound.SoundId = "rbxassetid://" .. id; sound.TimePosition = 0; sound:Play(); StatusLabel.Text = "Trạng thái: Đang phát (" .. name .. ")"; StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150); switchTab("Player") end)
+    -- Đã cập nhật nút Play ở list sử dụng chung hàm kiểm tra
+    PlayRowBtn.Activated:Connect(function() PlayMusicWithCheck(id, name) end)
+    
     DelRowBtn.Activated:Connect(function() savedSongs[tostring(id)] = nil; Row:Destroy(); DeleteSongFile(name) end)
 end
 
@@ -402,7 +423,7 @@ local function FormatTime(seconds)
     return string.format("%02d:%02d", m, s)
 end
 
--- ================= MẢNG LƯU TRỮ LỊCH SỬ ÂM THANH (TẠO HIỆU ỨNG LAN) =================
+-- ================= MẢNG LƯU TRỮ LỊCH SỬ ÂM THANH =================
 local MAX_HISTORY = 20
 local loudnessHistory = {}
 for i = 1, MAX_HISTORY do
@@ -429,29 +450,19 @@ getgenv()._MusicVisLoop = RunService.RenderStepped:Connect(function()
         table.remove(loudnessHistory, MAX_HISTORY + 1) 
     end
 
-    -- 3. ĐIỀU CHỈNH SÓNG NHẠC (HIỆU ỨNG LAN TỪ GIỮA RA & ĐỔI MÀU)
+    -- 3. ĐIỀU CHỈNH SÓNG NHẠC
     for i, bar in ipairs(bars) do
-        -- Tính khoảng cách của thanh hiện tại so với 4 thanh ở giữa (17, 18, 19, 20)
         local dist = math.max(0, math.abs(i - 18.5) - 1.5)
-        
-        -- Dùng khoảng cách để gán độ trễ (delay), thanh càng xa giữa thì lấy lịch sử cũ hơn
         local histIndex = math.clamp(math.floor(dist) + 1, 1, MAX_HISTORY)
         local barLoudness = loudnessHistory[histIndex] or 0
-        
-        -- Damping làm sóng giảm dần độ nảy khi ra tới hai biên cho tự nhiên
         local damping = 1 - (dist / 18) * 0.25 
         local noise = math.random(90, 110) / 100
-        
-        -- Tính toán target (Giới hạn chống lố)
         local targetHeight = 5 + (barLoudness / 5.5) * damping * noise
         targetHeight = math.clamp(targetHeight, 5, 45) 
         
-        -- Tạo độ mượt (Smooth transition)
         local currentHeight = bar.Size.Y.Offset
         local newHeight = currentHeight + (targetHeight - currentHeight) * 0.35
         bar.Size = UDim2.new(0, 8, 0, newHeight)
-        
-        -- Thay đổi màu nền liên tục theo độ cao hiện tại
         bar.BackgroundColor3 = getHeightColor(newHeight)
     end
 end)
