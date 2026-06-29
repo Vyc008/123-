@@ -1,106 +1,174 @@
-local TweenService = game:GetService("TweenService")
+--[[
+    =========================================================
+    💰 AUTO FARM COINS (BẬT/TẮT & CHỈNH TỐC ĐỘ)
+    =========================================================
+]]
+
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local teleporting = false
-local coinName = "Coin"
 
-local function findAllCoins()
-    local coins = {}
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Name == coinName then
-            table.insert(coins, part)
-        end
-    end
-    return coins
+-- Cài đặt mặc định
+local isFarming = false
+local tpDelay = 0.2 -- Thời gian chờ mặc định
+
+-- ================= CƠ CHẾ BẢO VỆ & DỌN DẸP UI =================
+local TargetGui = (gethui and pcall(gethui)) and gethui() or CoreGui
+if TargetGui:FindFirstChild("CtgvAutoFarmGUI") then
+    TargetGui["CtgvAutoFarmGUI"]:Destroy()
 end
 
-local function teleportLoop()
-    while true do
-        if teleporting then
-            local character = player.Character
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+-- ================= HÀM HỖ TRỢ UI =================
+local function applyUICorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 6)
+    corner.Parent = instance
+end
 
-            if character and humanoid and rootPart then
-                local coins = findAllCoins()
-                if #coins > 0 then
-                    for _, coin in ipairs(coins) do
-                        if not teleporting then break end
-                        rootPart.CFrame = CFrame.new(coin.Position + Vector3.new(0, 3, 0))
-                        humanoid:Move(Vector3.new(1, 0, 0), true)
-                        humanoid.Jump = true
-                        wait(0.15)
+local function applyUIStroke(instance, color)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Color3.fromRGB(70, 70, 75)
+    stroke.Thickness = 1.5
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+end
+
+local function makeDraggable(dragObject, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- ================= XÂY DỰNG GIAO DIỆN =================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CtgvAutoFarmGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = TargetGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 130)
+MainFrame.Position = UDim2.new(0.5, -110, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+applyUICorner(MainFrame, 8)
+applyUIStroke(MainFrame)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+Title.Text = " 💰 AUTO FARM COINS"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 12
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+applyUICorner(Title, 8)
+local tCover = Instance.new("Frame", Title); tCover.Size = UDim2.new(1,0,0,10); tCover.Position = UDim2.new(0,0,1,-10); tCover.BackgroundColor3 = Color3.fromRGB(45,45,50); tCover.BorderSizePixel = 0
+makeDraggable(Title, MainFrame)
+
+-- NÚT BẬT TẮT
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -20, 0, 35)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 45)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+ToggleBtn.Text = "AUTO: OFF"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 14
+ToggleBtn.Parent = MainFrame
+applyUICorner(ToggleBtn, 6)
+
+-- KHU VỰC CHỈNH THỜI GIAN
+local DelayLabel = Instance.new("TextLabel")
+DelayLabel.Size = UDim2.new(0.6, 0, 0, 30)
+DelayLabel.Position = UDim2.new(0, 10, 0, 90)
+DelayLabel.BackgroundTransparency = 1
+DelayLabel.Text = "Độ trễ TP (giây):"
+DelayLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+DelayLabel.Font = Enum.Font.GothamMedium
+DelayLabel.TextSize = 12
+DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+DelayLabel.Parent = MainFrame
+
+local DelayInput = Instance.new("TextBox")
+DelayInput.Size = UDim2.new(0.3, 0, 0, 26)
+DelayInput.Position = UDim2.new(0.7, -10, 0, 92)
+DelayInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+DelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayInput.Text = tostring(tpDelay)
+DelayInput.Font = Enum.Font.GothamBold
+DelayInput.TextSize = 12
+DelayInput.Parent = MainFrame
+applyUICorner(DelayInput, 4)
+applyUIStroke(DelayInput, Color3.fromRGB(80, 80, 85))
+
+-- ================= LOGIC AUTO FARM =================
+-- Hàm thực thi nhặt đồ (Chạy ngầm trong 1 luồng riêng)
+local function startFarming()
+    task.spawn(function()
+        while isFarming do
+            local character = player.Character
+            local coinsFolder = workspace:FindFirstChild("Coins")
+            
+            if character and character:FindFirstChild("HumanoidRootPart") and coinsFolder then
+                local hrp = character.HumanoidRootPart
+                
+                for _, coinModel in pairs(coinsFolder:GetChildren()) do
+                    -- Nếu đang nhặt mà bị tắt nút, lập tức ngừng vòng lặp này
+                    if not isFarming then break end 
+                    
+                    local coinPart = coinModel:FindFirstChild("Coin")
+                    if coinPart and coinPart:IsA("BasePart") then
+                        hrp.CFrame = coinPart.CFrame
+                        -- Chờ theo thời gian đã thiết lập trên UI
+                        task.wait(tpDelay)
                     end
                 end
             end
+            -- Đợi 0.1s trước khi quét lại toàn bộ map để tránh giật lag máy
+            task.wait(0.1)
         end
-        wait(0.15)
-    end
+    end)
 end
 
-task.spawn(teleportLoop)
+-- ================= KẾT NỐI SỰ KIỆN UI =================
+ToggleBtn.Activated:Connect(function()
+    isFarming = not isFarming
+    if isFarming then
+        ToggleBtn.Text = "AUTO: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 80)
+        startFarming()
+    else
+        ToggleBtn.Text = "AUTO: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    end
+end)
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.ResetOnSpawn = false
-screenGui.Parent = game.CoreGui 
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 150, 0, 80)
-frame.Position = UDim2.new(0.5, -100, 0.5, -50)
-frame.BackgroundColor3 = Color3.new(0, 0, 0)
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
-frame.Parent = screenGui
-frame.Visible = false
-frame.ClipsDescendants = true
-frame.BackgroundTransparency = 1
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 15)
-corner.Parent = frame
-
-local titleBar = Instance.new("TextLabel")
-titleBar.Size = UDim2.new(1, 0, 0, 20)
-titleBar.Position = UDim2.new(0, 0, -0.25, 0)
-titleBar.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
-titleBar.Text = "Auto farm by Vinihgol333"
-titleBar.TextColor3 = Color3.new(1, 1, 1)
-titleBar.TextScaled = true
-titleBar.Font = Enum.Font.SourceSansBold
-titleBar.Parent = frame
-
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 10)
-titleCorner.Parent = titleBar
-
-local textSizeConstraint = Instance.new("UITextSizeConstraint")
-textSizeConstraint.MinTextSize = 8
-textSizeConstraint.MaxTextSize = 14
-textSizeConstraint.Parent = titleBar
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 80, 0, 40)
-button.Position = UDim2.new(0.5, -40, 0.5, -20)
-button.BackgroundColor3 = Color3.new(0, 1, 0)
-button.Text = "ON"
-button.TextColor3 = Color3.new(1, 1, 1)
-button.Font = Enum.Font.SourceSansBold
-button.TextSize = 18
-button.Parent = frame
-
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 10)
-buttonCorner.Parent = button
-
-local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local fadeIn = TweenService:Create(frame, tweenInfo, {BackgroundTransparency = 0})
-frame.Visible = true
-fadeIn:Play()
-
-button.MouseButton1Click:Connect(function()
-    teleporting = not teleporting
-    button.Text = teleporting and "OFF" or "ON"
-    button.BackgroundColor3 = teleporting and Color3.new(1, 0, 0) or Color3.new(0, 1, 0)
+-- Khi người dùng nhập số mới vào ô thời gian
+DelayInput.FocusLost:Connect(function()
+    local inputNumber = tonumber(DelayInput.Text)
+    -- Kiểm tra xem người dùng có nhập đúng số không (chống nhập chữ)
+    if inputNumber and inputNumber >= 0 then
+        tpDelay = inputNumber
+    else
+        -- Nếu nhập sai, trả về số cũ
+        DelayInput.Text = tostring(tpDelay)
+    end
 end)
