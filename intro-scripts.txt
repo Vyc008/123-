@@ -62,12 +62,12 @@ local function ShowNotification()
     tween:Play()
 
     -- Start the progress bar countdown
-    local countdownTime = 1 -- Countdown time in seconds
+    local countdownTime = 0.5 -- Countdown time in seconds
     local startTime = tick()
 
     while tick() - startTime < countdownTime do
         local elapsedTime = tick() - startTime
-        local progress = 0.5 - (elapsedTime / countdownTime)
+        local progress = 1 - (elapsedTime / countdownTime)
         ProgressBarFill:TweenSize(UDim2.new(progress, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Linear, 0.1, true)
         task.wait()
     end
