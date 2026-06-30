@@ -1,14 +1,37 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
 local localPlayer = Players.LocalPlayer
+
+-- ==========================================
+-- BẢO VỆ GUI KHÔNG BỊ MẤT KHI CHẾT & XÓA GUI CŨ
+-- ==========================================
+-- Tìm vị trí an toàn nhất để chứa GUI (Tránh bị game xóa)
+local targetGui = (gethui and pcall(gethui)) and gethui() or CoreGui
+
+-- Kiểm tra và xóa Menu cũ nếu đã tồn tại để tránh bị đè (khi chạy script nhiều lần)
+if targetGui:FindFirstChild("PremiumHitboxMenu") then
+    targetGui:FindFirstChild("PremiumHitboxMenu"):Destroy()
+elseif localPlayer:WaitForChild("PlayerGui"):FindFirstChild("PremiumHitboxMenu") then
+    localPlayer:WaitForChild("PlayerGui"):FindFirstChild("PremiumHitboxMenu"):Destroy()
+end
 
 -- Khởi tạo ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "PremiumHitboxMenu"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+-- Cố gắng đưa GUI vào khu vực bảo vệ (CoreGui), nếu lỗi thì trả về PlayerGui
+local success, _ = pcall(function()
+    screenGui.Parent = targetGui
+end)
+if not success then
+    screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+end
+-- ==========================================
+
 
 -- NÚT TELEPORT NỔI (Có thể di chuyển độc lập)
 local teleportToggleButton = Instance.new("TextButton")
@@ -216,7 +239,7 @@ local teleportEnabled = false
 local positionBehind = true
 local distanceFromTarget = 4.0
 local floatButtonVisible = true
-local autoResetEnabled = true -- ĐÃ ĐỔI: Mặc định luôn luôn bật sẵn (true)
+local autoResetEnabled = true
 
 -- Hàm làm mới danh sách nút người chơi một cách chính xác nhất
 local function updatePlayerListButtons()
