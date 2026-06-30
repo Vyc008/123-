@@ -6,6 +6,7 @@ Credits to me
 
 Credits to the Owner Who Made The ESP Script
 Modified & Optimized by Gemini AI (Split Menu 2 Columns, Batman-style Tween UI)
+Bug Fixed: WalkSpeed & JumpPower Lock Reset Issue
 
 ]]
 
@@ -14,7 +15,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService") -- Đã thêm TweenService
+local TweenService = game:GetService("TweenService") 
 local Workspace = game:GetService("Workspace")
 
 local Player = Players.LocalPlayer
@@ -51,10 +52,9 @@ local function updateLocalStats(char)
         end
     end
     
-    if localHum then
-        getgenv().Walkspeed = localHum.WalkSpeed
-        getgenv().Jumppower = localHum.JumpPower
-    end
+    -- [FIX LỖI TẠI ĐÂY]
+    -- Đã xóa đoạn code lấy thông số mặc định ghi đè lên getgenv() 
+    -- Giúp thông số bạn chỉnh không bị mất khi nhân vật chết & hồi sinh
 end
 
 updateLocalStats(Player.Character)
@@ -125,11 +125,11 @@ applyUIStroke(ToggleUIBtn)
 
 -- Mở rộng chiều rộng Frame lên 480 để vừa 2 cột trái phải
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Bắt đầu với size 0 để làm hiệu ứng Pop-up
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) -- Neo khung ở giữa
+MainFrame.Size = UDim2.new(0, 0, 0, 0) 
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-MainFrame.ClipsDescendants = true -- Cắt phần giao diện thừa khi đang thu nhỏ
+MainFrame.ClipsDescendants = true 
 MainFrame.Active = true
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
@@ -184,7 +184,6 @@ RightScroll.ScrollBarThickness = 2
 RightScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 105)
 RightScroll.Parent = MainFrame
 
--- Thiết lập layout tự động cho 2 cột
 local LeftLayout = Instance.new("UIListLayout")
 LeftLayout.Parent = LeftScroll
 LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -357,7 +356,7 @@ createSection("Thể chất người chơi", RightScroll)
 createTextBoxRow("WalkSpeed:", getgenv().Walkspeed, RightScroll, function(val)
     if tonumber(val) then
         getgenv().Walkspeed = tonumber(val)
-        if localHum then localHum.WalkSpeed = tonumber(val) end
+        if localHum and not getgenv().loopW then localHum.WalkSpeed = tonumber(val) end
     end
 end)
 createToggleRow("Khóa Speed:", getgenv().loopW, RightScroll, function(s) getgenv().loopW = s end)
@@ -365,7 +364,7 @@ createToggleRow("Khóa Speed:", getgenv().loopW, RightScroll, function(s) getgen
 createTextBoxRow("JumpPower:", getgenv().Jumppower, RightScroll, function(val)
     if tonumber(val) then
         getgenv().Jumppower = tonumber(val)
-        if localHum then localHum.JumpPower = tonumber(val) end
+        if localHum and not getgenv().loopJ then localHum.JumpPower = tonumber(val) end
     end
 end)
 createToggleRow("Khóa Sức nhảy:", getgenv().loopJ, RightScroll, function(s) getgenv().loopJ = s end)
@@ -390,12 +389,10 @@ local function toggleMenu()
     isMenuOpen = not isMenuOpen
     if isMenuOpen then
         MainFrame.Visible = true
-        -- Hiệu ứng phóng to với độ nảy nhẹ (Back Out)
         TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 480, 0, 350)
         }):Play()
     else
-        -- Hiệu ứng thu nhỏ dần đến biến mất (Quad In)
         local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
         })
@@ -418,7 +415,7 @@ makeDraggable(Title, MainFrame)
 makeDraggable(ToggleUIBtn, ToggleUIBtn)
 
 -- ==========================================
--- LÕI XỬ LÝ GAMEPLAY (HEAD)
+-- LÕI XỬ LÝ GAMEPLAY (HEAD & KHÓA SPEED)
 -- ==========================================
 local defaultSize = Vector3_new(2, 1, 1)
 
@@ -477,13 +474,23 @@ RunService.Heartbeat:Connect(function()
     end
 
     if localChar and localHum and localHum.Parent then
+        -- [FIX LỖI TẠI ĐÂY] Kiểm tra và ép liên tục Speed
         if getgenv().loopW then 
             local targetWS = tonumber(getgenv().Walkspeed) or 16
-            if localHum.WalkSpeed ~= targetWS then localHum.WalkSpeed = targetWS end 
+            if localHum.WalkSpeed ~= targetWS then 
+                localHum.WalkSpeed = targetWS 
+            end 
         end
+        
+        -- [FIX LỖI TẠI ĐÂY] Ép thuộc tính UseJumpPower lên TRUE để nó không nhảy theo Height nữa
         if getgenv().loopJ then 
             local targetJP = tonumber(getgenv().Jumppower) or 50
-            if localHum.JumpPower ~= targetJP then localHum.JumpPower = targetJP end 
+            if not localHum.UseJumpPower then 
+                localHum.UseJumpPower = true 
+            end
+            if localHum.JumpPower ~= targetJP then 
+                localHum.JumpPower = targetJP 
+            end 
         end
 
         if getgenv().TPWalk and localHum.MoveDirection.Magnitude > 0 then
