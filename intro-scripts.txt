@@ -67,7 +67,7 @@ local function ShowNotification()
 
     while tick() - startTime < countdownTime do
         local elapsedTime = tick() - startTime
-        local progress = 1 - (elapsedTime / countdownTime)
+        local progress = 0.5 - (elapsedTime / countdownTime)
         ProgressBarFill:TweenSize(UDim2.new(progress, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Linear, 0.1, true)
         task.wait()
     end
