@@ -6,6 +6,7 @@ Credits to me
 
 Credits to the Owner Who Made The ESP Script
 Modified & Optimized by Gemini AI (Torso Auto Hitbox, Split Menu, Batman-style Tween UI)
+Bug Fixed: WalkSpeed & JumpPower Lock Reset Issue
 
 ]]
 
@@ -51,10 +52,8 @@ local function updateLocalStats(char)
         end
     end
     
-    if localHum then
-        getgenv().Walkspeed = localHum.WalkSpeed
-        getgenv().Jumppower = localHum.JumpPower
-    end
+    -- [FIX LỖI TẠI ĐÂY] Đã xóa đoạn tự động gán lại 16 và 50 khi hồi sinh
+    -- Giúp giữ nguyên số bạn đã nhập vào ô TextBox
 end
 
 updateLocalStats(Player.Character)
@@ -120,16 +119,16 @@ ToggleUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleUIBtn.Font = Enum.Font.GothamBold
 ToggleUIBtn.TextSize = 14
 ToggleUIBtn.Parent = ScreenGui
-applyUICorner(ToggleUIBtn, 50) -- Tròn hoàn toàn
+applyUICorner(ToggleUIBtn, 50) 
 applyUIStroke(ToggleUIBtn)
 
 -- MainFrame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Ban đầu thu nhỏ bằng 0 để làm hiệu ứng pop-up
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) -- Neo tại giữa
+MainFrame.Size = UDim2.new(0, 0, 0, 0) 
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5) 
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-MainFrame.ClipsDescendants = true -- Cắt phần thừa khi thu nhỏ GUI
+MainFrame.ClipsDescendants = true 
 MainFrame.Active = true
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
@@ -353,7 +352,7 @@ createSection("Thể chất người chơi", RightScroll)
 createTextBoxRow("WalkSpeed:", getgenv().Walkspeed, RightScroll, function(val)
     if tonumber(val) then
         getgenv().Walkspeed = tonumber(val)
-        if localHum then localHum.WalkSpeed = tonumber(val) end
+        if localHum and not getgenv().loopW then localHum.WalkSpeed = tonumber(val) end
     end
 end)
 createToggleRow("Khóa Speed:", getgenv().loopW, RightScroll, function(s) getgenv().loopW = s end)
@@ -361,7 +360,7 @@ createToggleRow("Khóa Speed:", getgenv().loopW, RightScroll, function(s) getgen
 createTextBoxRow("JumpPower:", getgenv().Jumppower, RightScroll, function(val)
     if tonumber(val) then
         getgenv().Jumppower = tonumber(val)
-        if localHum then localHum.JumpPower = tonumber(val) end
+        if localHum and not getgenv().loopJ then localHum.JumpPower = tonumber(val) end
     end
 end)
 createToggleRow("Khóa Sức nhảy:", getgenv().loopJ, RightScroll, function(s) getgenv().loopJ = s end)
@@ -470,13 +469,23 @@ RunService.Heartbeat:Connect(function()
     end
 
     if localChar and localHum and localHum.Parent then
+        -- [FIX LỖI TẠI ĐÂY] Ép liên tục Speed
         if getgenv().loopW then 
             local targetWS = tonumber(getgenv().Walkspeed) or 16
-            if localHum.WalkSpeed ~= targetWS then localHum.WalkSpeed = targetWS end 
+            if localHum.WalkSpeed ~= targetWS then 
+                localHum.WalkSpeed = targetWS 
+            end 
         end
+        
+        -- [FIX LỖI TẠI ĐÂY] Ép thuộc tính UseJumpPower lên TRUE để kích hoạt JumpPower
         if getgenv().loopJ then 
             local targetJP = tonumber(getgenv().Jumppower) or 50
-            if localHum.JumpPower ~= targetJP then localHum.JumpPower = targetJP end 
+            if not localHum.UseJumpPower then 
+                localHum.UseJumpPower = true 
+            end
+            if localHum.JumpPower ~= targetJP then 
+                localHum.JumpPower = targetJP 
+            end 
         end
 
         if getgenv().TPWalk and localHum.MoveDirection.Magnitude > 0 then
