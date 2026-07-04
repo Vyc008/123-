@@ -1,7 +1,7 @@
 --[[
     =========================================================
-    🎵 ROBLOX MUSIC PLAYER & PLAYLIST (BATMAN GUI STYLE)
-    👤 Cập nhật: Thêm bộ kiểm tra ID thông minh báo lỗi nếu nhạc hỏng
+    🎵 ROBLOX MUSIC PLAYER & PLAYLIST
+    👤 Cập nhật: Chuyển StatusLabel (Đang phát) lên dưới thanh thời gian
     =========================================================
 ]]
 
@@ -31,10 +31,11 @@ local sound = Instance.new("Sound")
 sound.Name = "BatmanMusicPlayer"
 sound.Parent = workspace
 sound.Volume = 2
-sound.Looped = true
+sound.Looped = false 
 sound.PlaybackSpeed = 1 
 
 local savedSongs = {} 
+local PlaylistQueue = {} 
 local currentSpeedStep = 0.25 
 
 -- ================= HÀM XỬ LÝ FOLDER & FILE =================
@@ -56,7 +57,18 @@ local function DeleteSongFile(name)
     end
 end
 
--- ================= HÀM HỖ TRỢ UI & MÀU SẮC SÓNG NHẠC =================
+local function AddToQueue(name, id)
+    for _, v in ipairs(PlaylistQueue) do if v.ID == id then return end end
+    table.insert(PlaylistQueue, {Name = name, ID = tostring(id)})
+end
+
+local function RemoveFromQueue(id)
+    for i, v in ipairs(PlaylistQueue) do
+        if v.ID == tostring(id) then table.remove(PlaylistQueue, i); break end
+    end
+end
+
+-- ================= HÀM HỖ TRỢ UI =================
 local function applyUICorner(instance, radius)
     local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, radius or 6); corner.Parent = instance
 end
@@ -83,7 +95,7 @@ local function makeDraggable(dragObject, moveObject)
 end
 
 local function getHeightColor(height)
-    local pct = math.clamp((height - 5) / 40, 0, 1) 
+    local pct = math.clamp((height - 5) / 60, 0, 1) 
     if pct <= 0.5 then
         return Color3.fromRGB(0, 255, 150):Lerp(Color3.fromRGB(255, 220, 0), pct * 2)
     else
@@ -100,12 +112,10 @@ ScreenGui.Parent = TargetGui
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-ToggleBtn.Text = "🎵"
-ToggleBtn.TextSize = 26
+ToggleBtn.BackgroundTransparency = 1 
+ToggleBtn.Text = "💖"
+ToggleBtn.TextSize = 35
 ToggleBtn.Parent = ScreenGui
-applyUICorner(ToggleBtn, 50)
-applyUIStroke(ToggleBtn, Color3.fromRGB(0, 255, 150), 2)
 makeDraggable(ToggleBtn, ToggleBtn)
 
 local MainFrame = Instance.new("Frame")
@@ -115,7 +125,7 @@ applyUICorner(MainFrame, 10); applyUIStroke(MainFrame, Color3.fromRGB(60, 60, 65
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-Title.Text = "  🎵 MUSIC HUB <Ctgv-thw>"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 13; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Text = "  🎵 MUSIC HUB <ctgvỹ>"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 13; Title.TextXAlignment = Enum.TextXAlignment.Left
 applyUICorner(Title, 10); local tCover = Instance.new("Frame", Title); tCover.Size = UDim2.new(1,0,0,10); tCover.Position = UDim2.new(0,0,1,-10); tCover.BackgroundColor3 = Color3.fromRGB(35,35,40); tCover.BorderSizePixel = 0
 makeDraggable(Title, MainFrame)
 
@@ -136,8 +146,8 @@ local PlayerPage = Instance.new("Frame", PageContainer)
 PlayerPage.Size = UDim2.new(1, 0, 1, 0); PlayerPage.BackgroundTransparency = 1; PlayerPage.Visible = true
 
 local VisFrame = Instance.new("Frame", PlayerPage)
-VisFrame.Size = UDim2.new(1, -30, 0, 45)
-VisFrame.Position = UDim2.new(0, 15, 0, 0)
+VisFrame.Size = UDim2.new(1, -20, 0, 70) 
+VisFrame.Position = UDim2.new(0, 10, 0, -10)
 VisFrame.BackgroundTransparency = 1
 
 local VisLayout = Instance.new("UIListLayout", VisFrame)
@@ -145,10 +155,10 @@ VisLayout.FillDirection = Enum.FillDirection.Horizontal; VisLayout.HorizontalAli
 VisLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 VisLayout.Padding = UDim.new(0, 2)
 
-local bars = {}; local numBars = 36 
+local bars = {}; local numBars = 46 
 for i = 1, numBars do
     local bar = Instance.new("Frame", VisFrame)
-    bar.Size = UDim2.new(0, 8, 0, 5)
+    bar.Size = UDim2.new(0, 10, 0, 5) 
     bar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
     bar.BorderSizePixel = 0
     applyUICorner(bar, 3)
@@ -157,19 +167,31 @@ end
 
 local ProgressBg = Instance.new("TextButton", PlayerPage)
 ProgressBg.Size = UDim2.new(1, -30, 0, 8) 
-ProgressBg.Position = UDim2.new(0, 15, 0, 50)
+ProgressBg.Position = UDim2.new(0, 15, 0, 65)
 ProgressBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 ProgressBg.AutoButtonColor = false; ProgressBg.Text = ""; ProgressBg.BorderSizePixel = 0; applyUICorner(ProgressBg, 4)
 
 local ProgressFill = Instance.new("Frame", ProgressBg)
 ProgressFill.Size = UDim2.new(0, 0, 1, 0); ProgressFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0); ProgressFill.BorderSizePixel = 0; applyUICorner(ProgressFill, 4)
 
+-- THAY ĐỔI: Chuyển StatusLabel (Đang phát...) lên vị trí dưới thanh tua nhạc
+local StatusLabel = Instance.new("TextLabel", PlayerPage)
+StatusLabel.Size = UDim2.new(1, -100, 0, 15) -- Giới hạn chiều ngang để không đè lên thời gian
+StatusLabel.Position = UDim2.new(0, 15, 0, 77)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Trạng thái: Sẵn sàng"
+StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+StatusLabel.Font = Enum.Font.GothamMedium
+StatusLabel.TextSize = 11
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left -- Canh lề trái
+StatusLabel.TextTruncate = Enum.TextTruncate.AtEnd -- Cắt chữ (...) nếu tên quá dài
+
 local TimeLabel = Instance.new("TextLabel", PlayerPage)
-TimeLabel.Size = UDim2.new(1, -30, 0, 15); TimeLabel.Position = UDim2.new(0, 15, 0, 62); TimeLabel.BackgroundTransparency = 1
+TimeLabel.Size = UDim2.new(1, -30, 0, 15); TimeLabel.Position = UDim2.new(0, 15, 0, 77); TimeLabel.BackgroundTransparency = 1
 TimeLabel.Text = "00:00 / 00:00"; TimeLabel.TextColor3 = Color3.fromRGB(180, 180, 180); TimeLabel.Font = Enum.Font.GothamMedium; TimeLabel.TextSize = 11; TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 
 local SpeedFrame = Instance.new("Frame", PlayerPage)
-SpeedFrame.Size = UDim2.new(0.5, -20, 0, 30); SpeedFrame.Position = UDim2.new(0, 15, 0, 90); SpeedFrame.BackgroundTransparency = 1
+SpeedFrame.Size = UDim2.new(0.5, -20, 0, 30); SpeedFrame.Position = UDim2.new(0, 15, 0, 105); SpeedFrame.BackgroundTransparency = 1
 
 local SlowBtn = Instance.new("TextButton", SpeedFrame)
 SlowBtn.Size = UDim2.new(0.2, 0, 1, 0); SlowBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); SlowBtn.Text = "<<"; SlowBtn.TextColor3 = Color3.new(1,1,1); SlowBtn.Font = Enum.Font.GothamBold; SlowBtn.TextSize = 14; applyUICorner(SlowBtn, 5); applyUIStroke(SlowBtn)
@@ -181,11 +203,11 @@ local FastBtn = Instance.new("TextButton", SpeedFrame)
 FastBtn.Size = UDim2.new(0.2, 0, 1, 0); FastBtn.Position = UDim2.new(0.8, 0, 0, 0); FastBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); FastBtn.Text = ">>"; FastBtn.TextColor3 = Color3.new(1,1,1); FastBtn.Font = Enum.Font.GothamBold; FastBtn.TextSize = 14; applyUICorner(FastBtn, 5); applyUIStroke(FastBtn)
 
 local StepDropdownFrame = Instance.new("Frame", PlayerPage)
-StepDropdownFrame.Size = UDim2.new(0.5, -20, 0, 70); StepDropdownFrame.Position = UDim2.new(0, 15, 0, 130); StepDropdownFrame.BackgroundTransparency = 1
+StepDropdownFrame.Size = UDim2.new(0.5, -20, 0, 70); StepDropdownFrame.Position = UDim2.new(0, 15, 0, 145); StepDropdownFrame.BackgroundTransparency = 1
 local StepToggleBtn = Instance.new("TextButton", StepDropdownFrame)
 StepToggleBtn.Size = UDim2.new(1, 0, 0, 25); StepToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 50); StepToggleBtn.Text = "Mức nhảy: " .. currentSpeedStep .. " ▼"; StepToggleBtn.TextColor3 = Color3.new(1, 1, 1); StepToggleBtn.Font = Enum.Font.GothamBold; StepToggleBtn.TextSize = 11; applyUICorner(StepToggleBtn, 5); applyUIStroke(StepToggleBtn, Color3.fromRGB(80, 80, 85), 1)
 local StepListScroll = Instance.new("ScrollingFrame", StepDropdownFrame)
-StepListScroll.Size = UDim2.new(1, 0, 0, 35); StepListScroll.Position = UDim2.new(0, 0, 0, 30); StepListScroll.BackgroundTransparency = 1; StepListScroll.ScrollBarThickness = 3; StepListScroll.BorderSizePixel = 0; StepListScroll.Visible = false
+StepListScroll.Size = UDim2.new(1, 0, 0, 45); StepListScroll.Position = UDim2.new(0, 0, 0, 30); StepListScroll.BackgroundTransparency = 1; StepListScroll.ScrollBarThickness = 3; StepListScroll.BorderSizePixel = 0; StepListScroll.Visible = false
 local StepLayout = Instance.new("UIListLayout", StepListScroll)
 StepLayout.FillDirection = Enum.FillDirection.Horizontal; StepLayout.SortOrder = Enum.SortOrder.LayoutOrder; StepLayout.Padding = UDim.new(0, 5); StepLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
@@ -207,19 +229,19 @@ StepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() St
 StepToggleBtn.Activated:Connect(function() StepListScroll.Visible = not StepListScroll.Visible; StepToggleBtn.Text = "Mức nhảy: " .. currentSpeedStep .. (StepListScroll.Visible and " ▲" or " ▼") end)
 
 local MusicBox = Instance.new("TextBox", PlayerPage)
-MusicBox.Size = UDim2.new(0.5, -15, 0, 30); MusicBox.Position = UDim2.new(0.5, 5, 0, 90); MusicBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MusicBox.TextColor3 = Color3.fromRGB(255, 255, 255); MusicBox.PlaceholderText = "NHẬP ID NHẠC..."; MusicBox.Font = Enum.Font.GothamBold; MusicBox.TextSize = 12; applyUICorner(MusicBox, 5); applyUIStroke(MusicBox)
+MusicBox.Size = UDim2.new(0.5, -15, 0, 30); MusicBox.Position = UDim2.new(0.5, 5, 0, 105); MusicBox.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MusicBox.TextColor3 = Color3.fromRGB(255, 255, 255); MusicBox.PlaceholderText = "NHẬP ID NHẠC..."; MusicBox.Font = Enum.Font.GothamBold; MusicBox.TextSize = 12; applyUICorner(MusicBox, 5); applyUIStroke(MusicBox)
 
 local PlayBtn = Instance.new("TextButton", PlayerPage)
-PlayBtn.Size = UDim2.new(0.23, 0, 0, 35); PlayBtn.Position = UDim2.new(0.5, 5, 0, 128); PlayBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 80); PlayBtn.Text = "▶ PLAY"; PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255); PlayBtn.Font = Enum.Font.GothamBold; PlayBtn.TextSize = 12; applyUICorner(PlayBtn, 5)
+PlayBtn.Size = UDim2.new(0.23, 0, 0, 35); PlayBtn.Position = UDim2.new(0.5, 5, 0, 145); PlayBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 80); PlayBtn.Text = "▶ PLAY"; PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255); PlayBtn.Font = Enum.Font.GothamBold; PlayBtn.TextSize = 12; applyUICorner(PlayBtn, 5)
 
 local StopBtn = Instance.new("TextButton", PlayerPage)
-StopBtn.Size = UDim2.new(0.23, 0, 0, 35); StopBtn.Position = UDim2.new(0.77, -15, 0, 128); StopBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); StopBtn.Text = "⏹ STOP"; StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255); StopBtn.Font = Enum.Font.GothamBold; StopBtn.TextSize = 12; applyUICorner(StopBtn, 5)
+StopBtn.Size = UDim2.new(0.23, 0, 0, 35); StopBtn.Position = UDim2.new(0.77, -15, 0, 145); StopBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); StopBtn.Text = "⏹ STOP"; StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255); StopBtn.Font = Enum.Font.GothamBold; StopBtn.TextSize = 12; applyUICorner(StopBtn, 5)
 
 local LoopBtn = Instance.new("TextButton", PlayerPage)
-LoopBtn.Size = UDim2.new(0.5, -15, 0, 25); LoopBtn.Position = UDim2.new(0.5, 5, 0, 172); LoopBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255); LoopBtn.Text = "🔁 Lặp lại: BẬT"; LoopBtn.TextColor3 = Color3.new(1,1,1); LoopBtn.Font = Enum.Font.GothamBold; LoopBtn.TextSize = 11; applyUICorner(LoopBtn, 5)
-
-local StatusLabel = Instance.new("TextLabel", PlayerPage)
-StatusLabel.Size = UDim2.new(1, 0, 0, 15); StatusLabel.Position = UDim2.new(0, 0, 1, -20); StatusLabel.BackgroundTransparency = 1; StatusLabel.Text = "Trạng thái: Sẵn sàng"; StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150); StatusLabel.Font = Enum.Font.Gotham; StatusLabel.TextSize = 11
+LoopBtn.Size = UDim2.new(0.5, -15, 0, 25); LoopBtn.Position = UDim2.new(0.5, 5, 0, 190); 
+LoopBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 85); 
+LoopBtn.Text = "🔁 Lặp lại: TẮT"; 
+LoopBtn.TextColor3 = Color3.new(1,1,1); LoopBtn.Font = Enum.Font.GothamBold; LoopBtn.TextSize = 11; applyUICorner(LoopBtn, 5)
 
 -- ================= TAB 2: PLAYLIST =================
 local PlaylistPage = Instance.new("Frame", PageContainer)
@@ -253,7 +275,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     TweenService:Create(ToggleBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 40, 0, 40)}):Play()
     task.wait(0.1); TweenService:Create(ToggleBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 50, 0, 50)}):Play()
     isMenuOpen = not isMenuOpen
-    if isMenuOpen then MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 480, 0, 300) }):Play()
+    if isMenuOpen then MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 550, 0, 330) }):Play()
     else
         local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 0, 0) })
         closeTween:Play(); closeTween.Completed:Wait(); if not isMenuOpen then MainFrame.Visible = false end
@@ -300,35 +322,28 @@ local function PlayMusicWithCheck(id, songName)
     sound:Stop()
     sound.SoundId = "rbxassetid://" .. id
     
-    -- Cập nhật thanh trạng thái báo đang load
-    StatusLabel.Text = "⏳ Đang tải & kiểm tra " .. (songName and ("("..songName..")") or "ID: " .. id)
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0) -- Màu Vàng
-    
-    -- Chuyển về màn hình Player để người dùng xem kết quả
+    StatusLabel.Text = "⏳ Đang tải... " .. (songName and ("("..songName..")") or "ID: " .. id)
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 0) 
     switchTab("Player")
     MusicBox.Text = id 
     
-    -- Tạo Thread riêng biệt để không làm đơ game trong lúc đợi tải nhạc
     task.spawn(function()
-        local timeout = 4 -- Giới hạn chờ 4 giây
+        local timeout = 4 
         local elapsed = 0
         
-        -- Chờ âm thanh load xong
         while not sound.IsLoaded and elapsed < timeout do
             task.wait(0.2)
             elapsed = elapsed + 0.2
         end
         
-        -- Sau khi tải xong (hoặc hết 4 giây), kiểm tra xem nhạc có độ dài không
         if sound.IsLoaded and sound.TimeLength > 0 then
             sound.TimePosition = 0
             sound:Play()
             StatusLabel.Text = "▶ Đang phát: " .. (songName or ("ID " .. id))
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150) -- Xanh lá
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
         else
-            -- Báo lỗi nếu ID sai, bị xóa, hoặc không công khai (Private)
-            StatusLabel.Text = "❌ Lỗi: ID sai, bị xóa hoặc bị tác giả ẩn (Private)!"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80) -- Đỏ
+            StatusLabel.Text = "❌ Lỗi: ID sai hoặc Private!"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
             sound:Stop()
         end
         
@@ -367,11 +382,29 @@ StopBtn.MouseButton1Click:Connect(function()
     ProgressFill.Size = UDim2.new(0, 0, 1, 0)
 end)
 
+-- LOGIC AUTO-NEXT: Tự động chuyển bài khi hát xong
 sound.Ended:Connect(function()
     if not sound.Looped then
-        StatusLabel.Text = "Trạng thái: Đã tắt (Hát hết bài)"
-        StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-        ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+        local currentId = sound.SoundId:match("%d+")
+        local nextSong = nil
+        
+        if #PlaylistQueue > 0 then
+            for i, song in ipairs(PlaylistQueue) do
+                if song.ID == currentId then
+                    nextSong = PlaylistQueue[i + 1] or PlaylistQueue[1] 
+                    break
+                end
+            end
+            if not nextSong then nextSong = PlaylistQueue[1] end
+        end
+        
+        if nextSong then
+            PlayMusicWithCheck(nextSong.ID, nextSong.Name)
+        else
+            StatusLabel.Text = "Trạng thái: Đã tắt (Hát hết bài)"
+            StatusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+            ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+        end
     end
 end)
 
@@ -382,10 +415,14 @@ local function createSongRow(name, id)
     local PlayRowBtn = Instance.new("TextButton", Row); PlayRowBtn.Size = UDim2.new(0, 25, 0, 25); PlayRowBtn.Position = UDim2.new(1, -60, 0.5, -12.5); PlayRowBtn.BackgroundColor3 = Color3.fromRGB(40, 150, 80); PlayRowBtn.Text = "▶"; PlayRowBtn.TextColor3 = Color3.new(1,1,1); applyUICorner(PlayRowBtn, 5)
     local DelRowBtn = Instance.new("TextButton", Row); DelRowBtn.Size = UDim2.new(0, 25, 0, 25); DelRowBtn.Position = UDim2.new(1, -30, 0.5, -12.5); DelRowBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); DelRowBtn.Text = "X"; DelRowBtn.TextColor3 = Color3.new(1,1,1); applyUICorner(DelRowBtn, 5)
 
-    -- Đã cập nhật nút Play ở list sử dụng chung hàm kiểm tra
     PlayRowBtn.Activated:Connect(function() PlayMusicWithCheck(id, name) end)
     
-    DelRowBtn.Activated:Connect(function() savedSongs[tostring(id)] = nil; Row:Destroy(); DeleteSongFile(name) end)
+    DelRowBtn.Activated:Connect(function() 
+        savedSongs[tostring(id)] = nil; 
+        RemoveFromQueue(id)
+        Row:Destroy(); 
+        DeleteSongFile(name) 
+    end)
 end
 
 SaveSongBtn.Activated:Connect(function()
@@ -393,7 +430,10 @@ SaveSongBtn.Activated:Connect(function()
     if not id then SaveSongBtn.Text = "❌ LỖI: CẦN ID SỐ"; task.wait(1); SaveSongBtn.Text = "💾 LƯU BÀI HÁT"; return end
     if name == "" then name = "Nhạc " .. id end
     if not savedSongs[tostring(id)] then
-        savedSongs[tostring(id)] = name; createSongRow(name, tostring(id)); SaveSongToFile(name, tostring(id))
+        savedSongs[tostring(id)] = name; 
+        AddToQueue(name, tostring(id)); 
+        createSongRow(name, tostring(id)); 
+        SaveSongToFile(name, tostring(id))
         NameInput.Text = ""; IDInput.Text = ""; SaveSongBtn.Text = "✅ ĐÃ LƯU VÀO MÁY"; task.wait(1); SaveSongBtn.Text = "💾 LƯU BÀI HÁT"
     else SaveSongBtn.Text = "⚠️ BÀI NÀY ĐÃ LƯU RỒI"; task.wait(1); SaveSongBtn.Text = "💾 LƯU BÀI HÁT" end
 end)
@@ -406,7 +446,11 @@ local function LoadAllSongsFromFolder()
                 if success then
                     local s2, data = pcall(function() return HttpService:JSONDecode(content) end)
                     if s2 and data.Name and data.ID then
-                        if not savedSongs[tostring(data.ID)] then savedSongs[tostring(data.ID)] = data.Name; createSongRow(data.Name, tostring(data.ID)) end
+                        if not savedSongs[tostring(data.ID)] then 
+                            savedSongs[tostring(data.ID)] = data.Name; 
+                            AddToQueue(data.Name, tostring(data.ID))
+                            createSongRow(data.Name, tostring(data.ID)) 
+                        end
                     end
                 end
             end
@@ -432,7 +476,6 @@ end
 
 -- ================= VÒNG LẶP VISUALIZER & THANH THỜI GIAN =================
 getgenv()._MusicVisLoop = RunService.RenderStepped:Connect(function()
-    -- 1. CẬP NHẬT THANH THỜI GIAN & TEXT
     if sound.IsLoaded and sound.TimeLength > 0 then
         if not isDraggingProgress then
             local percent = math.clamp(sound.TimePosition / sound.TimeLength, 0, 1)
@@ -444,25 +487,24 @@ getgenv()._MusicVisLoop = RunService.RenderStepped:Connect(function()
         TimeLabel.Text = "00:00 / 00:00"
     end
 
-    -- 2. CẬP NHẬT LỊCH SỬ ÂM LƯỢNG
     table.insert(loudnessHistory, 1, sound.PlaybackLoudness)
     if #loudnessHistory > MAX_HISTORY then 
         table.remove(loudnessHistory, MAX_HISTORY + 1) 
     end
 
-    -- 3. ĐIỀU CHỈNH SÓNG NHẠC
     for i, bar in ipairs(bars) do
-        local dist = math.max(0, math.abs(i - 18.5) - 1.5)
+        local dist = math.max(0, math.abs(i - (numBars / 2)) - 1.5)
         local histIndex = math.clamp(math.floor(dist) + 1, 1, MAX_HISTORY)
         local barLoudness = loudnessHistory[histIndex] or 0
-        local damping = 1 - (dist / 18) * 0.25 
+        local damping = 1 - (dist / (numBars / 2)) * 0.25 
         local noise = math.random(90, 110) / 100
-        local targetHeight = 5 + (barLoudness / 5.5) * damping * noise
-        targetHeight = math.clamp(targetHeight, 5, 45) 
+        
+        local targetHeight = 5 + (barLoudness / 4.5) * damping * noise
+        targetHeight = math.clamp(targetHeight, 5, 65) 
         
         local currentHeight = bar.Size.Y.Offset
         local newHeight = currentHeight + (targetHeight - currentHeight) * 0.35
-        bar.Size = UDim2.new(0, 8, 0, newHeight)
+        bar.Size = UDim2.new(0, 10, 0, newHeight)
         bar.BackgroundColor3 = getHeightColor(newHeight)
     end
 end)
