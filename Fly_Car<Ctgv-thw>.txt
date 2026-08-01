@@ -1,6 +1,6 @@
 --[[
-    🚀 VEHICLE FLY GUI V2.6 - MINIMALIST EDITION
-    👤 Remade for minimal aesthetics & fixed floating-point precision errors
+    🚀 VEHICLE FLY GUI V2.7 - MINIMALIST EDITION
+    👤 Remade for minimal aesthetics & fixed minimize overflow glitch
 ]]
 
 local PlayerService = game:GetService("Players")
@@ -303,14 +303,12 @@ player.CharacterAdded:Connect(resetControllerOnSpawn)
 
 -- ================= KẾT NỐI SỰ KIỆN =================
 local function setupButtonConnections()
-    -- [ĐÃ CẬP NHẬT] Làm tròn số để tránh lỗi sai số thập phân
     table.insert(activeConnections, IncreaseButton.MouseButton1Click:Connect(function()
         local currentSpeed = tonumber(SpeedTextBox.Text) or 1
         local newSpeed = math.round((currentSpeed + 0.1) * 10) / 10
         SpeedTextBox.Text = tostring(newSpeed)
     end))
     
-    -- [ĐÃ CẬP NHẬT] Làm tròn số để tránh lỗi sai số thập phân
     table.insert(activeConnections, DecreaseButton.MouseButton1Click:Connect(function()
         local currentSpeed = tonumber(SpeedTextBox.Text) or 1
         local newSpeed = math.max(0.1, math.round((currentSpeed - 0.1) * 10) / 10)
@@ -490,13 +488,16 @@ local function initialize()
         ControllerButton.TextColor3 = controllerEnabled and Theme.Background or Theme.Text
     end)
     
+    -- [ĐÃ CẬP NHẬT] Ẩn toàn bộ nút bên trong khi bấm thu gọn
     MinimizeButton.MouseButton1Click:Connect(function()
         isGuiMinimized = not isGuiMinimized
         if isGuiMinimized then
             MinimizeButton.Text = "+"
+            InnerFrame.Visible = false -- Ẩn sạch các nút, không để lòi ô TextBox ra ngoài
             MainFrame:TweenSize(UDim2.new(0, 180, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
         else
             MinimizeButton.Text = "–"
+            InnerFrame.Visible = true  -- Mở lại danh sách nút
             MainFrame:TweenSize(UDim2.new(0, 180, 0, 195), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
         end
     end)
