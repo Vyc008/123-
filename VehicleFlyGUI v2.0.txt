@@ -1,59 +1,89 @@
--- Optimized VehicleFlyGUI v2.0 | Developed by ctgvỹ
--- Instances (GUI elements)
+--[[
+    🚀 VEHICLE FLY GUI V2.5 - MINIMALIST EDITION
+    👤 Remade for minimal aesthetics & fixed overlapping layouts
+]]
+
+local PlayerService = game:GetService("Players")
+local player = PlayerService.LocalPlayer or PlayerService.PlayerAdded:Wait()
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- ================= BẢNG MÀU MINIMALIST =================
+local Theme = {
+    Background = Color3.fromRGB(25, 25, 27),
+    Panel = Color3.fromRGB(35, 35, 40),
+    Border = Color3.fromRGB(50, 50, 55),
+    Text = Color3.fromRGB(230, 230, 230),
+    Active = Color3.fromRGB(90, 170, 255) 
+}
+local MainFont = Enum.Font.GothamMedium
+
+-- Dọn dẹp GUI cũ nếu chạy lại script nhiều lần
+if PlayerGui:FindFirstChild("VehicleFlyGui_Minimal") then
+    PlayerGui.VehicleFlyGui_Minimal:Destroy()
+end
+if PlayerGui:FindFirstChild("MinFlyControllerGui") then
+    PlayerGui.MinFlyControllerGui:Destroy()
+end
+if PlayerGui:FindFirstChild("MinFlyLeftSideGui") then
+    PlayerGui.MinFlyLeftSideGui:Destroy()
+end
+
+-- ================= KHỞI TẠO GUI =================
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
 local InnerFrame = Instance.new("Frame")
+
+-- Các nút chính
+local SpeedFrame = Instance.new("Frame")
 local SpeedTextBox = Instance.new("TextBox")
 local DecreaseButton = Instance.new("TextButton")
 local IncreaseButton = Instance.new("TextButton")
-local FlyButton = Instance.new("TextButton")
-local FwFButton = Instance.new("TextButton")
-local DestroyButton = Instance.new("TextButton")
-local ControllerButton = Instance.new("TextButton")
-local UIGradient = Instance.new("UIGradient")
-local UICorner = Instance.new("UICorner")
-local UIStroke = Instance.new("UIStroke")
 
--- Controller GUI Instances
+local FwFButton = Instance.new("TextButton")
+local ControllerButton = Instance.new("TextButton")
+
+-- Khung chia tỷ lệ cho nút Fly
+local FlyRowFrame = Instance.new("Frame")
+local FlyButton = Instance.new("TextButton")
+local ToggleFloatingButton = Instance.new("TextButton")
+
+-- Nút Fly độc lập bên ngoài menu
+local FloatingFlyButton = Instance.new("TextButton")
+
+-- Nút thu nhỏ / mở rộng Menu
+local MinimizeButton = Instance.new("TextButton")
+
+-- Controller GUI (Left Side)
 local ControllerGui = Instance.new("ScreenGui")
 local ControllerFrame = Instance.new("Frame")
-local ForwardButton = Instance.new("TextButton")
-local BackwardButton = Instance.new("TextButton")
-local LeftButton = Instance.new("TextButton")
-local RightButton = Instance.new("TextButton")
+local ForwardButton, BackwardButton, LeftButton, RightButton = Instance.new("TextButton"), Instance.new("TextButton"), Instance.new("TextButton"), Instance.new("TextButton")
 local AntiLockButton = Instance.new("TextButton")
 local PitchButton = Instance.new("TextButton")
 
--- Left Side Movement GUI
+-- Left Side Movement GUI (Right Side)
 local LeftSideGui = Instance.new("ScreenGui")
 local LeftSideFrame = Instance.new("Frame")
-local UpButton = Instance.new("TextButton")
-local DownButton = Instance.new("TextButton")
-local RotateLeftButton = Instance.new("TextButton")
-local RotateRightButton = Instance.new("TextButton")
+local UpButton, DownButton, RotateLeftButton, RotateRightButton = Instance.new("TextButton"), Instance.new("TextButton"), Instance.new("TextButton"), Instance.new("TextButton")
 
--- Minimize Button
-local MinimizeButton = Instance.new("TextButton")
-
--- Global Variables
+-- Biến Hệ Thống
 local velocityHandlerName = "VehicleFlyVelocity32"
 local gyroHandlerName = "VehicleFlyGyro64"
-local VelocityHandler = nil
-local GyroHandler = nil
+local VelocityHandler, GyroHandler = nil, nil
+
 local isAntiLockOn = false
 local FlyEnabled = false
-local seatConnection = nil
-local unseatConnection = nil
-local flightWithoutFlyEnabled = false
-local isPitchOn = false
-
--- Track Active Connections
-local activeConnections = {}
+local flightWithoutFlyEnabled = true 
+local isPitchOn = true               
 local controllerEnabled = false
-local movementDirection = {}
+local isGuiMinimized = false
+local isFloatingFlyVisible = false
 
--- Movement Speeds
+local activeConnections = {}
+local movementDirection = {}
+local seatConnection, unseatConnection = nil, nil
+
+-- Tốc độ
 local forwardVelocity = 100 
 local leftVelocity = 100
 local rightVelocity = 100
@@ -61,320 +91,181 @@ local upVelocity = 50
 local downVelocity = 50
 local rotationSpeed = 5
 
--- GUI Minimized State
-local isGuiMinimized = false
-local originalMainFramePosition = nil
+-- Hàm thiết kế viền
+local function ApplyMinimalStyle(element)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = element
 
--- Store original positions for buttons to monitor
-local originalButtonPositions = {}
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Theme.Border
+    stroke.Thickness = 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = element
+end
 
--- Wait for player to load
-local PlayerService = game:GetService("Players")
-local player = PlayerService.LocalPlayer or PlayerService.PlayerAdded:Wait()
-
--- Wait for player GUI to be ready
-player:WaitForChild("PlayerGui")
+-- Hàm tạo Nút
+local function CreateButton(btn, parent, text, size, pos, textSize)
+    btn.Parent = parent
+    btn.BackgroundColor3 = Theme.Panel
+    btn.Size = size
+    if pos then btn.Position = pos end
+    btn.Font = MainFont
+    btn.Text = text
+    btn.TextColor3 = Theme.Text
+    btn.TextSize = textSize or 12
+    
+    if btn:IsA("TextButton") then
+        btn.AutoButtonColor = true
+    end
+    
+    ApplyMinimalStyle(btn)
+end
 
 local function initializeGUI()
-    -- ScreenGui properties
-    ScreenGui.Parent = player.PlayerGui
+    -- Màn hình chính
+    ScreenGui.Parent = PlayerGui
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Name = "VehicleFlyGui"
+    ScreenGui.Name = "VehicleFlyGui_Minimal"
 
-    -- MainFrame properties
+    -- Khung chính
     MainFrame.Parent = ScreenGui
-    MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    MainFrame.BackgroundColor3 = Theme.Background
     MainFrame.Position = UDim2.new(0.3, 0, 0.5, -100)
-    MainFrame.Size = UDim2.new(0, 170, 0, 165)
+    MainFrame.Size = UDim2.new(0, 180, 0, 195) 
     MainFrame.Active = true
     MainFrame.Draggable = true
+    MainFrame.ClipsDescendants = true
+    ApplyMinimalStyle(MainFrame)
 
-    -- UIStroke properties for MainFrame
-    UIStroke.Parent = MainFrame
-    UIStroke.Color = Color3.fromRGB(0, 0, 0)
-    UIStroke.Thickness = 2
-
-    -- Title properties
+    -- Tiêu đề [ĐÃ CẬP NHẬT TÊN MENU]
     Title.Parent = MainFrame
     Title.BackgroundTransparency = 1
-    Title.Size = UDim2.new(1, 0, 0.2, 0)
-    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.Size = UDim2.new(1, -45, 0, 35)
+    Title.Position = UDim2.new(0, 10, 0, 0)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "Vehicle Fly GUI"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextScaled = true
+    Title.Text = "Fly Car <Ctgv-thw>"
+    Title.TextColor3 = Theme.Text
+    Title.TextSize = 13
+    Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- InnerFrame properties
+    -- Nút thu nhỏ / mở rộng (To hơn, dễ bấm hơn)
+    MinimizeButton.Parent = MainFrame
+    MinimizeButton.BackgroundTransparency = 1
+    MinimizeButton.Size = UDim2.new(0, 45, 0, 35)
+    MinimizeButton.Position = UDim2.new(1, -45, 0, 0)
+    MinimizeButton.Font = Enum.Font.GothamBold
+    MinimizeButton.Text = "–"
+    MinimizeButton.TextColor3 = Theme.Text
+    MinimizeButton.TextSize = 22
+    MinimizeButton.ZIndex = 2
+
+    -- Khung chứa (Auto-Layout)
     InnerFrame.Parent = MainFrame
-    InnerFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    InnerFrame.Size = UDim2.new(1, 0, 0.75, 0)
-    InnerFrame.Position = UDim2.new(0, 0, 0.2, 0)
+    InnerFrame.BackgroundTransparency = 1
+    InnerFrame.Size = UDim2.new(1, -20, 1, -45)
+    InnerFrame.Position = UDim2.new(0, 10, 0, 35)
 
-    -- SpeedTextBox properties
-    SpeedTextBox.Parent = InnerFrame
-    SpeedTextBox.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    SpeedTextBox.Position = UDim2.new(0.5, -25, 0.1, 0)
-    SpeedTextBox.Size = UDim2.new(0, 50, 0, 30)
-    SpeedTextBox.Font = Enum.Font.Gotham
-    SpeedTextBox.Text = "1"
-    SpeedTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SpeedTextBox.TextScaled = true
-    SpeedTextBox.PlaceholderText = "Speed"
-    originalButtonPositions[SpeedTextBox] = SpeedTextBox.Position
+    local ListLayout = Instance.new("UIListLayout", InnerFrame)
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ListLayout.Padding = UDim.new(0, 8)
+    ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    -- DecreaseButton properties
-    DecreaseButton.Parent = InnerFrame
-    DecreaseButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    DecreaseButton.Size = UDim2.new(0.2, 0, 0, 25)
-    DecreaseButton.Position = UDim2.new(0.1, 0, 0.1, 0)
-    DecreaseButton.Font = Enum.Font.Gotham
-    DecreaseButton.Text = "-"
-    DecreaseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DecreaseButton.TextScaled = true
-    originalButtonPositions[DecreaseButton] = DecreaseButton.Position
+    -- ================= SẮP XẾP CÁC NÚT MÀN HÌNH CHÍNH =================
 
-    -- IncreaseButton properties
-    IncreaseButton.Parent = InnerFrame
-    IncreaseButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    IncreaseButton.Size = UDim2.new(0.2, 0, 0, 25)
-    IncreaseButton.Position = UDim2.new(0.7, 0, 0.1, 0)
-    IncreaseButton.Font = Enum.Font.Gotham
-    IncreaseButton.Text = "+"
-    IncreaseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    IncreaseButton.TextScaled = true
-    originalButtonPositions[IncreaseButton] = IncreaseButton.Position
+    SpeedFrame.Parent = InnerFrame
+    SpeedFrame.BackgroundTransparency = 1
+    SpeedFrame.Size = UDim2.new(1, 0, 0, 30)
+    SpeedFrame.LayoutOrder = 0
 
-    -- FlyButton properties
-    FlyButton.Parent = InnerFrame
-    FlyButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    FlyButton.Size = UDim2.new(0.4, 0, 0, 25)
-    FlyButton.Position = UDim2.new(0.1, 0, 0.33, 0)
-    FlyButton.Font = Enum.Font.GothamBold
-    FlyButton.Text = "Fly"
-    FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FlyButton.TextScaled = true
-    originalButtonPositions[FlyButton] = FlyButton.Position
+    local SpeedLayout = Instance.new("UIListLayout", SpeedFrame)
+    SpeedLayout.FillDirection = Enum.FillDirection.Horizontal
+    SpeedLayout.Padding = UDim.new(0, 6)
+    SpeedLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- FwFButton properties
-    FwFButton.Parent = InnerFrame
-    FwFButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    FwFButton.Size = UDim2.new(0.4, 0, 0, 25)
-    FwFButton.Position = UDim2.new(0.5, 0, 0.33, 0)
-    FwFButton.Font = Enum.Font.GothamBold
-    FwFButton.Text = "FwF"
-    FwFButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FwFButton.TextScaled = true
-    originalButtonPositions[FwFButton] = FwFButton.Position
+    CreateButton(DecreaseButton, SpeedFrame, "–", UDim2.new(0, 35, 1, 0), nil, 14)
+    
+    CreateButton(SpeedTextBox, SpeedFrame, "1", UDim2.new(0, 78, 1, 0), nil, 13)
+    SpeedTextBox.BackgroundColor3 = Theme.Background
+    SpeedTextBox.ClearTextOnFocus = false
 
-    -- DestroyButton properties
-    DestroyButton.Parent = InnerFrame
-    DestroyButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    DestroyButton.Size = UDim2.new(0, 0, 0, 0)
-    DestroyButton.Position = UDim2.new(0.1, 0, 0.53, 0)
-    DestroyButton.Font = Enum.Font.GothamBold
-    DestroyButton.Text = "Destroy"
-    DestroyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DestroyButton.TextScaled = true
-    originalButtonPositions[DestroyButton] = DestroyButton.Position
+    CreateButton(IncreaseButton, SpeedFrame, "+", UDim2.new(0, 35, 1, 0), nil, 14)
 
-    -- ControllerButton properties
-    ControllerButton.Parent = InnerFrame
-    ControllerButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    ControllerButton.Size = UDim2.new(0.8, 0, 0, 25)
-    ControllerButton.Position = UDim2.new(0.1, 0, 0.53, 0)
-    ControllerButton.Font = Enum.Font.GothamBold
-    ControllerButton.Text = "Controller"
-    ControllerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ControllerButton.TextScaled = true
-    originalButtonPositions[ControllerButton] = ControllerButton.Position
+    CreateButton(FwFButton, InnerFrame, "FwF: ON", UDim2.new(1, 0, 0, 30))
+    FwFButton.LayoutOrder = 1
+    FwFButton.BackgroundColor3 = Theme.Active
+    FwFButton.TextColor3 = Theme.Background
 
-    -- UICorner properties
-    UICorner.CornerRadius = UDim.new(0.1, 0)
-    UICorner.Parent = MainFrame
+    CreateButton(ControllerButton, InnerFrame, "Show Controller", UDim2.new(1, 0, 0, 30))
+    ControllerButton.LayoutOrder = 2
 
-    -- UIGradient properties
-    UIGradient.Parent = MainFrame
-    UIGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 45)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(75, 75, 75))
-    }
+    -- ================= HÀNG NÚT FLY CHIA TỶ LỆ 4 : 1 =================
+    FlyRowFrame.Parent = InnerFrame
+    FlyRowFrame.BackgroundTransparency = 1
+    FlyRowFrame.Size = UDim2.new(1, 0, 0, 30)
+    FlyRowFrame.LayoutOrder = 3
 
-    -- ControllerGui properties
-    ControllerGui.Parent = player.PlayerGui
+    local FlyRowLayout = Instance.new("UIListLayout", FlyRowFrame)
+    FlyRowLayout.FillDirection = Enum.FillDirection.Horizontal
+    FlyRowLayout.Padding = UDim.new(0, 6)
+    FlyRowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    CreateButton(FlyButton, FlyRowFrame, "FLY: OFF", UDim2.new(0.78, -3, 1, 0))
+    CreateButton(ToggleFloatingButton, FlyRowFrame, "📌", UDim2.new(0.22, -3, 1, 0), nil, 14)
+
+    -- ================= NÚT FLY ĐỘC LẬP BÊN NGOÀI MENU =================
+    CreateButton(FloatingFlyButton, ScreenGui, "FLY: OFF", UDim2.new(0, 90, 0, 38), UDim2.new(0.5, -45, 0.82, 0), 12)
+    FloatingFlyButton.Visible = false
+    FloatingFlyButton.Active = true
+    FloatingFlyButton.Draggable = true
+    FloatingFlyButton.ZIndex = 10
+
+    -- ================= BẢNG W,A,S,D (BÊN TRÁI) =================
+    ControllerGui.Parent = PlayerGui
     ControllerGui.ResetOnSpawn = false
     ControllerGui.Enabled = false
-    ControllerGui.Name = "VehicleFlyControllerGui"
+    ControllerGui.Name = "MinFlyControllerGui"
 
-    -- ControllerFrame properties
     ControllerFrame.Parent = ControllerGui
-    ControllerFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    ControllerFrame.Position = UDim2.new(0.78, -75, 0.5, -75)
-    ControllerFrame.Size = UDim2.new(0, 150, 0, 150)
+    ControllerFrame.BackgroundColor3 = Theme.Background
+    ControllerFrame.Position = UDim2.new(0.1, 0, 0.5, -100) 
+    ControllerFrame.Size = UDim2.new(0, 170, 0, 215)
+    ApplyMinimalStyle(ControllerFrame)
 
-    local ControllerCorner = Instance.new("UICorner")
-    ControllerCorner.CornerRadius = UDim.new(0.5, 0)
-    ControllerCorner.Parent = ControllerFrame
+    CreateButton(AntiLockButton, ControllerFrame, "A-L: OFF", UDim2.new(0, 70, 0, 25), UDim2.new(0, 10, 0, 10), 11)
+    CreateButton(PitchButton, ControllerFrame, "PITCH: ON", UDim2.new(0, 72, 0, 25), UDim2.new(0, 87, 0, 10), 11)
+    PitchButton.BackgroundColor3 = Theme.Active
+    PitchButton.TextColor3 = Theme.Background
 
-    -- ForwardButton properties
-    ForwardButton.Parent = ControllerFrame
-    ForwardButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    ForwardButton.Size = UDim2.new(0, 50, 0, 50)
-    ForwardButton.Position = UDim2.new(0.5, -25, 0, 10)
-    ForwardButton.Font = Enum.Font.GothamBold
-    ForwardButton.Text = "▲"
-    ForwardButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ForwardButton.TextScaled = true
-    originalButtonPositions[ForwardButton] = ForwardButton.Position
+    CreateButton(ForwardButton, ControllerFrame, "W", UDim2.new(0, 45, 0, 45), UDim2.new(0, 62, 0, 50), 16)
+    CreateButton(LeftButton, ControllerFrame, "A", UDim2.new(0, 45, 0, 45), UDim2.new(0, 10, 0, 102), 16)
+    CreateButton(RightButton, ControllerFrame, "D", UDim2.new(0, 45, 0, 45), UDim2.new(0, 114, 0, 102), 16)
+    CreateButton(BackwardButton, ControllerFrame, "S", UDim2.new(0, 45, 0, 45), UDim2.new(0, 62, 0, 154), 16)
 
-    -- BackwardButton properties
-    BackwardButton.Parent = ControllerFrame
-    BackwardButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    BackwardButton.Size = UDim2.new(0, 50, 0, 50)
-    BackwardButton.Position = UDim2.new(0.5, -25, 0, 85)
-    BackwardButton.Font = Enum.Font.GothamBold
-    BackwardButton.Text = "▼"
-    BackwardButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BackwardButton.TextScaled = true
-    originalButtonPositions[BackwardButton] = BackwardButton.Position
-
-    -- LeftButton properties
-    LeftButton.Parent = ControllerFrame
-    LeftButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    LeftButton.Size = UDim2.new(0, 50, 0, 50)
-    LeftButton.Position = UDim2.new(0, 0, 0.5, -25)
-    LeftButton.Font = Enum.Font.GothamBold
-    LeftButton.Text = "<"
-    LeftButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LeftButton.TextScaled = true
-    originalButtonPositions[LeftButton] = LeftButton.Position
-
-    -- RightButton properties
-    RightButton.Parent = ControllerFrame
-    RightButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    RightButton.Size = UDim2.new(0, 50, 0, 50)
-    RightButton.Position = UDim2.new(1, -50, 0.5, -25)
-    RightButton.Font = Enum.Font.GothamBold
-    RightButton.Text = ">"
-    RightButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RightButton.TextScaled = true
-    originalButtonPositions[RightButton] = RightButton.Position
-
-    -- AntiLock Button properties
-    AntiLockButton.Parent = ControllerFrame
-    AntiLockButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    AntiLockButton.Size = UDim2.new(0, 50, 0, 30)
-    AntiLockButton.Position = UDim2.new(0.5, -25, 0, 60)
-    AntiLockButton.Font = Enum.Font.GothamBold
-    AntiLockButton.Text = "A-L"
-    AntiLockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    AntiLockButton.TextScaled = true
-    originalButtonPositions[AntiLockButton] = AntiLockButton.Position
-
-    -- Pitch Button properties
-    PitchButton.Parent = ControllerFrame
-    PitchButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    PitchButton.Size = UDim2.new(0, 50, 0, 30)
-    PitchButton.Position = UDim2.new(0.16, -25, 0, 20)
-    PitchButton.Font = Enum.Font.GothamBold
-    PitchButton.Text = "Pitch: Off"
-    PitchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PitchButton.TextScaled = true
-    originalButtonPositions[PitchButton] = PitchButton.Position
-
-    -- Left Side GUI
-    LeftSideGui.Parent = player.PlayerGui
+    -- ================= BẢNG UP, DOWN, L, R (BÊN PHẢI) =================
+    LeftSideGui.Parent = PlayerGui
     LeftSideGui.ResetOnSpawn = false
     LeftSideGui.Enabled = false
-    LeftSideGui.Name = "VehicleFlyLeftSideGui"
+    LeftSideGui.Name = "MinFlyLeftSideGui"
     
     LeftSideFrame.Parent = LeftSideGui
-    LeftSideFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    LeftSideFrame.Position = UDim2.new(0.1, 20, 0.5, -75)
-    LeftSideFrame.Size = UDim2.new(0, 150, 0, 150)
+    LeftSideFrame.BackgroundColor3 = Theme.Background
+    LeftSideFrame.Position = UDim2.new(0.8, -85, 0.5, -85) 
+    LeftSideFrame.Size = UDim2.new(0, 170, 0, 170)
+    ApplyMinimalStyle(LeftSideFrame)
 
-    local LeftSideCorner = Instance.new("UICorner")
-    LeftSideCorner.CornerRadius = UDim.new(0.5, 0)
-    LeftSideCorner.Parent = LeftSideFrame
-
-    -- UpButton Properties
-    UpButton.Parent = LeftSideFrame
-    UpButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    UpButton.Size = UDim2.new(0, 50, 0, 50)
-    UpButton.Position = UDim2.new(0.5, -25, 0, 10)
-    UpButton.Font = Enum.Font.GothamBold
-    UpButton.Text = "↑"
-    UpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    UpButton.TextScaled = true
-    originalButtonPositions[UpButton] = UpButton.Position
-
-    -- DownButton properties
-    DownButton.Parent = LeftSideFrame
-    DownButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    DownButton.Size = UDim2.new(0, 50, 0, 50)
-    DownButton.Position = UDim2.new(0.5, -25, 0, 90)
-    DownButton.Font = Enum.Font.GothamBold
-    DownButton.Text = "↓"
-    DownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    DownButton.TextScaled = true
-    originalButtonPositions[DownButton] = DownButton.Position
-
-    -- RotateLeftButton Properties
-    RotateLeftButton.Parent = LeftSideFrame
-    RotateLeftButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    RotateLeftButton.Size = UDim2.new(0, 50, 0, 50)
-    RotateLeftButton.Position = UDim2.new(0.86, -25, 0, 50)
-    RotateLeftButton.Font = Enum.Font.GothamBold
-    RotateLeftButton.Text = "⟩>"
-    RotateLeftButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RotateLeftButton.TextScaled = true
-    originalButtonPositions[RotateLeftButton] = RotateLeftButton.Position
-
-    -- RotateRightButton Properties
-    RotateRightButton.Parent = LeftSideFrame
-    RotateRightButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    RotateRightButton.Size = UDim2.new(0, 50, 0, 50)
-    RotateRightButton.Position = UDim2.new(0.14, -25, 0, 50)
-    RotateRightButton.Font = Enum.Font.GothamBold
-    RotateRightButton.Text = "<⟨"
-    RotateRightButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    RotateRightButton.TextScaled = true
-    originalButtonPositions[RotateRightButton] = RotateRightButton.Position
-
-    -- Minimize Button Setup
-    MinimizeButton.Parent = MainFrame
-    MinimizeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    MinimizeButton.Size = UDim2.new(0, 40, 0, 40)
-    MinimizeButton.Position = UDim2.new(-0.15, 0, 0, 0)
-    MinimizeButton.Font = Enum.Font.GothamBold
-    MinimizeButton.Text = "⇧"
-    MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    MinimizeButton.TextScaled = true
-    MinimizeButton.ZIndex = 2
-    originalButtonPositions[MinimizeButton] = MinimizeButton.Position
-
-    originalMainFramePosition = MainFrame.Position
+    CreateButton(UpButton, LeftSideFrame, "▲", UDim2.new(0, 45, 0, 45), UDim2.new(0, 62, 0, 10), 18)
+    CreateButton(RotateLeftButton, LeftSideFrame, "Q", UDim2.new(0, 45, 0, 45), UDim2.new(0, 10, 0, 62), 16)
+    CreateButton(RotateRightButton, LeftSideFrame, "E", UDim2.new(0, 45, 0, 45), UDim2.new(0, 114, 0, 62), 16)
+    CreateButton(DownButton, LeftSideFrame, "▼", UDim2.new(0, 45, 0, 45), UDim2.new(0, 62, 0, 114), 18)
 end
 
-local function cleanupConnections()
-    for _, connection in pairs(activeConnections) do
-        if connection and connection.Disconnect then
-            connection:Disconnect()
-        end
-    end
-    activeConnections = {}
-end
-
--- Setup Fly Instances
+-- ================= LOGIC BAY & VẬT LÝ =================
 local function setupFlyInstances(character)
-    if not character or not character:FindFirstChild("HumanoidRootPart") then
-        return
-    end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
-    local existingVelocity = character.HumanoidRootPart:FindFirstChild(velocityHandlerName)
-    local existingGyro = character.HumanoidRootPart:FindFirstChild(gyroHandlerName)
-    
-    if existingVelocity then existingVelocity:Destroy() end
-    if existingGyro then existingGyro:Destroy() end
+    if character.HumanoidRootPart:FindFirstChild(velocityHandlerName) then character.HumanoidRootPart[velocityHandlerName]:Destroy() end
+    if character.HumanoidRootPart:FindFirstChild(gyroHandlerName) then character.HumanoidRootPart[gyroHandlerName]:Destroy() end
     
     VelocityHandler = Instance.new("BodyVelocity")
     VelocityHandler.Name = velocityHandlerName
@@ -392,8 +283,7 @@ local function setupFlyInstances(character)
 end
 
 local function EnableFlight()
-    local character = player.Character
-    if character then setupFlyInstances(character) end
+    if player.Character then setupFlyInstances(player.Character) end
 end
 
 local function DisableFlight()
@@ -404,13 +294,15 @@ end
 local function resetControllerOnSpawn()
     ControllerGui.Enabled = false
     LeftSideGui.Enabled = false
+    controllerEnabled = false
+    ControllerButton.Text = "Show Controller"
+    ControllerButton.BackgroundColor3 = Theme.Panel
+    ControllerButton.TextColor3 = Theme.Text
 end
-
 player.CharacterAdded:Connect(resetControllerOnSpawn)
-player.CharacterRemoving:Connect(resetControllerOnSpawn)
 
+-- ================= KẾT NỐI SỰ KIỆN =================
 local function setupButtonConnections()
-    -- Tăng/Giảm Tốc độ
     table.insert(activeConnections, IncreaseButton.MouseButton1Click:Connect(function()
         local currentSpeed = tonumber(SpeedTextBox.Text) or 1
         SpeedTextBox.Text = tostring(currentSpeed + 0.1)
@@ -421,64 +313,51 @@ local function setupButtonConnections()
         SpeedTextBox.Text = tostring(math.max(0.1, currentSpeed - 0.1))
     end))
     
-    -- TỐI ƯU HÓA: Gom nhóm các nút di chuyển bằng vòng lặp tránh trùng lặp code
     local movementButtons = {
-        {button = ForwardButton, dir = "forward"},
-        {button = BackwardButton, dir = "backward"},
-        {button = LeftButton, dir = "left"},
-        {button = RightButton, dir = "right"},
-        {button = UpButton, dir = "up"},
-        {button = DownButton, dir = "down"},
-        {button = RotateLeftButton, dir = "rotateLeft"},
-        {button = RotateRightButton, dir = "rotateRight"}
+        {button = ForwardButton, dir = "forward"}, {button = BackwardButton, dir = "backward"},
+        {button = LeftButton, dir = "left"}, {button = RightButton, dir = "right"},
+        {button = UpButton, dir = "up"}, {button = DownButton, dir = "down"},
+        {button = RotateLeftButton, dir = "rotateLeft"}, {button = RotateRightButton, dir = "rotateRight"}
     }
 
     for _, config in ipairs(movementButtons) do
-        table.insert(activeConnections, config.button.MouseButton1Down:Connect(function()
-            table.insert(movementDirection, config.dir)
-        end))
-        
+        table.insert(activeConnections, config.button.MouseButton1Down:Connect(function() table.insert(movementDirection, config.dir) end))
         table.insert(activeConnections, config.button.MouseButton1Up:Connect(function()
             local index = table.find(movementDirection, config.dir)
-            while index do
-                table.remove(movementDirection, index)
-                index = table.find(movementDirection, config.dir)
-            end
+            while index do table.remove(movementDirection, index) index = table.find(movementDirection, config.dir) end
         end))
     end
     
-    -- AntiLock Button
     table.insert(activeConnections, AntiLockButton.MouseButton1Click:Connect(function()
         isAntiLockOn = not isAntiLockOn
-        if isAntiLockOn then
-            AntiLockButton.Text = "A-L On"
-            if isPitchOn then
-                PitchButton.Text = "Pitch: Off"
-                isPitchOn = false
-            end
-        else
-            AntiLockButton.Text = "A-L"
+        AntiLockButton.Text = isAntiLockOn and "A-L: ON" or "A-L: OFF"
+        AntiLockButton.BackgroundColor3 = isAntiLockOn and Theme.Active or Theme.Panel
+        AntiLockButton.TextColor3 = isAntiLockOn and Theme.Background or Theme.Text
+
+        if isAntiLockOn and isPitchOn then
+            isPitchOn = false
+            PitchButton.Text = "PITCH: OFF"
+            PitchButton.BackgroundColor3 = Theme.Panel
+            PitchButton.TextColor3 = Theme.Text
         end
     end))
     
-    -- Pitch Button
     table.insert(activeConnections, PitchButton.MouseButton1Click:Connect(function()
         if isAntiLockOn then
-            PitchButton.Text = "Pitch: Off"
             isPitchOn = false
         else
             isPitchOn = not isPitchOn
-            PitchButton.Text = isPitchOn and "Pitch: On" or "Pitch: Off"
         end
+        PitchButton.Text = isPitchOn and "PITCH: ON" or "PITCH: OFF"
+        PitchButton.BackgroundColor3 = isPitchOn and Theme.Active or Theme.Panel
+        PitchButton.TextColor3 = isPitchOn and Theme.Background or Theme.Text
     end))
 end
 
 local function handleInput()
     local character = player.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return end
+    if not character or not character:FindFirstChild("Humanoid") then return end
+    local humanoid = character.Humanoid
     
     if FlyEnabled and (humanoid.SeatPart or flightWithoutFlyEnabled) then
         local rootPart = character:FindFirstChild("HumanoidRootPart")
@@ -488,69 +367,35 @@ local function handleInput()
         local speed = tonumber(SpeedTextBox.Text) or 1
         local velocity = Vector3.new()
         
-        local function getMovementCFrame()
-            if isPitchOn and gyro then
-                return gyro.CFrame
-            elseif gyro then
-                local lookVector = gyro.CFrame.LookVector
-                return CFrame.new(gyro.Parent.Position, gyro.Parent.Position + Vector3.new(lookVector.X, 0, lookVector.Z))
-            end
-            return rootPart.CFrame
-        end
-        
-        local movementCFrame = getMovementCFrame()
+        local movementCFrame = (isPitchOn and gyro) and gyro.CFrame or (gyro and CFrame.new(gyro.Parent.Position, gyro.Parent.Position + Vector3.new(gyro.CFrame.LookVector.X, 0, gyro.CFrame.LookVector.Z)) or rootPart.CFrame)
         
         for _, direction in ipairs(movementDirection) do
-            if direction == "forward" then
-                velocity += movementCFrame.LookVector * forwardVelocity
-            elseif direction == "backward" then
-                velocity += -movementCFrame.LookVector * forwardVelocity
-            elseif direction == "left" then
-                velocity += movementCFrame.RightVector * -leftVelocity
-            elseif direction == "right" then
-                velocity += movementCFrame.RightVector * rightVelocity
-            elseif direction == "up" then
-                velocity += Vector3.new(0, upVelocity, 0)
-            elseif direction == "down" then
-                velocity += Vector3.new(0, -downVelocity, 0)
-            elseif direction == "rotateLeft" and gyro then
-                gyro.CFrame = gyro.CFrame * CFrame.Angles(0, math.rad(-rotationSpeed), 0)
-            elseif direction == "rotateRight" and gyro then
-                gyro.CFrame = gyro.CFrame * CFrame.Angles(0, math.rad(rotationSpeed), 0)
+            if direction == "forward" then velocity += movementCFrame.LookVector * forwardVelocity
+            elseif direction == "backward" then velocity += -movementCFrame.LookVector * forwardVelocity
+            elseif direction == "left" then velocity += movementCFrame.RightVector * -leftVelocity
+            elseif direction == "right" then velocity += movementCFrame.RightVector * rightVelocity
+            elseif direction == "up" then velocity += Vector3.new(0, upVelocity, 0)
+            elseif direction == "down" then velocity += Vector3.new(0, -downVelocity, 0)
+            elseif direction == "rotateLeft" and gyro then gyro.CFrame *= CFrame.Angles(0, math.rad(-rotationSpeed), 0)
+            elseif direction == "rotateRight" and gyro then gyro.CFrame *= CFrame.Angles(0, math.rad(rotationSpeed), 0)
             end
         end
         
         local thumbstickDirection = Vector2.new(0, 0)
-        pcall(function()
-            local controlModule = require(player.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("ControlModule"))
-            thumbstickDirection = controlModule:GetMoveVector()
-        end)
+        pcall(function() thumbstickDirection = require(player.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("ControlModule")):GetMoveVector() end)
         
         if #movementDirection > 0 or thumbstickDirection.Magnitude > 0 then
-            local combinedVelocity = velocity + (
-                movementCFrame.RightVector * thumbstickDirection.X * forwardVelocity * 2 +
-                movementCFrame.LookVector * -thumbstickDirection.Z * forwardVelocity * 2
-            )
-            
+            local combinedVelocity = velocity + (movementCFrame.RightVector * thumbstickDirection.X * forwardVelocity * 2 + movementCFrame.LookVector * -thumbstickDirection.Z * forwardVelocity * 2)
             if isAntiLockOn and humanoid.SeatPart then
-                local seatForward = humanoid.SeatPart.CFrame.LookVector
-                local seatRight = humanoid.SeatPart.CFrame.RightVector
-                local seatUp = humanoid.SeatPart.CFrame.UpVector
+                local sCF = humanoid.SeatPart.CFrame
                 local seatVelocity = Vector3.new()
-                
                 for _, direction in ipairs(movementDirection) do
-                    if direction == "forward" then
-                        seatVelocity += seatForward * forwardVelocity
-                    elseif direction == "backward" then
-                        seatVelocity += -seatForward * forwardVelocity
-                    elseif direction == "left" then
-                        seatVelocity += -seatRight * leftVelocity
-                    elseif direction == "right" then
-                        seatVelocity += seatRight * rightVelocity
-                    elseif direction == "up" then
-                        seatVelocity += seatUp * upVelocity
-                    elseif direction == "down" then
-                        seatVelocity += -seatUp * downVelocity
+                    if direction == "forward" then seatVelocity += sCF.LookVector * forwardVelocity
+                    elseif direction == "backward" then seatVelocity += -sCF.LookVector * forwardVelocity
+                    elseif direction == "left" then seatVelocity += -sCF.RightVector * leftVelocity
+                    elseif direction == "right" then seatVelocity += sCF.RightVector * rightVelocity
+                    elseif direction == "up" then seatVelocity += sCF.UpVector * upVelocity
+                    elseif direction == "down" then seatVelocity += -sCF.UpVector * downVelocity
                     end
                 end
                 VelocityHandler.Velocity = seatVelocity * speed
@@ -563,11 +408,8 @@ local function handleInput()
         
         if not isAntiLockOn then
             local camera = workspace.CurrentCamera
-            if isPitchOn and gyro then
-                gyro.CFrame = camera.CFrame
-            elseif gyro then
-                local flatLookVector = camera.CFrame.LookVector * Vector3.new(1, 0, 1)
-                gyro.CFrame = CFrame.new(gyro.Parent.Position, gyro.Parent.Position + flatLookVector)
+            if isPitchOn and gyro then gyro.CFrame = camera.CFrame
+            elseif gyro then gyro.CFrame = CFrame.new(gyro.Parent.Position, gyro.Parent.Position + (camera.CFrame.LookVector * Vector3.new(1, 0, 1)))
             end
         end
     else
@@ -575,90 +417,62 @@ local function handleInput()
     end
 end
 
-local function backupButtonPositions()
-    for button, originalPosition in pairs(originalButtonPositions) do
-        if button and button.Parent and button.Position == UDim2.new(0, 0, 0, 0) then
-            button.Position = originalPosition
+-- ================= ĐỒNG BỘ TRẠNG THÁI NÚT FLY =================
+local function toggleFlyState()
+    FlyEnabled = not FlyEnabled
+    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+    
+    local text = FlyEnabled and "FLY: ON" or "FLY: OFF"
+    local bgColor = FlyEnabled and Theme.Active or Theme.Panel
+    local txtColor = FlyEnabled and Theme.Background or Theme.Text
+    
+    FlyButton.Text = text
+    FlyButton.BackgroundColor3 = bgColor
+    FlyButton.TextColor3 = txtColor
+    
+    FloatingFlyButton.Text = text
+    FloatingFlyButton.BackgroundColor3 = bgColor
+    FloatingFlyButton.TextColor3 = txtColor
+    
+    if FlyEnabled then
+        if flightWithoutFlyEnabled then EnableFlight()
+        elseif humanoid then
+            if seatConnection then seatConnection:Disconnect() end
+            if unseatConnection then unseatConnection:Disconnect() end
+            if humanoid.SeatPart then EnableFlight()
+            else seatConnection = humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function() if humanoid.SeatPart then EnableFlight() end end) end
+            unseatConnection = humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function() if not humanoid.SeatPart then DisableFlight() end end)
         end
+    else
+        DisableFlight()
+        if seatConnection then seatConnection:Disconnect() end
+        if unseatConnection then unseatConnection:Disconnect() end
     end
-end
-
-local function setupEventListeners()
-    setupButtonConnections()
-    table.insert(activeConnections, game:GetService("RunService").RenderStepped:Connect(handleInput))
-    table.insert(activeConnections, game:GetService("RunService").Heartbeat:Connect(backupButtonPositions))
-end
-
-local function cleanup()
-    DisableFlight()
-    cleanupConnections()
-    movementDirection = {}
-    controllerEnabled = false
-    
-    if seatConnection then seatConnection:Disconnect() end
-    if unseatConnection then unseatConnection:Disconnect() end
-    
-    seatConnection = nil
-    unseatConnection = nil
-    FlyEnabled = false
-    flightWithoutFlyEnabled = false
-    FwFButton.Text = "FwF"
-    
-    if ScreenGui then ScreenGui:Destroy() end
-    if ControllerGui then ControllerGui:Destroy() end
-    if LeftSideGui then LeftSideGui:Destroy() end
-    
-    originalButtonPositions = {}
 end
 
 local function initialize()
     initializeGUI()
-    setupEventListeners()
+    setupButtonConnections()
+    table.insert(activeConnections, game:GetService("RunService").RenderStepped:Connect(handleInput))
     
-    DestroyButton.MouseButton1Click:Connect(cleanup)
+    FlyButton.MouseButton1Click:Connect(toggleFlyState)
+    FloatingFlyButton.MouseButton1Click:Connect(toggleFlyState)
     
-    FlyButton.MouseButton1Click:Connect(function()
-        FlyEnabled = not FlyEnabled
-        local character = player.Character
-        local humanoid = character and character:FindFirstChild("Humanoid")
-        
-        if FlyEnabled then
-            FlyButton.Text = "UnFly"
-            if flightWithoutFlyEnabled then
-                EnableFlight()
-            elseif humanoid then
-                if seatConnection then seatConnection:Disconnect() end
-                if unseatConnection then unseatConnection:Disconnect() end
-                
-                if humanoid.SeatPart then
-                    EnableFlight()
-                else
-                    seatConnection = humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
-                        if humanoid.SeatPart then EnableFlight() end
-                    end)
-                end
-                
-                unseatConnection = humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
-                    if not humanoid.SeatPart then DisableFlight() end
-                end)
-            end
-        else
-            FlyButton.Text = "Fly"
-            DisableFlight()
-            if seatConnection then seatConnection:Disconnect() end
-            if unseatConnection then unseatConnection:Disconnect() end
-            seatConnection = nil
-            unseatConnection = nil
-        end
+    ToggleFloatingButton.MouseButton1Click:Connect(function()
+        isFloatingFlyVisible = not isFloatingFlyVisible
+        FloatingFlyButton.Visible = isFloatingFlyVisible
+        ToggleFloatingButton.BackgroundColor3 = isFloatingFlyVisible and Theme.Active or Theme.Panel
+        ToggleFloatingButton.TextColor3 = isFloatingFlyVisible and Theme.Background or Theme.Text
     end)
     
     FwFButton.MouseButton1Click:Connect(function()
         flightWithoutFlyEnabled = not flightWithoutFlyEnabled
-        FwFButton.Text = flightWithoutFlyEnabled and "FwF On" or "FwF"
+        FwFButton.Text = flightWithoutFlyEnabled and "FwF: ON" or "FwF: OFF"
+        FwFButton.BackgroundColor3 = flightWithoutFlyEnabled and Theme.Active or Theme.Panel
+        FwFButton.TextColor3 = flightWithoutFlyEnabled and Theme.Background or Theme.Text
         
         if FlyEnabled and not flightWithoutFlyEnabled then
-            local character = player.Character
-            local humanoid = character and character:FindFirstChild("Humanoid")
+            local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
             if humanoid and not humanoid.SeatPart then DisableFlight() end
         end
     end)
@@ -667,40 +481,22 @@ local function initialize()
         controllerEnabled = not controllerEnabled
         ControllerGui.Enabled = controllerEnabled
         LeftSideGui.Enabled = controllerEnabled
+        ControllerButton.Text = controllerEnabled and "Hide Controller" or "Show Controller"
+        ControllerButton.BackgroundColor3 = controllerEnabled and Theme.Active or Theme.Panel
+        ControllerButton.TextColor3 = controllerEnabled and Theme.Background or Theme.Text
     end)
     
     MinimizeButton.MouseButton1Click:Connect(function()
         isGuiMinimized = not isGuiMinimized
-        
         if isGuiMinimized then
-            MinimizeButton.Text = "⇩"
-            originalMainFramePosition = MainFrame.Position
-            
-            MainFrame:TweenSizeAndPosition(
-                UDim2.new(0, 170, 0, 40),
-                UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset, MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset + (MainFrame.Size.Y.Offset - 50) / 2),
-                Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true
-            )
-            
-            Title.Visible = true 
-            Title.Size = UDim2.new(1, 0, 1, 0)
-            Title.Position = UDim2.new(0, 0, 0, 0)
-            InnerFrame.Visible = false
+            MinimizeButton.Text = "+"
+            MainFrame:TweenSize(UDim2.new(0, 180, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
         else
-            MinimizeButton.Text = "⇧"
-            MainFrame:TweenSizeAndPosition(
-                UDim2.new(0, 170, 0, 165),
-                originalMainFramePosition,
-                Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true
-            )
-            
-            Title.Visible = true
-            Title.Size = UDim2.new(1, 0, 0.2, 0)
-            Title.Position = UDim2.new(0, 0, 0, 0)
-            InnerFrame.Visible = true
+            MinimizeButton.Text = "–"
+            MainFrame:TweenSize(UDim2.new(0, 180, 0, 195), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
         end
     end)
 end
 
--- Start the script
+-- Khởi động Script
 initialize()
