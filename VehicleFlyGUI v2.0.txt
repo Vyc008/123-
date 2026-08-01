@@ -1,6 +1,6 @@
 --[[
-    🚀 VEHICLE FLY GUI V2.5 - MINIMALIST EDITION
-    👤 Remade for minimal aesthetics & fixed overlapping layouts
+    🚀 VEHICLE FLY GUI V2.6 - MINIMALIST EDITION
+    👤 Remade for minimal aesthetics & fixed floating-point precision errors
 ]]
 
 local PlayerService = game:GetService("Players")
@@ -138,7 +138,7 @@ local function initializeGUI()
     MainFrame.ClipsDescendants = true
     ApplyMinimalStyle(MainFrame)
 
-    -- Tiêu đề [ĐÃ CẬP NHẬT TÊN MENU]
+    -- Tiêu đề
     Title.Parent = MainFrame
     Title.BackgroundTransparency = 1
     Title.Size = UDim2.new(1, -45, 0, 35)
@@ -303,14 +303,18 @@ player.CharacterAdded:Connect(resetControllerOnSpawn)
 
 -- ================= KẾT NỐI SỰ KIỆN =================
 local function setupButtonConnections()
+    -- [ĐÃ CẬP NHẬT] Làm tròn số để tránh lỗi sai số thập phân
     table.insert(activeConnections, IncreaseButton.MouseButton1Click:Connect(function()
         local currentSpeed = tonumber(SpeedTextBox.Text) or 1
-        SpeedTextBox.Text = tostring(currentSpeed + 0.1)
+        local newSpeed = math.round((currentSpeed + 0.1) * 10) / 10
+        SpeedTextBox.Text = tostring(newSpeed)
     end))
     
+    -- [ĐÃ CẬP NHẬT] Làm tròn số để tránh lỗi sai số thập phân
     table.insert(activeConnections, DecreaseButton.MouseButton1Click:Connect(function()
         local currentSpeed = tonumber(SpeedTextBox.Text) or 1
-        SpeedTextBox.Text = tostring(math.max(0.1, currentSpeed - 0.1))
+        local newSpeed = math.max(0.1, math.round((currentSpeed - 0.1) * 10) / 10)
+        SpeedTextBox.Text = tostring(newSpeed)
     end))
     
     local movementButtons = {
