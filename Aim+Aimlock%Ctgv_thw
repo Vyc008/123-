@@ -53,7 +53,7 @@ local AimbotSettings = {
 
 -- Các biến logic trạng thái
 local MasterSwitch = false
-local PrefCamAim = false   
+local PrefCamAim = true   
 local PrefBodyAim = false  
 local isAiming = false     
 local lockedTarget = nil
