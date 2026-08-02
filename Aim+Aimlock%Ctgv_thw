@@ -1,5 +1,5 @@
 --// Rromax Universal Hub: Aimbot (Absolute Lock) + ESP (Combo)
---// Bản vá mới: Hiện FOV khi bật BODY AIM + Sửa lỗi kẹt thanh cuộn (Scroll) ESP
+--// Bản cập nhật Logic: Nút Tổng (Master Switch), Trạng thái chờ, Nút Màu Trắng & Chỉnh Mục tiêu (Head/Body)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -31,7 +31,7 @@ if getgenv()._Aimbot_FOV then pcall(function() getgenv()._Aimbot_FOV:Remove() en
 if getgenv()._Aimbot_FocusCircle then pcall(function() getgenv()._Aimbot_FocusCircle:Remove() end) end
 
 -- ==========================================
--- CẤU HÌNH AIMBOT
+-- CẤU HÌNH AIMBOT & BIẾN TRẠNG THÁI MỚI
 -- ==========================================
 local AimbotSettings = {
     Prediction = 0.05,      
@@ -45,14 +45,17 @@ local AimbotSettings = {
     WallCheck = true,       
     DeadCheck = true,    
     ShowFocus = true,   
-    FocusPart = "Head",
+    FocusPart = "Head",     -- "Head" hoặc "HumanoidRootPart"
     AimMode = "CFrame",
     ShowFloatingBtn = true,
-    BodyAim = false,
-    ShowFloatingBodyAimBtn = true
+    BodyAim = false
 }
 
-local isAiming = false
+-- Các biến logic trạng thái
+local MasterSwitch = false
+local PrefCamAim = false   
+local PrefBodyAim = false  
+local isAiming = false     
 local lockedTarget = nil
 
 local FOVring = Drawing.new("Circle")
@@ -129,7 +132,6 @@ ScreenGui.Name = "Rromax_Aimbot_ESP_GUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = TargetGui
 
--- Nút ẩn/hiện Menu Tổng
 local ToggleUIBtn = Instance.new("TextButton")
 ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleUIBtn.Position = UDim2.new(0, 10, 0, 150)
@@ -142,38 +144,22 @@ ToggleUIBtn.Parent = ScreenGui
 applyUICorner(ToggleUIBtn, 8)
 applyUIStroke(ToggleUIBtn)
 
--- Nút Aimbot (Camera) Nổi
-local AimbotBtn = Instance.new("TextButton")
-AimbotBtn.Size = UDim2.new(0, 100, 0, 50)
-AimbotBtn.Position = UDim2.new(0, 10, 0, 205) 
-AimbotBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60) 
-AimbotBtn.Text = "CAM AIM\nOFF"
-AimbotBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AimbotBtn.Font = Enum.Font.GothamBold
-AimbotBtn.TextSize = 14 
-AimbotBtn.Parent = ScreenGui
-applyUICorner(AimbotBtn, 8)
-applyUIStroke(AimbotBtn, Color3.fromRGB(150, 40, 40), 2)
-AimbotBtn.Visible = AimbotSettings.ShowFloatingBtn
+local MasterFloatingBtn = Instance.new("TextButton")
+MasterFloatingBtn.Size = UDim2.new(0, 110, 0, 55)
+MasterFloatingBtn.Position = UDim2.new(0, 10, 0, 205) 
+MasterFloatingBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60) 
+MasterFloatingBtn.Text = "TỔNG: OFF\nC:OFF | B:OFF"
+MasterFloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MasterFloatingBtn.Font = Enum.Font.GothamBold
+MasterFloatingBtn.TextSize = 12 
+MasterFloatingBtn.Parent = ScreenGui
+applyUICorner(MasterFloatingBtn, 8)
+applyUIStroke(MasterFloatingBtn, Color3.fromRGB(150, 40, 40), 2)
+MasterFloatingBtn.Visible = AimbotSettings.ShowFloatingBtn
 
--- Nút BODY AIM Nổi
-local BodyAimBtn = Instance.new("TextButton")
-BodyAimBtn.Size = UDim2.new(0, 100, 0, 50)
-BodyAimBtn.Position = UDim2.new(0, 10, 0, 260) 
-BodyAimBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60) 
-BodyAimBtn.Text = "BODY AIM\nOFF"
-BodyAimBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-BodyAimBtn.Font = Enum.Font.GothamBold
-BodyAimBtn.TextSize = 14 
-BodyAimBtn.Parent = ScreenGui
-applyUICorner(BodyAimBtn, 8)
-applyUIStroke(BodyAimBtn, Color3.fromRGB(150, 40, 40), 2)
-BodyAimBtn.Visible = AimbotSettings.ShowFloatingBodyAimBtn
-
--- Khung Menu Chính
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 480, 0, 360) 
-MainFrame.Position = UDim2.new(0, 120, 0, 150)
+MainFrame.Size = UDim2.new(0, 480, 0, 395) -- Tăng chiều cao để chứa thêm nút mới
+MainFrame.Position = UDim2.new(0, 130, 0, 150)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.Active = true
 MainFrame.Visible = false
@@ -192,7 +178,6 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = MainFrame
 applyUICorner(Title, 10)
 
--- TABS ĐIỀU HƯỚNG
 local TabFrame = Instance.new("Frame", MainFrame)
 TabFrame.Size = UDim2.new(1, 0, 0, 30)
 TabFrame.Position = UDim2.new(0, 0, 0, 35)
@@ -219,7 +204,6 @@ TabESP.TextColor3 = Color3.new(1, 1, 1)
 TabESP.BackgroundColor3 = Color3.fromRGB(45, 45, 50) 
 TabESP.BorderSizePixel = 0
 
--- CONTAINERS
 local AimbotContainer = Instance.new("Frame", MainFrame)
 AimbotContainer.Size = UDim2.new(1, 0, 1, -65)
 AimbotContainer.Position = UDim2.new(0, 0, 0, 65)
@@ -232,7 +216,6 @@ ESPContainer.Position = UDim2.new(0, 0, 0, 65)
 ESPContainer.BackgroundTransparency = 1
 ESPContainer.Visible = false
 
--- Tab Logic
 TabAimbot.Activated:Connect(function()
     AimbotContainer.Visible = true; ESPContainer.Visible = false
     TabAimbot.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
@@ -248,7 +231,7 @@ local HintLabel = Instance.new("TextLabel")
 HintLabel.Size = UDim2.new(1, 0, 0, 20)
 HintLabel.Position = UDim2.new(0, 0, 1, -22)
 HintLabel.BackgroundTransparency = 1
-HintLabel.Text = "[T] Bật/tắt Cam Aim  |  [RShift] Ẩn/hiện Menu"
+HintLabel.Text = "[T] Đảo trạng thái Cam Aim  |  [RShift] Ẩn/hiện Menu"
 HintLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 HintLabel.Font = Enum.Font.Gotham
 HintLabel.TextSize = 11
@@ -298,32 +281,35 @@ local function createAimbotToggle(parent, textOn, textOff, xPos, yPos, configKey
     btn.Activated:Connect(function()
         AimbotSettings[configKey] = not AimbotSettings[configKey]
         update()
-        
         if configKey == "ShowFov" then 
             FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov 
         end
-        if configKey == "ShowFloatingBtn" then AimbotBtn.Visible = AimbotSettings.ShowFloatingBtn end
-        if configKey == "ShowFloatingBodyAimBtn" then BodyAimBtn.Visible = AimbotSettings.ShowFloatingBodyAimBtn end
-        
-        if configKey == "BodyAim" then 
-            BodyAimBtn.Text = AimbotSettings.BodyAim and "BODY AIM\nON" or "BODY AIM\nOFF"
-            BodyAimBtn.BackgroundColor3 = AimbotSettings.BodyAim and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
-            
-            FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov
-            if not isAiming and not AimbotSettings.BodyAim then
-                lockedTarget = nil
-                FocusCircle.Visible = false
-            end
+        if configKey == "ShowFloatingBtn" then 
+            MasterFloatingBtn.Visible = AimbotSettings.ShowFloatingBtn 
         end
     end)
     update()
     return btn, update 
 end
 
--- CỘT TRÁI (X = 15)
+-- ==========================================
+-- SẮP XẾP LẠI CỘT TRÁI TAB AIMBOT (X = 15)
+-- ==========================================
+local MasterAimbotToggleBtn = Instance.new("TextButton", AimbotContainer)
+MasterAimbotToggleBtn.Size = UDim2.new(0, 205, 0, 30)
+MasterAimbotToggleBtn.Position = UDim2.new(0, 15, 0, 10)
+MasterAimbotToggleBtn.Font = Enum.Font.GothamBold
+MasterAimbotToggleBtn.TextSize = 11
+MasterAimbotToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MasterAimbotToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+MasterAimbotToggleBtn.Text = "⚡ AIMBOT TỔNG: OFF"
+applyUICorner(MasterAimbotToggleBtn, 6)
+
+createAimbotToggle(AimbotContainer, "🔘 NÚT NỔI: HIỆN", "🔘 NÚT NỔI: ẨN", 15, 45, "ShowFloatingBtn")
+
 local MenuCamAimBtn = Instance.new("TextButton", AimbotContainer)
 MenuCamAimBtn.Size = UDim2.new(0, 205, 0, 30)
-MenuCamAimBtn.Position = UDim2.new(0, 15, 0, 10)
+MenuCamAimBtn.Position = UDim2.new(0, 15, 0, 80)
 MenuCamAimBtn.Font = Enum.Font.GothamBold
 MenuCamAimBtn.TextSize = 11
 MenuCamAimBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -331,13 +317,49 @@ MenuCamAimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
 MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): OFF"
 applyUICorner(MenuCamAimBtn, 6)
 
-createAimbotToggle(AimbotContainer, "🔘 NÚT CAM AIM NỔI: ON", "🔘 NÚT CAM AIM NỔI: OFF", 15, 45, "ShowFloatingBtn")
-local MenuBodyAimBtn, updateMenuBodyAimBtn = createAimbotToggle(AimbotContainer, "🧍 BODY AIM (QUAY NGƯỜI): ON", "🧍 BODY AIM (QUAY NGƯỜI): OFF", 15, 80, "BodyAim")
-createAimbotToggle(AimbotContainer, "🔘 NÚT BODY AIM NỔI: ON", "🔘 NÚT BODY AIM NỔI: OFF", 15, 115, "ShowFloatingBodyAimBtn")
+local MenuBodyAimBtn = Instance.new("TextButton", AimbotContainer)
+MenuBodyAimBtn.Size = UDim2.new(0, 205, 0, 30)
+MenuBodyAimBtn.Position = UDim2.new(0, 15, 0, 115)
+MenuBodyAimBtn.Font = Enum.Font.GothamBold
+MenuBodyAimBtn.TextSize = 11
+MenuBodyAimBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MenuBodyAimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+MenuBodyAimBtn.Text = "🧍 BODY AIM: OFF"
+applyUICorner(MenuBodyAimBtn, 6)
 
-local PredictInput = createAimbotSettingRow(AimbotContainer, "Đoán hướng (Val):", 15, 150, AimbotSettings.Prediction)
-local SmoothInput = createAimbotSettingRow(AimbotContainer, "Độ mượt (Smooth):", 15, 185, AimbotSettings.Smooth)
-local FovInput = createAimbotSettingRow(AimbotContainer, "Phạm vi FOV:", 15, 220, AimbotSettings.FovRadius)
+-- THÊM NÚT CHỈNH CHẾ ĐỘ NGẮM ĐẦU VÀ THÂN (Nằm ngay dưới nút Body Aim)
+local TargetPartBtn = Instance.new("TextButton", AimbotContainer)
+TargetPartBtn.Size = UDim2.new(0, 205, 0, 30)
+TargetPartBtn.Position = UDim2.new(0, 15, 0, 150)
+TargetPartBtn.Font = Enum.Font.GothamBold
+TargetPartBtn.TextSize = 11
+TargetPartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+applyUICorner(TargetPartBtn, 6)
+
+local function updateTargetPartText()
+    if AimbotSettings.FocusPart == "Head" then
+        TargetPartBtn.Text = "🎯 Mục tiêu: Đầu (Head)"
+        TargetPartBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80)
+    else
+        TargetPartBtn.Text = "🎯 Mục tiêu: Thân (Body)"
+        TargetPartBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80)
+    end
+end
+
+TargetPartBtn.Activated:Connect(function()
+    if AimbotSettings.FocusPart == "Head" then
+        AimbotSettings.FocusPart = "HumanoidRootPart"
+    else
+        AimbotSettings.FocusPart = "Head"
+    end
+    updateTargetPartText()
+end)
+updateTargetPartText()
+
+-- Dời các cài đặt bên dưới xuống để nhường chỗ
+local PredictInput = createAimbotSettingRow(AimbotContainer, "Đoán hướng (Val):", 15, 185, AimbotSettings.Prediction)
+local SmoothInput = createAimbotSettingRow(AimbotContainer, "Độ mượt (Smooth):", 15, 220, AimbotSettings.Smooth)
+local FovInput = createAimbotSettingRow(AimbotContainer, "Phạm vi FOV:", 15, 255, AimbotSettings.FovRadius)
 
 -- CỘT PHẢI (X = 240)
 createAimbotToggle(AimbotContainer, "👥 Team Check: ON", "👥 Team Check: OFF", 240, 10, "TeamCheck")
@@ -345,7 +367,27 @@ createAimbotToggle(AimbotContainer, "🔒 LUÔN LUÔN AIM (LOCK)", "🔒 KHÔNG 
 createAimbotToggle(AimbotContainer, "👁️ FOV: HIỆN", "👁️ FOV: ẨN", 240, 80, "ShowFov")
 createAimbotToggle(AimbotContainer, "🚀 ĐOÁN HƯỚNG: ON", "🚀 ĐOÁN HƯỚNG: OFF", 240, 115, "EnablePrediction")
 createAimbotToggle(AimbotContainer, "🧱 Check Walls: ON", "🧱 Check Walls: OFF", 240, 150, "WallCheck")
-createAimbotToggle(AimbotContainer, "❤️ Check Dead: ON", "❤️ Check Dead: OFF", 240, 185, "DeadCheck")
+
+local FocusDeadBtn = Instance.new("TextButton", AimbotContainer)
+FocusDeadBtn.Size = UDim2.new(0, 205, 0, 30)
+FocusDeadBtn.Position = UDim2.new(0, 240, 0, 185)
+FocusDeadBtn.Font = Enum.Font.GothamBold
+FocusDeadBtn.TextSize = 11
+FocusDeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+applyUICorner(FocusDeadBtn, 6)
+
+local function updateFocusDead()
+    local state = AimbotSettings.DeadCheck
+    FocusDeadBtn.Text = state and "❤️ Focus & CheckDead: ON" or "❤️ Focus & CheckDead: OFF"
+    FocusDeadBtn.BackgroundColor3 = state and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
+end
+
+FocusDeadBtn.Activated:Connect(function()
+    AimbotSettings.DeadCheck = not AimbotSettings.DeadCheck
+    AimbotSettings.ShowFocus = AimbotSettings.DeadCheck 
+    updateFocusDead()
+end)
+updateFocusDead() 
 
 local AimModeBtn = Instance.new("TextButton", AimbotContainer)
 AimModeBtn.Size = UDim2.new(0, 205, 0, 30)
@@ -364,7 +406,7 @@ end)
 -- Bảng Màu Aimbot FOV
 local ColorLabel = Instance.new("TextLabel", AimbotContainer)
 ColorLabel.Size = UDim2.new(0, 200, 0, 20)
-ColorLabel.Position = UDim2.new(0, 15, 0, 260)
+ColorLabel.Position = UDim2.new(0, 15, 0, 295)
 ColorLabel.BackgroundTransparency = 1
 ColorLabel.Text = "Màu FOV (RGB):"
 ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -375,7 +417,7 @@ ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 local function createColorInput(posX, defaultVal)
     local input = Instance.new("TextBox", AimbotContainer)
     input.Size = UDim2.new(0, 50, 0, 30)
-    input.Position = UDim2.new(0, posX, 0, 255)
+    input.Position = UDim2.new(0, posX, 0, 290)
     input.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
     input.Text = tostring(defaultVal)
     input.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -402,10 +444,10 @@ end
 
 R_Input.FocusLost:Connect(updateColor); G_Input.FocusLost:Connect(updateColor); B_Input.FocusLost:Connect(updateColor)
 
-for i, colorRGB in ipairs({{255,0,0}, {0,255,0}, {0,150,255}, {255,255,0}, {255,105,180}}) do
+for i, colorRGB in ipairs({{255,255,255}, {255,0,0}, {0,255,0}, {0,150,255}, {255,255,0}, {255,105,180}}) do
     local colorBtn = Instance.new("TextButton", AimbotContainer)
     colorBtn.Size = UDim2.new(0, 26, 0, 26)
-    colorBtn.Position = UDim2.new(0, 295 + (i - 1) * 30, 0, 257)
+    colorBtn.Position = UDim2.new(0, 290 + (i - 1) * 30, 0, 292)
     colorBtn.BackgroundColor3 = Color3.fromRGB(colorRGB[1], colorRGB[2], colorRGB[3])
     colorBtn.Text = ""
     applyUICorner(colorBtn, 4)
@@ -439,7 +481,6 @@ local function createESPToggle(text, x, y, width, key)
     end)
 end
 
--- CỘT TRÁI (X = 15): BẬT/TẮT ESP
 createESPToggle("Box ESP", 15, 10, 205, "BoxESP")
 createESPToggle("Outline ESP", 15, 45, 205, "OutlineESP")
 createESPToggle("Tracer (Line) ESP", 15, 80, 205, "TracerESP")
@@ -457,7 +498,6 @@ FixBtn.TextSize = 11
 FixBtn.TextColor3 = Color3.new(1, 1, 1)
 applyUICorner(FixBtn, 5)
 
--- CỘT PHẢI (X = 235): DANH SÁCH & MÀU SẮC ESP
 local SelectedLabel = Instance.new("TextLabel", ESPContainer)
 SelectedLabel.Size = UDim2.new(0, 230, 0, 15)
 SelectedLabel.Position = UDim2.new(0, 235, 0, 10)
@@ -489,7 +529,6 @@ btnAll.TextSize = 11
 btnAll.BorderSizePixel = 0
 applyUICorner(btnAll, 5)
 
--- [ BẢN VÁ ]: Bảng chọn người chơi không bị kẹt cuộn
 local PlayerScroll = Instance.new("ScrollingFrame", ESPContainer)
 PlayerScroll.Size = UDim2.new(0, 230, 0, 65) 
 PlayerScroll.Position = UDim2.new(0, 235, 0, 83) 
@@ -563,7 +602,6 @@ resetColorBtn.MouseButton1Click:Connect(function()
     else currentESPColor = nil; table.clear(CustomPlayerColors) end
 end)
 
--- [ BẢN VÁ ]: Bảng chọn màu không bị kẹt cuộn
 local ColorScroll = Instance.new("ScrollingFrame", ESPContainer)
 ColorScroll.Size = UDim2.new(0, 230, 0, 72) 
 ColorScroll.Position = UDim2.new(0, 235, 0, 178)
@@ -626,45 +664,61 @@ local function makeDraggable(dragObject, moveObject)
 end
 makeDraggable(Title, MainFrame)
 makeDraggable(ToggleUIBtn, ToggleUIBtn)
-makeDraggable(AimbotBtn, AimbotBtn)
-makeDraggable(BodyAimBtn, BodyAimBtn)
+makeDraggable(MasterFloatingBtn, MasterFloatingBtn)
 
 -- ==========================================
--- LÕI AIMBOT (ABSOLUTE LOCK + BODY AIM)
+-- LOGIC AIMBOT (CÔNG TẮC TỔNG & CÔNG TẮC PHỤ)
 -- ==========================================
-local function toggleCamAimbot()
-    isAiming = not isAiming
-    AimbotBtn.Text = isAiming and "CAM AIM\nON" or "CAM AIM\nOFF"
-    AimbotBtn.BackgroundColor3 = isAiming and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
-    
-    if MenuCamAimBtn then
-        MenuCamAimBtn.Text = isAiming and "🎯 CAM AIM (CHÍNH): ON" or "🎯 CAM AIM (CHÍNH): OFF"
-        MenuCamAimBtn.BackgroundColor3 = isAiming and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
+local function updateUIStates()
+    isAiming = MasterSwitch and PrefCamAim
+    AimbotSettings.BodyAim = MasterSwitch and PrefBodyAim
+
+    MasterAimbotToggleBtn.Text = MasterSwitch and "⚡ AIMBOT TỔNG: ON" or "⚡ AIMBOT TỔNG: OFF"
+    MasterAimbotToggleBtn.BackgroundColor3 = MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
+
+    MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): " .. (PrefCamAim and "ON" or "OFF")
+    local camColor = Color3.fromRGB(60, 60, 65) 
+    if PrefCamAim then 
+        camColor = MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(150, 150, 40) 
     end
-    
+    MenuCamAimBtn.BackgroundColor3 = camColor
+
+    MenuBodyAimBtn.Text = "🧍 BODY AIM: " .. (PrefBodyAim and "ON" or "OFF")
+    local bodyColor = Color3.fromRGB(60, 60, 65)
+    if PrefBodyAim then 
+        bodyColor = MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(150, 150, 40)
+    end
+    MenuBodyAimBtn.BackgroundColor3 = bodyColor
+
+    MasterFloatingBtn.Text = "TỔNG: " .. (MasterSwitch and "ON" or "OFF") .. "\nC:" .. (PrefCamAim and "ON" or "OFF") .. " | B:" .. (PrefBodyAim and "ON" or "OFF")
+    MasterFloatingBtn.BackgroundColor3 = MasterSwitch and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
+
     FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov
-    
     if not isAiming and not AimbotSettings.BodyAim then 
         lockedTarget = nil 
         FocusCircle.Visible = false
     end
 end
-AimbotBtn.Activated:Connect(toggleCamAimbot)
-MenuCamAimBtn.Activated:Connect(toggleCamAimbot)
 
-BodyAimBtn.Activated:Connect(function()
-    AimbotSettings.BodyAim = not AimbotSettings.BodyAim
-    BodyAimBtn.Text = AimbotSettings.BodyAim and "BODY AIM\nON" or "BODY AIM\nOFF"
-    BodyAimBtn.BackgroundColor3 = AimbotSettings.BodyAim and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
-    if updateMenuBodyAimBtn then updateMenuBodyAimBtn() end
-    
-    FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov
-    
-    if not isAiming and not AimbotSettings.BodyAim then 
-        lockedTarget = nil 
-        FocusCircle.Visible = false
-    end
-end)
+local function toggleCamAim()
+    PrefCamAim = not PrefCamAim
+    updateUIStates()
+end
+
+local function toggleBodyAim()
+    PrefBodyAim = not PrefBodyAim
+    updateUIStates()
+end
+
+local function toggleMasterSwitch()
+    MasterSwitch = not MasterSwitch
+    updateUIStates()
+end
+
+MasterAimbotToggleBtn.Activated:Connect(toggleMasterSwitch)
+MasterFloatingBtn.Activated:Connect(toggleMasterSwitch)
+MenuCamAimBtn.Activated:Connect(toggleCamAim)
+MenuBodyAimBtn.Activated:Connect(toggleBodyAim)
 
 local function getAimbotTargetPart(character)
     if not character then return nil end
@@ -836,9 +890,8 @@ getgenv()._Aimbot_RenderLoop = RunService.RenderStepped:Connect(function()
     end
 end)
 
-
 -- ==========================================
--- LÕI ESP (TỐI ƯU HÓA & FIX TÀNG HÌNH)
+-- LÕI ESP
 -- ==========================================
 local ESP = {}
 local activeHighlights = 0
@@ -1017,7 +1070,7 @@ end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.T then
-        toggleCamAimbot()
+        toggleCamAim() 
     end
     if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
