@@ -1,5 +1,6 @@
 --// Rromax Universal Hub: Aimbot (Absolute Lock) + ESP (Combo)
 --// Bản cập nhật Logic: Nút Tổng (Master Switch), Trạng thái chờ, Nút Màu Trắng & Chỉnh Mục tiêu (Head/Body)
+--// Đã chỉnh sửa: Aimbot Tổng và Cam Aim mặc định bật.
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -51,11 +52,11 @@ local AimbotSettings = {
     BodyAim = false
 }
 
--- Các biến logic trạng thái
-local MasterSwitch = false
+-- Các biến logic trạng thái (Đã chỉnh mặc định bật)
+local MasterSwitch = true
 local PrefCamAim = true   
 local PrefBodyAim = false  
-local isAiming = false     
+local isAiming = true     
 local lockedTarget = nil
 
 local FOVring = Drawing.new("Circle")
@@ -158,7 +159,7 @@ applyUIStroke(MasterFloatingBtn, Color3.fromRGB(150, 40, 40), 2)
 MasterFloatingBtn.Visible = AimbotSettings.ShowFloatingBtn
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 480, 0, 395) -- Tăng chiều cao để chứa thêm nút mới
+MainFrame.Size = UDim2.new(0, 480, 0, 395) 
 MainFrame.Position = UDim2.new(0, 130, 0, 150)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.Active = true
@@ -714,6 +715,9 @@ local function toggleMasterSwitch()
     MasterSwitch = not MasterSwitch
     updateUIStates()
 end
+
+-- Cập nhật giao diện lúc vừa vào để ăn theo trạng thái bật sẵn
+updateUIStates()
 
 MasterAimbotToggleBtn.Activated:Connect(toggleMasterSwitch)
 MasterFloatingBtn.Activated:Connect(toggleMasterSwitch)
