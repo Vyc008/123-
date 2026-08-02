@@ -1,5 +1,5 @@
 --// Rromax Universal Hub: Aimbot (Absolute Lock) + ESP (Combo)
---// Bản vá mới: Hiện FOV khi bật BODY AIM
+--// Bản vá mới: Hiện FOV khi bật BODY AIM + Sửa lỗi kẹt thanh cuộn (Scroll) ESP
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -299,14 +299,12 @@ local function createAimbotToggle(parent, textOn, textOff, xPos, yPos, configKey
         AimbotSettings[configKey] = not AimbotSettings[configKey]
         update()
         
-        -- [ ĐÃ SỬA ]: Hiện FOV nếu một trong hai Aimbot đang bật
         if configKey == "ShowFov" then 
             FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov 
         end
         if configKey == "ShowFloatingBtn" then AimbotBtn.Visible = AimbotSettings.ShowFloatingBtn end
         if configKey == "ShowFloatingBodyAimBtn" then BodyAimBtn.Visible = AimbotSettings.ShowFloatingBodyAimBtn end
         
-        -- [ ĐÃ SỬA ]: Khi bật/tắt Body Aim trong menu cũng check hiển thị FOV
         if configKey == "BodyAim" then 
             BodyAimBtn.Text = AimbotSettings.BodyAim and "BODY AIM\nON" or "BODY AIM\nOFF"
             BodyAimBtn.BackgroundColor3 = AimbotSettings.BodyAim and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
@@ -491,6 +489,7 @@ btnAll.TextSize = 11
 btnAll.BorderSizePixel = 0
 applyUICorner(btnAll, 5)
 
+-- [ BẢN VÁ ]: Bảng chọn người chơi không bị kẹt cuộn
 local PlayerScroll = Instance.new("ScrollingFrame", ESPContainer)
 PlayerScroll.Size = UDim2.new(0, 230, 0, 65) 
 PlayerScroll.Position = UDim2.new(0, 235, 0, 83) 
@@ -498,12 +497,16 @@ PlayerScroll.ScrollBarThickness = 4
 PlayerScroll.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 PlayerScroll.BorderSizePixel = 0
 PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-PlayerScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerScroll.Active = true 
 applyUICorner(PlayerScroll, 5)
 
 local playerLayout = Instance.new("UIListLayout", PlayerScroll)
 playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
 playerLayout.Padding = UDim.new(0, 2)
+
+playerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, playerLayout.AbsoluteContentSize.Y)
+end)
 
 local currentSearchQuery = ""
 local function SetSelectedPlayer(name)
@@ -560,6 +563,7 @@ resetColorBtn.MouseButton1Click:Connect(function()
     else currentESPColor = nil; table.clear(CustomPlayerColors) end
 end)
 
+-- [ BẢN VÁ ]: Bảng chọn màu không bị kẹt cuộn
 local ColorScroll = Instance.new("ScrollingFrame", ESPContainer)
 ColorScroll.Size = UDim2.new(0, 230, 0, 72) 
 ColorScroll.Position = UDim2.new(0, 235, 0, 178)
@@ -567,12 +571,16 @@ ColorScroll.ScrollBarThickness = 4
 ColorScroll.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ColorScroll.BorderSizePixel = 0
 ColorScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-ColorScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ColorScroll.Active = true 
 applyUICorner(ColorScroll, 5)
 
 local colorLayout = Instance.new("UIListLayout", ColorScroll)
 colorLayout.SortOrder = Enum.SortOrder.LayoutOrder
 colorLayout.Padding = UDim.new(0, 2)
+
+colorLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ColorScroll.CanvasSize = UDim2.new(0, 0, 0, colorLayout.AbsoluteContentSize.Y)
+end)
 
 for _, cData in ipairs(colorOrder) do
     local btn = Instance.new("TextButton", ColorScroll)
@@ -621,7 +629,6 @@ makeDraggable(ToggleUIBtn, ToggleUIBtn)
 makeDraggable(AimbotBtn, AimbotBtn)
 makeDraggable(BodyAimBtn, BodyAimBtn)
 
-
 -- ==========================================
 -- LÕI AIMBOT (ABSOLUTE LOCK + BODY AIM)
 -- ==========================================
@@ -635,7 +642,6 @@ local function toggleCamAimbot()
         MenuCamAimBtn.BackgroundColor3 = isAiming and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
     end
     
-    -- [ ĐÃ SỬA ]: Check cả isAiming và BodyAim để hiện FOV
     FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov
     
     if not isAiming and not AimbotSettings.BodyAim then 
@@ -646,7 +652,6 @@ end
 AimbotBtn.Activated:Connect(toggleCamAimbot)
 MenuCamAimBtn.Activated:Connect(toggleCamAimbot)
 
--- [ ĐÃ SỬA ]: Khi ấn nút bấm nổi của Body Aim cũng cập nhật lại FOV
 BodyAimBtn.Activated:Connect(function()
     AimbotSettings.BodyAim = not AimbotSettings.BodyAim
     BodyAimBtn.Text = AimbotSettings.BodyAim and "BODY AIM\nON" or "BODY AIM\nOFF"
@@ -660,7 +665,6 @@ BodyAimBtn.Activated:Connect(function()
         FocusCircle.Visible = false
     end
 end)
-
 
 local function getAimbotTargetPart(character)
     if not character then return nil end
