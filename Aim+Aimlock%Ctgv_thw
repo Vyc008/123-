@@ -84,9 +84,9 @@ local ESPSettings = {
     BoxESP = false,
     OutlineESP = true, 
     ShowName = false,
-    ShowDistance = false,
-    ESPTeammates = true,
-    TracerESP = false
+    ShowDistance = true,
+    ESPTeammates = false,
+    TracerESP = true
 }
 
 local colorOrder = {
