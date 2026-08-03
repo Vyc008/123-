@@ -36,7 +36,7 @@ if getgenv()._Aimbot_FocusCircle then pcall(function() getgenv()._Aimbot_FocusCi
 -- ==========================================
 local AimbotSettings = {
     Prediction = 0.05,      
-    EnablePrediction = true, 
+    EnablePrediction = false, 
     Smooth = 1,             
     FovRadius = 136,
     ShowFov = true,         
