@@ -89,7 +89,7 @@ local ESPSettings = {
     OutlineESP = true, 
     ShowName = false,
     ShowDistance = true,
-    ESPTeammates = false,
+    ESPTeammates = true,
     TracerESP = true
 }
 
