@@ -16,7 +16,7 @@ local isSettingLighting = false
 
 -- Khởi tạo biến toàn cục cho Độ Sáng
 if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = false end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.0 end -- Mặc định là 2
+if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end -- Mặc định là 2
 
 -- Lưu lại ánh sáng gốc của Map
 local DefaultLighting = {
