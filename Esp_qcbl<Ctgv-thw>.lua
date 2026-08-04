@@ -30,14 +30,30 @@ end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Cấu hình mặc định
+-- Cấu hình trạng thái mặc định
 local outlineEnabled = false
 local distanceEnabled = false
+local fullbrightEnabled = false
+local noFogEnabled = false
 local currentTextSize = 10 -- Cỡ chữ mặc định ban đầu
+
+-- Lưu lại thông số Lighting gốc để khôi phục khi tắt
+local defaultLighting = {
+    Ambient = Lighting.Ambient,
+    ColorShift_Top = Lighting.ColorShift_Top,
+    ColorShift_Bottom = Lighting.ColorShift_Bottom,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ClockTime = Lighting.ClockTime,
+    FogColor = Lighting.FogColor,
+    FogEnd = Lighting.FogEnd,
+    FogStart = Lighting.FogStart
+}
 
 -- ==========================================
 -- 1. LOGIC QUẢN LÝ TẢI MAP & TÌM GENERATOR
@@ -46,7 +62,6 @@ local function GetValidGenerators()
     local validBodies = {}
     local addedBodies = {} -- Bảng lưu trữ chống trùng lặp ESP
     
-    -- Hàm phụ để thêm Generator an toàn
     local function AddBodySafe(body)
         if body and body:IsA("BasePart") and not addedBodies[body] then
             table.insert(validBodies, body)
@@ -59,20 +74,16 @@ local function GetValidGenerators()
         return validBodies 
     end
 
-    -- [1] THÊM THỦ CÔNG CÁC GENERATOR THEO ĐÚNG ĐƯỜNG DẪN YÊU CẦU
+    -- [1] THÊM THỦ CÔNG CÁC GENERATOR THEO ĐÚNG ĐƯỜNG DẪN VIOLENCE DISTRICT
     pcall(function()
         local genFolder = map:FindFirstChild("Generator")
         if genFolder then
             local children = genFolder:GetChildren()
-            
-            -- Thêm từ index 7 lùi về 2
             for i = 7, 2, -1 do
                 if children[i] then
                     AddBodySafe(children[i]:FindFirstChild("GeneratorBody"))
                 end
             end
-            
-            -- Thêm workspace.Map.Generator.Generator.GeneratorBody
             local specificGen = genFolder:FindFirstChild("Generator")
             if specificGen then
                 AddBodySafe(specificGen:FindFirstChild("GeneratorBody"))
@@ -80,9 +91,8 @@ local function GetValidGenerators()
         end
     end)
 
-    -- [2] QUÉT TỰ ĐỘNG DỰ PHÒNG (Cho các Generator khác trên Map)
+    -- [2] QUÉT TỰ ĐỘNG DỰ PHÒNG
     local folderNames = {"Gens", "Generators", "newGenerators", "new Generators", "Generator"}
-    
     for _, folderName in ipairs(folderNames) do
         local folder = map:FindFirstChild(folderName)
         if folder then
@@ -155,7 +165,6 @@ end
 
 local function UpdateESPVisibility()
     local needsReinit = false
-    
     if not espFolder or #espElements == 0 then
         needsReinit = true
     else
@@ -177,7 +186,6 @@ local function UpdateESPVisibility()
     end
 end
 
--- Cập nhật lại TextSize trực tiếp cho tất cả ESP hiện có
 local function UpdateTextSize(newSize)
     currentTextSize = newSize
     for _, data in ipairs(espElements) do
@@ -187,10 +195,45 @@ local function UpdateTextSize(newSize)
     end
 end
 
--- RenderStepped Cập nhật vị trí & khoảng cách (Chỉ chạy khi bật Distance)
+-- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright / No Fog chống ghi đè
 local renderConn = RunService.RenderStepped:Connect(function()
+    -- 1. Fullbright Logic
+    if fullbrightEnabled then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.ClockTime = 14
+    end
+
+    -- 2. Anti Fog / No Fog Logic liên tục từng khung hình
+    if noFogEnabled then
+        Lighting.FogStart = 9e9
+        Lighting.FogEnd = 9e9
+        
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Haze = 0
+                v.Glare = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end
+
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end
+    end
+
+    -- 3. Cập nhật khoảng cách Generator ESP
     if not distanceEnabled then return end
-    
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -207,7 +250,7 @@ end)
 table.insert(connections, renderConn)
 
 -- ==========================================
--- 3. GIAO DIỆN MENU (MINIMAL UI)
+-- 3. GIAO DIỆN MENU (MINIMAL UI TỔNG HỢP)
 -- ==========================================
 local UI = Instance.new("ScreenGui")
 UI.Name = "GenEspHub"
@@ -229,10 +272,10 @@ local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleMenuBtn.Position = UDim2.new(0, 20, 0, 20)
 ToggleMenuBtn.BackgroundColor3 = Colors.Bg
-ToggleMenuBtn.Text = "ESP"
+ToggleMenuBtn.Text = "HUB"
 ToggleMenuBtn.TextColor3 = Colors.Accent
 ToggleMenuBtn.Font = Enum.Font.GothamBold
-ToggleMenuBtn.TextSize = 14
+ToggleMenuBtn.TextSize = 13
 ToggleMenuBtn.Active = true
 ToggleMenuBtn.Parent = UI
 
@@ -265,10 +308,10 @@ end)
 table.insert(connections, btnDragConn1)
 table.insert(connections, btnDragConn2)
 
--- [Main Frame]
+-- [Main Frame - Tăng chiều cao lên 310 để chứa thêm nút No Fog & Fullbright]
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 225)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -112)
+MainFrame.Size = UDim2.new(0, 250, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -155)
 MainFrame.BackgroundColor3 = Colors.Bg
 MainFrame.Visible = false
 MainFrame.Active = true
@@ -277,14 +320,14 @@ MainFrame.Parent = UI
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Colors.Border
 
--- [Chỉnh sửa phần Tiêu đề để không bị méo chữ]
+-- Tiêu đề
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = "ESP Quân Chủ Bạo Lực MENU"
+Title.Text = "Violence District Hub"
 Title.TextColor3 = Colors.Accent
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
 Title.Parent = MainFrame
@@ -415,28 +458,60 @@ local function CreateTextBox(labelText, yPos, defaultValue, callback)
 end
 
 -- ==========================================
--- 4. KẾT NỐI CHỨC NĂNG VÀO MENU
+-- 4. KHỞI TẠO CÁC NỨT BẤM VÀO GIAO DIỆN
 -- ==========================================
 InitESPObjects()
 
--- Nút 1: Outline ESP
+-- 1. Outline ESP (y: 42)
 CreateToggleButton("Outline ESP", 42, false, function(state)
     outlineEnabled = state
     UpdateESPVisibility()
 end)
 
--- Nút 2: Show Distance
+-- 2. Show Distance (y: 85)
 CreateToggleButton("Show Distance", 85, false, function(state)
     distanceEnabled = state
     UpdateESPVisibility()
 end)
 
--- Ô nhập 3: TextBox chỉnh cỡ chữ ESP
-CreateTextBox("Cỡ chữ ESP:", 128, currentTextSize, function(newSize)
+-- 3. Fullbright (y: 128)
+CreateToggleButton("Fullbright", 128, false, function(state)
+    fullbrightEnabled = state
+    if not state then
+        Lighting.Ambient = defaultLighting.Ambient
+        Lighting.ColorShift_Top = defaultLighting.ColorShift_Top
+        Lighting.ColorShift_Bottom = defaultLighting.ColorShift_Bottom
+        Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
+        Lighting.ClockTime = defaultLighting.ClockTime
+    end
+end)
+
+-- 4. No Fog + Anti-Fog (y: 171)
+CreateToggleButton("No Fog", 171, false, function(state)
+    noFogEnabled = state
+    if not state then
+        Lighting.FogEnd = defaultLighting.FogEnd
+        Lighting.FogStart = defaultLighting.FogStart
+        
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = true
+            end
+        end
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = true
+            end
+        end
+    end
+end)
+
+-- 5. TextBox Cỡ chữ ESP (y: 214)
+CreateTextBox("Cỡ chữ ESP:", 214, currentTextSize, function(newSize)
     UpdateTextSize(newSize)
 end)
 
--- Nút 4: Load lại ESP (Đã đổi tên)
-CreateButton("🔄 Load Generators Trên Map", 171, function()
+-- 6. Load lại Generator (y: 257)
+CreateButton("🔄 Load Generators Trên Map", 257, function()
     InitESPObjects()
 end)
