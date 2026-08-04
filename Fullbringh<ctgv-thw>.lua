@@ -141,7 +141,7 @@ local function GetSafeParent()
 end
 
 local UI = Instance.new("ScreenGui")
-UI.Name = "FullbrightMenu_Fixed"
+UI.Name = "Fullbright Menu <Ctgv-thw>"
 UI.IgnoreGuiInset = true 
 UI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 UI.Parent = GetSafeParent()
