@@ -14,9 +14,9 @@ local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("Core
 local connections = {}
 local isSettingLighting = false 
 
--- Khởi tạo biến toàn cục cho Độ Sáng
-if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = false end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end -- Mặc định là 2
+-- Khởi tạo biến toàn cục cho Độ Sáng (Đã chỉnh FullBrightEnabled mặc định thành true)
+if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = true end
+if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end -- Mặc định là 2.5
 
 -- Lưu lại ánh sáng gốc của Map
 local DefaultLighting = {
