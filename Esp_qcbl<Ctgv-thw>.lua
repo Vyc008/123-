@@ -1,346 +1,517 @@
 -- ==========================================
--- MENU FULLBRIGHT & NO FOG (FIX LỖI ATMOSPHERE & THÊM NÚT ẨN/HIỆN MENU)
+-- 0. TỰ ĐỘNG DỌN DẸP SCRIPT CŨ (FIX CHẠY 2 LẦN)
 -- ==========================================
-
-if getgenv().FullBrightCleanup then
-    pcall(getgenv().FullBrightCleanup)
+if getgenv().GenEsp_Cleanup then
+    pcall(getgenv().GenEsp_Cleanup)
 end
 
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+-- Biến cờ hiệu để dừng vòng lặp ngầm khi chạy lại script
+getgenv().GenEsp_IsRunning = true
 
 local connections = {}
+local instancesToDestroy = {}
 
--- Khởi tạo biến
-if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = true end
-if getgenv().NoFogEnabled == nil then getgenv().NoFogEnabled = false end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end
-
-local DefaultLighting = {
-    Brightness = Lighting.Brightness,
-    ClockTime = Lighting.ClockTime,
-    FogStart = Lighting.FogStart,
-    FogEnd = Lighting.FogEnd,
-    GlobalShadows = Lighting.GlobalShadows,
-    Ambient = Lighting.Ambient,
-    OutdoorAmbient = Lighting.OutdoorAmbient,
-    ColorShift_Top = Lighting.ColorShift_Top,
-    ColorShift_Bottom = Lighting.ColorShift_Bottom
-}
-
-local OriginalAtmospheres = {}
-local CachedEffects = {}
-
-local function CacheAtmosphereData()
-    OriginalAtmospheres = {}
-    CachedEffects = {}
-    
-    local function ScanForEffects(parentObj)
-        for _, v in ipairs(parentObj:GetDescendants()) do
-            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                table.insert(CachedEffects, v)
-                
-                if v:IsA("Atmosphere") then
-                    OriginalAtmospheres[v] = {
-                        Density = v.Density, 
-                        Haze = v.Haze, 
-                        Glare = v.Glare
-                    }
-                else
-                    OriginalAtmospheres[v] = {
-                        Enabled = v.Enabled
-                    }
-                end
-            end
-        end
-    end
-    
-    ScanForEffects(Lighting)
-    ScanForEffects(Workspace)
-end
-CacheAtmosphereData()
-
-local function RestoreLighting()
-    Lighting.Brightness = DefaultLighting.Brightness
-    Lighting.ClockTime = DefaultLighting.ClockTime
-    Lighting.GlobalShadows = DefaultLighting.GlobalShadows
-    Lighting.Ambient = DefaultLighting.Ambient
-    Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient
-    Lighting.ColorShift_Top = DefaultLighting.ColorShift_Top
-    Lighting.ColorShift_Bottom = DefaultLighting.ColorShift_Bottom
-end
-
-local function RestoreFog()
-    Lighting.FogStart = DefaultLighting.FogStart
-    Lighting.FogEnd = DefaultLighting.FogEnd
-    
-    for v, data in pairs(OriginalAtmospheres) do
-        if v and v.Parent then
-            pcall(function()
-                if v:IsA("Atmosphere") then
-                    v.Density = data.Density
-                    v.Haze = data.Haze
-                    v.Glare = data.Glare
-                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                    v.Enabled = data.Enabled
-                end
-            end)
-        end
-    end
-end
-
--- Vòng lặp giữ ánh sáng/fog
-local renderConn = RunService.RenderStepped:Connect(function()
-    if getgenv().FullBrightEnabled then
-        Lighting.Brightness = getgenv().CurrentBrightness
-        Lighting.GlobalShadows = false 
-        Lighting.ClockTime = 14
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
-        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
-    end
-
-    if getgenv().NoFogEnabled then
-        Lighting.FogStart = 9e9
-        Lighting.FogEnd = 9e9
-        
-        for _, v in ipairs(CachedEffects) do
-            if v and v.Parent then
-                pcall(function()
-                    if v:IsA("Atmosphere") then
-                        v.Density = 0
-                        v.Haze = 0
-                        v.Glare = 0
-                    elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                        v.Enabled = false
-                    end
-                end)
-            end
-        end
-    end
-end)
-table.insert(connections, renderConn)
-
--- ================= TẠO GIAO DIỆN UI =================
-local function GetSafeParent()
-    if gethui then
-        local success1, result1 = pcall(gethui)
-        if success1 and result1 then return result1 end
-    end
-    
-    local success2, result2 = pcall(function()
-        return game:GetService("CoreGui")
-    end)
-    if success2 and result2 then return result2 end
-    
-    return LocalPlayer:WaitForChild("PlayerGui")
-end
-
-local UI = Instance.new("ScreenGui")
-UI.Name = "FullbrightMenu_Fixed"
-UI.IgnoreGuiInset = true 
-UI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-UI.Parent = GetSafeParent()
-
--- 1. NÚT ẨN / HIỆN MENU (MỞ Ở NGOÀI MÀN HÌNH, CÓ THỂ KÉO THẢ)
-local ToggleMenuBtn = Instance.new("TextButton")
-ToggleMenuBtn.Size = UDim2.new(0, 85, 0, 30)
-ToggleMenuBtn.Position = UDim2.new(0.5, -42, 0, 65)
-ToggleMenuBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-ToggleMenuBtn.Text = "💡 FB Menu"
-ToggleMenuBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
-ToggleMenuBtn.Font = Enum.Font.GothamBold
-ToggleMenuBtn.TextSize = 12
-ToggleMenuBtn.Active = true
-ToggleMenuBtn.Draggable = true
-ToggleMenuBtn.Parent = UI
-
-Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 6)
-local StrokeMenu = Instance.new("UIStroke", ToggleMenuBtn)
-StrokeMenu.Color = Color3.fromRGB(80, 80, 80)
-StrokeMenu.Thickness = 1
-
--- 2. KHUNG MENU CHÍNH
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 395, 0, 40)
-MainFrame.Position = UDim2.new(0.5, -197, 0, 20) 
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.BackgroundTransparency = 0.1
-MainFrame.Visible = true 
-MainFrame.Active = true 
-MainFrame.Draggable = true 
-MainFrame.Parent = UI
-
-local UICornerMain = Instance.new("UICorner")
-UICornerMain.CornerRadius = UDim.new(0, 8)
-UICornerMain.Parent = MainFrame
-
-local UIStrokeMain = Instance.new("UIStroke")
-UIStrokeMain.Color = Color3.fromRGB(80, 80, 80)
-UIStrokeMain.Parent = MainFrame
-
-local Layout = Instance.new("UIListLayout")
-Layout.FillDirection = Enum.FillDirection.Horizontal
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Layout.VerticalAlignment = Enum.VerticalAlignment.Center
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0, 6)
-Layout.Parent = MainFrame
-
--- [VỊ TRÍ 1]: Nút FullBright
-local ToggleBrightBtn = Instance.new("TextButton")
-ToggleBrightBtn.LayoutOrder = 1
-ToggleBrightBtn.Size = UDim2.new(0, 110, 0, 28)
-ToggleBrightBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-if getgenv().FullBrightEnabled then
-    ToggleBrightBtn.Text = "FullBright [BẬT]"
-    ToggleBrightBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
-else
-    ToggleBrightBtn.Text = "FullBright [TẮT]"
-    ToggleBrightBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-end
-ToggleBrightBtn.Font = Enum.Font.GothamBold
-ToggleBrightBtn.TextSize = 11
-ToggleBrightBtn.Parent = MainFrame
-Instance.new("UICorner", ToggleBrightBtn).CornerRadius = UDim.new(0, 6)
-
--- [VỊ TRÍ 2]: Nút Trừ (-)
-local MinusBtn = Instance.new("TextButton")
-MinusBtn.LayoutOrder = 2
-MinusBtn.Size = UDim2.new(0, 28, 0, 28)
-MinusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MinusBtn.Text = "-"
-MinusBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-MinusBtn.Font = Enum.Font.GothamBold
-MinusBtn.TextSize = 15
-MinusBtn.Parent = MainFrame
-Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
-
--- [VỊ TRÍ 3]: Ô Nhập Số (2.5)
-local BrightnessBox = Instance.new("TextBox")
-BrightnessBox.LayoutOrder = 3
-BrightnessBox.Size = UDim2.new(0, 48, 0, 28)
-BrightnessBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-BrightnessBox.Text = string.format("%.1f", getgenv().CurrentBrightness)
-BrightnessBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-BrightnessBox.Font = Enum.Font.GothamBold
-BrightnessBox.TextSize = 13
-BrightnessBox.ClearTextOnFocus = false
-BrightnessBox.Parent = MainFrame
-Instance.new("UICorner", BrightnessBox).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", BrightnessBox).Color = Color3.fromRGB(100, 100, 100)
-
--- [VỊ TRÍ 4]: Nút Cộng (+)
-local PlusBtn = Instance.new("TextButton")
-PlusBtn.LayoutOrder = 4
-PlusBtn.Size = UDim2.new(0, 28, 0, 28)
-PlusBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-PlusBtn.Text = "+"
-PlusBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
-PlusBtn.Font = Enum.Font.GothamBold
-PlusBtn.TextSize = 15
-PlusBtn.Parent = MainFrame
-Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
-
--- [VỊ TRÍ 5]: Nút No Fog
-local ToggleFogBtn = Instance.new("TextButton")
-ToggleFogBtn.LayoutOrder = 5
-ToggleFogBtn.Size = UDim2.new(0, 100, 0, 28)
-ToggleFogBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-if getgenv().NoFogEnabled then
-    ToggleFogBtn.Text = "No Fog [BẬT]"
-    ToggleFogBtn.TextColor3 = Color3.fromRGB(255, 150, 0)
-else
-    ToggleFogBtn.Text = "No Fog [TẮT]"
-    ToggleFogBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-end
-ToggleFogBtn.Font = Enum.Font.GothamBold
-ToggleFogBtn.TextSize = 11
-ToggleFogBtn.Parent = MainFrame
-Instance.new("UICorner", ToggleFogBtn).CornerRadius = UDim.new(0, 6)
-
--- ================= CÁC CHỨC NĂNG SỰ KIỆN =================
-local function SetBrightnessValue(val)
-    local newVal = math.clamp(val, 0, 50) 
-    getgenv().CurrentBrightness = newVal
-    BrightnessBox.Text = string.format("%.1f", newVal)
-end
-
--- Sự kiện Bật/Tắt Menu Chính
-ToggleMenuBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-    if MainFrame.Visible then
-        ToggleMenuBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
-    else
-        ToggleMenuBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    end
-end)
-
-ToggleBrightBtn.MouseButton1Click:Connect(function()
-    getgenv().FullBrightEnabled = not getgenv().FullBrightEnabled
-    if not getgenv().FullBrightEnabled then
-        RestoreLighting()
-    end
-    
-    if getgenv().FullBrightEnabled then
-        ToggleBrightBtn.Text = "FullBright [BẬT]"
-        ToggleBrightBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
-    else
-        ToggleBrightBtn.Text = "FullBright [TẮT]"
-        ToggleBrightBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    end
-end)
-
-ToggleFogBtn.MouseButton1Click:Connect(function()
-    getgenv().NoFogEnabled = not getgenv().NoFogEnabled
-    if not getgenv().NoFogEnabled then
-        RestoreFog()
-    else
-        CacheAtmosphereData()
-    end
-    
-    if getgenv().NoFogEnabled then
-        ToggleFogBtn.Text = "No Fog [BẬT]"
-        ToggleFogBtn.TextColor3 = Color3.fromRGB(255, 150, 0)
-    else
-        ToggleFogBtn.Text = "No Fog [TẮT]"
-        ToggleFogBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    end
-end)
-
-MinusBtn.MouseButton1Click:Connect(function()
-    SetBrightnessValue(getgenv().CurrentBrightness - 0.5)
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-    SetBrightnessValue(getgenv().CurrentBrightness + 0.5)
-end)
-
-BrightnessBox.FocusLost:Connect(function()
-    local num = tonumber(BrightnessBox.Text)
-    if num then
-        SetBrightnessValue(num)
-    else
-        BrightnessBox.Text = string.format("%.1f", getgenv().CurrentBrightness)
-    end
-end)
-
-getgenv().FullBrightCleanup = function()
+getgenv().GenEsp_Cleanup = function()
+    getgenv().GenEsp_IsRunning = false
     for _, conn in ipairs(connections) do
         if conn and conn.Connected then
             conn:Disconnect()
         end
     end
-    connections = {}
-    if UI then
-        UI:Destroy()
+    for _, inst in ipairs(instancesToDestroy) do
+        if inst and inst.Destroy then
+            pcall(function() inst:Destroy() end)
+        end
     end
-    RestoreLighting()
-    RestoreFog()
+    connections = {}
+    instancesToDestroy = {}
 end
 
-print("✅ Menu Fullbright Loaded Successfully!")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Cấu hình trạng thái mặc định
+local outlineEnabled = false
+local distanceEnabled = false
+local fullbrightEnabled = false
+local noFogEnabled = false
+local currentTextSize = 10 -- Cỡ chữ mặc định ban đầu
+
+-- Lưu lại thông số Lighting gốc để khôi phục khi tắt
+local defaultLighting = {
+    Ambient = Lighting.Ambient,
+    ColorShift_Top = Lighting.ColorShift_Top,
+    ColorShift_Bottom = Lighting.ColorShift_Bottom,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ClockTime = Lighting.ClockTime,
+    FogColor = Lighting.FogColor,
+    FogEnd = Lighting.FogEnd,
+    FogStart = Lighting.FogStart
+}
+
+-- ==========================================
+-- 1. LOGIC QUẢN LÝ TẢI MAP & TÌM GENERATOR
+-- ==========================================
+local function GetValidGenerators()
+    local validBodies = {}
+    local addedBodies = {} -- Bảng lưu trữ chống trùng lặp ESP
+    
+    local function AddBodySafe(body)
+        if body and body:IsA("BasePart") and not addedBodies[body] then
+            table.insert(validBodies, body)
+            addedBodies[body] = true
+        end
+    end
+
+    local map = workspace:FindFirstChild("Map")
+    if not map then 
+        return validBodies 
+    end
+
+    -- [1] THÊM THỦ CÔNG CÁC GENERATOR THEO ĐÚNG ĐƯỜNG DẪN VIOLENCE DISTRICT
+    pcall(function()
+        local genFolder = map:FindFirstChild("Generator")
+        if genFolder then
+            local children = genFolder:GetChildren()
+            for i = 7, 2, -1 do
+                if children[i] then
+                    AddBodySafe(children[i]:FindFirstChild("GeneratorBody"))
+                end
+            end
+            local specificGen = genFolder:FindFirstChild("Generator")
+            if specificGen then
+                AddBodySafe(specificGen:FindFirstChild("GeneratorBody"))
+            end
+        end
+    end)
+
+    -- [2] QUÉT TỰ ĐỘNG DỰ PHÒNG
+    local folderNames = {"Gens", "Generators", "newGenerators", "new Generators", "Generator"}
+    for _, folderName in ipairs(folderNames) do
+        local folder = map:FindFirstChild(folderName)
+        if folder then
+            for _, genChild in ipairs(folder:GetChildren()) do
+                AddBodySafe(genChild:FindFirstChild("GeneratorBody"))
+            end
+        end
+    end
+    
+    return validBodies
+end
+
+-- ==========================================
+-- 2. LOGIC ESP (OUTLINE & DISTANCE)
+-- ==========================================
+local espFolder = nil
+local espElements = {}
+
+local function InitESPObjects()
+    if espFolder then 
+        espFolder:Destroy() 
+    end
+    espElements = {}
+    
+    espFolder = Instance.new("Folder")
+    espFolder.Name = "GeneratorESP_System"
+    espFolder.Parent = CoreGui
+    table.insert(instancesToDestroy, espFolder)
+    
+    local targets = GetValidGenerators()
+    
+    for _, body in ipairs(targets) do
+        -- Highlight (Outline)
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = body
+        highlight.FillTransparency = 0.8
+        highlight.FillColor = Color3.fromRGB(255, 50, 50)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
+        highlight.Enabled = outlineEnabled
+        highlight.Parent = espFolder
+        
+        -- BillboardGui (Text Khoảng cách)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Adornee = body
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 4, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Enabled = distanceEnabled
+        billboard.Parent = espFolder
+        
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextScaled = false
+        textLabel.TextSize = currentTextSize
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+        textLabel.TextStrokeTransparency = 0.2
+        textLabel.Parent = billboard
+        
+        table.insert(espElements, {
+            Part = body,
+            Highlight = highlight,
+            Billboard = billboard,
+            Label = textLabel
+        })
+    end
+end
+
+local function UpdateESPVisibility()
+    local needsReinit = false
+    if not espFolder or #espElements == 0 then
+        needsReinit = true
+    else
+        for _, data in ipairs(espElements) do
+            if not data.Part or not data.Part.Parent then
+                needsReinit = true
+                break
+            end
+        end
+    end
+
+    if needsReinit then
+        InitESPObjects()
+    end
+    
+    for _, data in ipairs(espElements) do
+        if data.Highlight then data.Highlight.Enabled = outlineEnabled end
+        if data.Billboard then data.Billboard.Enabled = distanceEnabled end
+    end
+end
+
+local function UpdateTextSize(newSize)
+    currentTextSize = newSize
+    for _, data in ipairs(espElements) do
+        if data.Label then
+            data.Label.TextSize = currentTextSize
+        end
+    end
+end
+
+-- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright / No Fog chống ghi đè
+local renderConn = RunService.RenderStepped:Connect(function()
+    -- 1. Fullbright Logic
+    if fullbrightEnabled then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        Lighting.ClockTime = 14
+    end
+
+    -- 2. Anti Fog / No Fog Logic liên tục từng khung hình
+    if noFogEnabled then
+        Lighting.FogStart = 9e9
+        Lighting.FogEnd = 9e9
+        
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Haze = 0
+                v.Glare = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end
+
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end
+    end
+
+    -- 3. Cập nhật khoảng cách Generator ESP
+    if not distanceEnabled then return end
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, data in ipairs(espElements) do
+        if data.Part and data.Part.Parent then
+            local distance = (root.Position - data.Part.Position).Magnitude
+            data.Label.Text = string.format("Generator\n[%.1f m]", distance)
+        else
+            data.Label.Text = "" 
+        end
+    end
+end)
+table.insert(connections, renderConn)
+
+-- ==========================================
+-- 3. GIAO DIỆN MENU (MINIMAL UI TỔNG HỢP)
+-- ==========================================
+local UI = Instance.new("ScreenGui")
+UI.Name = "GenEspHub"
+UI.ResetOnSpawn = false
+UI.Parent = CoreGui
+table.insert(instancesToDestroy, UI)
+
+local Colors = {
+    Bg = Color3.fromRGB(25, 25, 25),
+    Element = Color3.fromRGB(35, 35, 35),
+    ElementActive = Color3.fromRGB(50, 150, 50),
+    Accent = Color3.fromRGB(255, 255, 255),
+    Text = Color3.fromRGB(220, 220, 220),
+    Border = Color3.fromRGB(50, 50, 50)
+}
+
+-- [Nút Ẩn/Hiện Menu]
+local ToggleMenuBtn = Instance.new("TextButton")
+ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleMenuBtn.Position = UDim2.new(0, 20, 0, 20)
+ToggleMenuBtn.BackgroundColor3 = Colors.Bg
+ToggleMenuBtn.Text = "HUB"
+ToggleMenuBtn.TextColor3 = Colors.Accent
+ToggleMenuBtn.Font = Enum.Font.GothamBold
+ToggleMenuBtn.TextSize = 13
+ToggleMenuBtn.Active = true
+ToggleMenuBtn.Parent = UI
+
+Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
+
+-- Kéo thả nút Ẩn/Hiện Menu
+local btnDragging, btnDragStart, btnStartPos
+ToggleMenuBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        btnDragging = true
+        btnDragStart = input.Position
+        btnStartPos = ToggleMenuBtn.Position
+    end
+end)
+local btnDragConn1 = UserInputService.InputChanged:Connect(function(input)
+    if btnDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - btnDragStart
+        ToggleMenuBtn.Position = UDim2.new(
+            btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, 
+            btnStartPos.Y.Scale, btnStartPos.Y.Offset + delta.Y
+        )
+    end
+end)
+local btnDragConn2 = UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        btnDragging = false 
+    end
+end)
+table.insert(connections, btnDragConn1)
+table.insert(connections, btnDragConn2)
+
+-- [Main Frame - Tăng chiều cao lên 310 để chứa thêm nút No Fog & Fullbright]
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -155)
+MainFrame.BackgroundColor3 = Colors.Bg
+MainFrame.Visible = false
+MainFrame.Active = true
+MainFrame.Parent = UI
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", MainFrame).Color = Colors.Border
+
+-- Tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "Violence District Hub"
+Title.TextColor3 = Colors.Accent
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Active = true
+Title.Parent = MainFrame
+
+local TitlePadding = Instance.new("UIPadding")
+TitlePadding.PaddingLeft = UDim.new(0, 10)
+TitlePadding.Parent = Title
+
+-- Click Nút Ẩn/Hiện Menu
+ToggleMenuBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Dragging Logic Main Menu
+local dragging, dragStart, startPos
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+    end
+end)
+local dragConn1 = UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+local dragConn2 = UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+table.insert(connections, dragConn1)
+table.insert(connections, dragConn2)
+
+-- Helper: Tạo Button Bật/Tắt
+local function CreateToggleButton(text, yPos, initialState, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = initialState and Colors.ElementActive or Colors.Element
+    btn.Text = text .. (initialState and " [BẬT]" or " [TẮT]")
+    btn.TextColor3 = Colors.Text
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 13
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", btn).Color = Colors.Border
+    
+    local state = initialState
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.BackgroundColor3 = state and Colors.ElementActive or Colors.Element
+        btn.Text = text .. (state and " [BẬT]" or " [TẮT]")
+        pcall(callback, state)
+    end)
+    return btn
+end
+
+-- Helper: Tạo Button Thường
+local function CreateButton(text, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.Text = text
+    btn.TextColor3 = Colors.Accent
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 13
+    btn.Parent = MainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", btn).Color = Colors.Border
+    
+    btn.MouseButton1Click:Connect(function()
+        local oldColor = btn.BackgroundColor3
+        btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        task.delay(0.1, function()
+            btn.BackgroundColor3 = oldColor
+        end)
+        pcall(callback)
+    end)
+    return btn
+end
+
+-- Helper: Tạo TextBox
+local function CreateTextBox(labelText, yPos, defaultValue, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -20, 0, 35)
+    container.Position = UDim2.new(0, 10, 0, yPos)
+    container.BackgroundColor3 = Colors.Element
+    container.Parent = MainFrame
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", container).Color = Colors.Border
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Colors.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+    
+    local labelPadding = Instance.new("UIPadding")
+    labelPadding.PaddingLeft = UDim.new(0, 10)
+    labelPadding.Parent = label
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.3, -10, 0.7, 0)
+    box.Position = UDim2.new(0.7, 0, 0.15, 0)
+    box.BackgroundColor3 = Colors.Bg
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Colors.Accent
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 13
+    box.ClearTextOnFocus = false
+    box.Parent = container
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    Instance.new("UIStroke", box).Color = Colors.Border
+
+    box.FocusLost:Connect(function(enterPressed)
+        local num = tonumber(box.Text)
+        if num and num > 0 then
+            callback(num)
+        else
+            box.Text = tostring(currentTextSize)
+        end
+    end)
+end
+
+-- ==========================================
+-- 4. KHỞI TẠO CÁC NỨT BẤM VÀO GIAO DIỆN
+-- ==========================================
+InitESPObjects()
+
+-- 1. Outline ESP (y: 42)
+CreateToggleButton("Outline ESP", 42, false, function(state)
+    outlineEnabled = state
+    UpdateESPVisibility()
+end)
+
+-- 2. Show Distance (y: 85)
+CreateToggleButton("Show Distance", 85, false, function(state)
+    distanceEnabled = state
+    UpdateESPVisibility()
+end)
+
+-- 3. Fullbright (y: 128)
+CreateToggleButton("Fullbright", 128, false, function(state)
+    fullbrightEnabled = state
+    if not state then
+        Lighting.Ambient = defaultLighting.Ambient
+        Lighting.ColorShift_Top = defaultLighting.ColorShift_Top
+        Lighting.ColorShift_Bottom = defaultLighting.ColorShift_Bottom
+        Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient
+        Lighting.ClockTime = defaultLighting.ClockTime
+    end
+end)
+
+-- 4. No Fog + Anti-Fog (y: 171)
+CreateToggleButton("No Fog", 171, false, function(state)
+    noFogEnabled = state
+    if not state then
+        Lighting.FogEnd = defaultLighting.FogEnd
+        Lighting.FogStart = defaultLighting.FogStart
+        
+        for _, v in ipairs(Lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = true
+            end
+        end
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = true
+            end
+        end
+    end
+end)
+
+-- 5. TextBox Cỡ chữ ESP (y: 214)
+CreateTextBox("Cỡ chữ ESP:", 214, currentTextSize, function(newSize)
+    UpdateTextSize(newSize)
+end)
+
+-- 6. Load lại Generator (y: 257)
+CreateButton("🔄 Load Generators Trên Map", 257, function()
+    InitESPObjects()
+end)
