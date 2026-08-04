@@ -17,7 +17,7 @@ local connections = {}
 -- Khởi tạo biến
 if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = true end
 if getgenv().NoFogEnabled == nil then getgenv().NoFogEnabled = false end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end
+if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 3 end
 
 local DefaultLighting = {
     Brightness = Lighting.Brightness,
