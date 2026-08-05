@@ -42,13 +42,16 @@ local distanceEnabled = false
 local fullbrightEnabled = false
 local currentTextSize = 10 -- Cỡ chữ mặc định ban đầu
 
--- Lưu lại thông số Lighting gốc để khôi phục khi tắt (Đã bỏ các thông số Fog vì không cần khôi phục)
+-- Lưu lại thông số Lighting gốc để khôi phục khi tắt
 local defaultLighting = {
     Ambient = Lighting.Ambient,
     ColorShift_Top = Lighting.ColorShift_Top,
     ColorShift_Bottom = Lighting.ColorShift_Bottom,
     OutdoorAmbient = Lighting.OutdoorAmbient,
-    ClockTime = Lighting.ClockTime
+    ClockTime = Lighting.ClockTime,
+    FogColor = Lighting.FogColor,
+    FogEnd = Lighting.FogEnd,
+    FogStart = Lighting.FogStart
 }
 
 -- ==========================================
@@ -191,6 +194,36 @@ local function UpdateTextSize(newSize)
     end
 end
 
+-- Hàm xoá sương mù 1 lần
+local function ClearFogOnce()
+    Lighting.FogStart = 9e9
+    Lighting.FogEnd = 9e9
+    
+    for _, v in ipairs(Lighting:GetChildren()) do
+        pcall(function()
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Haze = 0
+                v.Glare = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end)
+    end
+
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        pcall(function()
+            if v:IsA("Atmosphere") then
+                v.Density = 0
+                v.Enabled = false
+            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end)
+    end
+end
+
 -- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright
 local renderConn = RunService.RenderStepped:Connect(function()
     -- 1. Fullbright Logic
@@ -201,8 +234,6 @@ local renderConn = RunService.RenderStepped:Connect(function()
         Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
         Lighting.ClockTime = 14
     end
-
-    -- ĐÃ XÓA LOGIC NO FOG Ở ĐÂY ĐỂ TRÁNH QUÉT LIÊN TỤC LÀM LAG GAME
 
     -- 2. Cập nhật khoảng cách Generator ESP
     if not distanceEnabled then return end
@@ -254,7 +285,7 @@ ToggleMenuBtn.Parent = UI
 Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
 
--- Kéo thả nút Ẩn/Hiện Menu (ĐÃ FIX LỖI 2 NGÓN TAY)
+-- Kéo thả nút Ẩn/Hiện Menu
 local btnDragging, btnDragInput, btnDragStart, btnStartPos
 ToggleMenuBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -371,7 +402,7 @@ local function CreateToggleButton(text, yPos, initialState, callback)
     return btn
 end
 
--- Helper: Tạo Button Thường (Click 1 Lần)
+-- Helper: Tạo Button Thường
 local function CreateButton(text, yPos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 35)
@@ -473,28 +504,20 @@ CreateToggleButton("Fullbright", 128, false, function(state)
     end
 end)
 
--- 4. Xóa Sương Mù 1 Lần (y: 171)
-CreateButton("Xóa Sương Mù (No Fog)", 171, function()
-    -- Cài đặt tầm nhìn sương mù ra vô cực
-    Lighting.FogStart = 9e9
-    Lighting.FogEnd = 9e9
+-- 4. Nút bấm 1 lần No Fog (y: 171)
+local clearFogBtn
+clearFogBtn = CreateButton("Xoá Xương Mù", 171, function()
+    ClearFogOnce()
     
-    -- Hàm dọn dẹp các hiệu ứng mờ/sương mù
-    local function CleanFogEffects(parent)
-        for _, v in ipairs(parent:GetDescendants()) do
-            pcall(function()
-                if v:IsA("Atmosphere") then
-                    v:Destroy() -- Xóa bỏ hoàn toàn Atmosphere
-                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                    v.Enabled = false -- Tắt làm mờ
-                end
-            end)
+    -- Hiệu ứng thay đổi text để báo đã click
+    clearFogBtn.Text = "Đã Xoá Xương Mù!"
+    clearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+    task.delay(1.5, function()
+        if clearFogBtn and clearFogBtn.Parent then
+            clearFogBtn.Text = "Xoá Xương Mù"
+            clearFogBtn.TextColor3 = Colors.Accent
         end
-    end
-    
-    -- Quét và dọn dẹp Lighting & Workspace 
-    CleanFogEffects(Lighting)
-    CleanFogEffects(Workspace)
+    end)
 end)
 
 -- 5. TextBox Cỡ chữ ESP (y: 214)
