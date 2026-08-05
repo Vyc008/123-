@@ -40,19 +40,15 @@ local LocalPlayer = Players.LocalPlayer
 local outlineEnabled = false
 local distanceEnabled = false
 local fullbrightEnabled = false
-local noFogEnabled = false
 local currentTextSize = 10 -- Cỡ chữ mặc định ban đầu
 
--- Lưu lại thông số Lighting gốc để khôi phục khi tắt
+-- Lưu lại thông số Lighting gốc để khôi phục khi tắt (Đã bỏ các thông số Fog vì không cần khôi phục)
 local defaultLighting = {
     Ambient = Lighting.Ambient,
     ColorShift_Top = Lighting.ColorShift_Top,
     ColorShift_Bottom = Lighting.ColorShift_Bottom,
     OutdoorAmbient = Lighting.OutdoorAmbient,
-    ClockTime = Lighting.ClockTime,
-    FogColor = Lighting.FogColor,
-    FogEnd = Lighting.FogEnd,
-    FogStart = Lighting.FogStart
+    ClockTime = Lighting.ClockTime
 }
 
 -- ==========================================
@@ -195,7 +191,7 @@ local function UpdateTextSize(newSize)
     end
 end
 
--- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright / No Fog chống ghi đè
+-- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright
 local renderConn = RunService.RenderStepped:Connect(function()
     -- 1. Fullbright Logic
     if fullbrightEnabled then
@@ -206,33 +202,9 @@ local renderConn = RunService.RenderStepped:Connect(function()
         Lighting.ClockTime = 14
     end
 
-    -- 2. Anti Fog / No Fog Logic liên tục từng khung hình
-    if noFogEnabled then
-        Lighting.FogStart = 9e9
-        Lighting.FogEnd = 9e9
-        
-        for _, v in ipairs(Lighting:GetChildren()) do
-            if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Haze = 0
-                v.Glare = 0
-                v.Enabled = false
-            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = false
-            end
-        end
+    -- ĐÃ XÓA LOGIC NO FOG Ở ĐÂY ĐỂ TRÁNH QUÉT LIÊN TỤC LÀM LAG GAME
 
-        for _, v in ipairs(Workspace:GetDescendants()) do
-            if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Enabled = false
-            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = false
-            end
-        end
-    end
-
-    -- 3. Cập nhật khoảng cách Generator ESP
+    -- 2. Cập nhật khoảng cách Generator ESP
     if not distanceEnabled then return end
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -282,17 +254,19 @@ ToggleMenuBtn.Parent = UI
 Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
 
--- Kéo thả nút Ẩn/Hiện Menu
-local btnDragging, btnDragStart, btnStartPos
+-- Kéo thả nút Ẩn/Hiện Menu (ĐÃ FIX LỖI 2 NGÓN TAY)
+local btnDragging, btnDragInput, btnDragStart, btnStartPos
 ToggleMenuBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         btnDragging = true
+        btnDragInput = input 
         btnDragStart = input.Position
         btnStartPos = ToggleMenuBtn.Position
     end
 end)
+
 local btnDragConn1 = UserInputService.InputChanged:Connect(function(input)
-    if btnDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    if input == btnDragInput and btnDragging then
         local delta = input.Position - btnDragStart
         ToggleMenuBtn.Position = UDim2.new(
             btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, 
@@ -300,15 +274,17 @@ local btnDragConn1 = UserInputService.InputChanged:Connect(function(input)
         )
     end
 end)
+
 local btnDragConn2 = UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-        btnDragging = false 
+    if input == btnDragInput then
+        btnDragging = false
+        btnDragInput = nil
     end
 end)
 table.insert(connections, btnDragConn1)
 table.insert(connections, btnDragConn2)
 
--- [Main Frame - Tăng chiều cao lên 310 để chứa thêm nút No Fog & Fullbright]
+-- [Main Frame]
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 250, 0, 310)
 MainFrame.Position = UDim2.new(0.5, -125, 0.5, -155)
@@ -342,20 +318,31 @@ ToggleMenuBtn.MouseButton1Click:Connect(function()
 end)
 
 -- Dragging Logic Main Menu
-local dragging, dragStart, startPos
+local dragging, dragInput, dragStart, startPos
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+        dragging = true
+        dragInput = input 
+        dragStart = input.Position
+        startPos = MainFrame.Position
     end
 end)
+
 local dragConn1 = UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
     end
 end)
+
 local dragConn2 = UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+    if input == dragInput then 
+        dragging = false
+        dragInput = nil
+    end
 end)
 table.insert(connections, dragConn1)
 table.insert(connections, dragConn2)
@@ -384,7 +371,7 @@ local function CreateToggleButton(text, yPos, initialState, callback)
     return btn
 end
 
--- Helper: Tạo Button Thường
+-- Helper: Tạo Button Thường (Click 1 Lần)
 local function CreateButton(text, yPos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 35)
@@ -458,7 +445,7 @@ local function CreateTextBox(labelText, yPos, defaultValue, callback)
 end
 
 -- ==========================================
--- 4. KHỞI TẠO CÁC NỨT BẤM VÀO GIAO DIỆN
+-- 4. KHỞI TẠO CÁC NÚT BẤM VÀO GIAO DIỆN
 -- ==========================================
 InitESPObjects()
 
@@ -486,24 +473,28 @@ CreateToggleButton("Fullbright", 128, false, function(state)
     end
 end)
 
--- 4. No Fog + Anti-Fog (y: 171)
-CreateToggleButton("No Fog", 171, false, function(state)
-    noFogEnabled = state
-    if not state then
-        Lighting.FogEnd = defaultLighting.FogEnd
-        Lighting.FogStart = defaultLighting.FogStart
-        
-        for _, v in ipairs(Lighting:GetChildren()) do
-            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = true
-            end
-        end
-        for _, v in ipairs(Workspace:GetDescendants()) do
-            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = true
-            end
+-- 4. Xóa Sương Mù 1 Lần (y: 171)
+CreateButton("Xóa Sương Mù (No Fog)", 171, function()
+    -- Cài đặt tầm nhìn sương mù ra vô cực
+    Lighting.FogStart = 9e9
+    Lighting.FogEnd = 9e9
+    
+    -- Hàm dọn dẹp các hiệu ứng mờ/sương mù
+    local function CleanFogEffects(parent)
+        for _, v in ipairs(parent:GetDescendants()) do
+            pcall(function()
+                if v:IsA("Atmosphere") then
+                    v:Destroy() -- Xóa bỏ hoàn toàn Atmosphere
+                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                    v.Enabled = false -- Tắt làm mờ
+                end
+            end)
         end
     end
+    
+    -- Quét và dọn dẹp Lighting & Workspace 
+    CleanFogEffects(Lighting)
+    CleanFogEffects(Workspace)
 end)
 
 -- 5. TextBox Cỡ chữ ESP (y: 214)
