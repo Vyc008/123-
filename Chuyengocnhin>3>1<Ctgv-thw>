@@ -1,0 +1,224 @@
+--[[
+    👁️ CAMERA VIEW CONTROLLER V3 (FIXED: SURVIVE MAP CHANGES)
+    🛡️ Chức năng: Khóa chết góc nhìn 1/3 với độ ưu tiên tuyệt đối (Priority Max)
+    🔥 Chấp mọi loại script vũ khí/súng ép góc nhìn của game
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
+
+-- Dùng CoreGui hoặc gethui() để UI không bị mất khi chuyển map/reset nhân vật
+local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
+
+-- ================= BẢNG MÀU MINIMALIST =================
+local Theme = {
+    Background = Color3.fromRGB(25, 25, 27),
+    Panel = Color3.fromRGB(35, 35, 40),
+    Border = Color3.fromRGB(50, 50, 55),
+    Text = Color3.fromRGB(230, 230, 230),
+    Active = Color3.fromRGB(90, 170, 255) 
+}
+local MainFont = Enum.Font.GothamMedium
+
+-- ================= DỌN DẸP SCRIPT CŨ TẬN GỐC =================
+if CoreGui:FindFirstChild("CameraViewGui_Minimal") then
+    CoreGui.CameraViewGui_Minimal:Destroy()
+end
+pcall(function()
+    RunService:UnbindFromRenderStep("AbsoluteCameraLock_V3")
+end)
+
+-- ================= CẤU HÌNH GÓC NHÌN =================
+local isFirstPerson = false
+local thirdPersonDistance = 12 
+local isGuiMinimized = false
+
+-- ================= HÀM HỖ TRỢ THIẾT KẾ =================
+local function ApplyMinimalStyle(element)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = element
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Theme.Border
+    stroke.Thickness = 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = element
+end
+
+local function CreateButton(parent, text, size, pos, textSize)
+    local btn = Instance.new("TextButton")
+    btn.Parent = parent
+    btn.BackgroundColor3 = Theme.Panel
+    btn.Size = size
+    if pos then btn.Position = pos end
+    btn.Font = MainFont
+    btn.Text = text
+    btn.TextColor3 = Theme.Text
+    btn.TextSize = textSize or 12
+    btn.AutoButtonColor = true
+    ApplyMinimalStyle(btn)
+    return btn
+end
+
+-- ================= TẠO GIAO DIỆN VÀO COREGUI =================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CameraViewGui_Minimal"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui -- Đặt vào CoreGui để chống mất UI
+
+-- Khung Menu Chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Theme.Background
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.Size = UDim2.new(0, 170, 0, 130)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+ApplyMinimalStyle(MainFrame)
+
+-- Tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, -45, 0, 35)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "Camera V3"
+Title.TextColor3 = Theme.Text
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Nút thu nhỏ (+) / (-)
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Parent = MainFrame
+MinimizeButton.BackgroundTransparency = 1
+MinimizeButton.Size = UDim2.new(0, 45, 0, 35)
+MinimizeButton.Position = UDim2.new(1, -45, 0, 0)
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.Text = "–"
+MinimizeButton.TextColor3 = Theme.Text
+MinimizeButton.TextSize = 22
+MinimizeButton.ZIndex = 2
+
+-- Khung chứa các nút điều khiển
+local InnerFrame = Instance.new("Frame")
+InnerFrame.Parent = MainFrame
+InnerFrame.BackgroundTransparency = 1
+InnerFrame.Size = UDim2.new(1, -20, 1, -45)
+InnerFrame.Position = UDim2.new(0, 10, 0, 35)
+
+local ListLayout = Instance.new("UIListLayout", InnerFrame)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 8)
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- 1. NÚT CHUYỂN ĐỔI GÓC NHÌN CHÍNH (1st / 3rd)
+local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: 3RD", UDim2.new(1, 0, 0, 35), nil, 13)
+ToggleViewBtn.Font = Enum.Font.GothamBold
+ToggleViewBtn.LayoutOrder = 1
+
+-- 2. HÀNG CHỈNH KHOẢNG CÁCH GÓC NHÌN 3 (DISTANCE)
+local DistanceFrame = Instance.new("Frame")
+DistanceFrame.Parent = InnerFrame
+DistanceFrame.BackgroundTransparency = 1
+DistanceFrame.Size = UDim2.new(1, 0, 0, 30)
+DistanceFrame.LayoutOrder = 2
+
+local DistLayout = Instance.new("UIListLayout", DistanceFrame)
+DistLayout.FillDirection = Enum.FillDirection.Horizontal
+DistLayout.Padding = UDim.new(0, 6)
+DistLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local DistDecBtn = CreateButton(DistanceFrame, "–", UDim2.new(0, 35, 1, 0), nil, 16)
+local DistLabel = CreateButton(DistanceFrame, "Xa: " .. thirdPersonDistance, UDim2.new(0, 68, 1, 0), nil, 11)
+DistLabel.BackgroundColor3 = Theme.Background
+local DistIncBtn = CreateButton(DistanceFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
+
+-- ================= LOGIC CẬP NHẬT GIAO DIỆN =================
+local function updateUI()
+    if isFirstPerson then
+        ToggleViewBtn.Text = "GÓC NHÌN: 1ST"
+        ToggleViewBtn.BackgroundColor3 = Theme.Active
+        ToggleViewBtn.TextColor3 = Theme.Background
+    else
+        ToggleViewBtn.Text = "GÓC NHÌN: 3RD"
+        ToggleViewBtn.BackgroundColor3 = Theme.Panel
+        ToggleViewBtn.TextColor3 = Theme.Text
+    end
+end
+
+-- ================= [QUAN TRỌNG NHẤT] KHÓA CAMERA VỚI PRIORITY CAO NHẤT =================
+-- Dùng BindToRenderStep với Priority = Last + 99 để đảm bảo chạy sau CÙNG so với script của game
+RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Value + 99, function()
+    local cam = workspace.CurrentCamera
+    local char = player.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+    -- 1. Chống súng ép CameraType về Scriptable/Attach
+    if cam and cam.CameraType ~= Enum.CameraType.Custom then
+        cam.CameraType = Enum.CameraType.Custom
+    end
+
+    -- 2. Chống súng chỉnh CameraOffset (đẩy góc nhìn ra sau)
+    if hum and hum.CameraOffset ~= Vector3.new(0, 0, 0) then
+        hum.CameraOffset = Vector3.new(0, 0, 0)
+    end
+
+    -- 3. Khóa chết CameraMode & ZoomDistance (Chống lỗi nil liên tục)
+    if isFirstPerson then
+        pcall(function()
+            player.CameraMode = Enum.CameraMode.LockFirstPerson
+            player.CameraMinZoomDistance = 0.5
+            player.CameraMaxZoomDistance = 0.5
+        end)
+    else
+        pcall(function()
+            player.CameraMode = Enum.CameraMode.Classic
+            player.CameraMinZoomDistance = thirdPersonDistance
+            player.CameraMaxZoomDistance = thirdPersonDistance
+        end)
+    end
+end)
+
+-- ================= KẾT NỐI SỰ KIỆN =================
+ToggleViewBtn.MouseButton1Click:Connect(function()
+    isFirstPerson = not isFirstPerson
+    updateUI()
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.V then
+        isFirstPerson = not isFirstPerson
+        updateUI()
+    end
+end)
+
+DistIncBtn.MouseButton1Click:Connect(function()
+    thirdPersonDistance = math.clamp(thirdPersonDistance + 2, 6, 30)
+    DistLabel.Text = "Xa: " .. thirdPersonDistance
+end)
+
+DistDecBtn.MouseButton1Click:Connect(function()
+    thirdPersonDistance = math.clamp(thirdPersonDistance - 2, 6, 30)
+    DistLabel.Text = "Xa: " .. thirdPersonDistance
+end)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    isGuiMinimized = not isGuiMinimized
+    if isGuiMinimized then
+        MinimizeButton.Text = "+"
+        InnerFrame.Visible = false
+        MainFrame:TweenSize(UDim2.new(0, 170, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+    else
+        MinimizeButton.Text = "–"
+        InnerFrame.Visible = true
+        MainFrame:TweenSize(UDim2.new(0, 170, 0, 130), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+    end
+end)
+
+updateUI()
