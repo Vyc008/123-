@@ -153,23 +153,19 @@ local function updateUI()
 end
 
 -- ================= [QUAN TRỌNG NHẤT] KHÓA CAMERA VỚI PRIORITY CAO NHẤT =================
--- Dùng BindToRenderStep với Priority = Last + 99 để đảm bảo chạy sau CÙNG so với script của game
 RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Value + 99, function()
     local cam = workspace.CurrentCamera
     local char = player.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-    -- 1. Chống súng ép CameraType về Scriptable/Attach
     if cam and cam.CameraType ~= Enum.CameraType.Custom then
         cam.CameraType = Enum.CameraType.Custom
     end
 
-    -- 2. Chống súng chỉnh CameraOffset (đẩy góc nhìn ra sau)
     if hum and hum.CameraOffset ~= Vector3.new(0, 0, 0) then
         hum.CameraOffset = Vector3.new(0, 0, 0)
     end
 
-    -- 3. Khóa chết CameraMode & ZoomDistance (Chống lỗi nil liên tục)
     if isFirstPerson then
         pcall(function()
             player.CameraMode = Enum.CameraMode.LockFirstPerson
@@ -185,7 +181,51 @@ RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Va
     end
 end)
 
--- ================= KẾT NỐI SỰ KIỆN =================
+-- ================= KẾT NỐI SỰ KIỆN & GIỮ NÚT TĂNG/GIẢM LIÊN TỤC =================
+local function changeDistance(delta)
+    thirdPersonDistance = math.clamp(thirdPersonDistance + delta, 6, 250) -- Giới hạn tối đa 250
+    DistLabel.Text = "Xa: " .. math.floor(thirdPersonDistance + 0.5)
+end
+
+local holdingAction = 0 -- 1: Tăng (+), -1: Giảm (-), 0: Không giữ
+local holdTimer = 0
+local initialDelay = 0.35 -- Thời gian trễ nhẹ trước khi tua liên tục nhanh hơn
+
+DistIncBtn.MouseButton1Down:Connect(function()
+    holdingAction = 1
+    holdTimer = 0
+    changeDistance(4) -- Nhấn 1 cái ăn ngay một khoảng
+end)
+DistIncBtn.MouseButton1Up:Connect(function()
+    if holdingAction == 1 then holdingAction = 0 end
+end)
+DistIncBtn.MouseLeave:Connect(function()
+    if holdingAction == 1 then holdingAction = 0 end
+end)
+
+DistDecBtn.MouseButton1Down:Connect(function()
+    holdingAction = -1
+    holdTimer = 0
+    changeDistance(-4) -- Nhấn 1 cái ăn ngay một khoảng
+end)
+DistDecBtn.MouseButton1Up:Connect(function()
+    if holdingAction == -1 then holdingAction = 0 end
+end)
+DistDecBtn.MouseLeave:Connect(function()
+    if holdingAction == -1 then holdingAction = 0 end
+end)
+
+-- Xử lý vòng lặp tăng giảm liên tục khi giữ nút
+RunService.RenderStepped:Connect(function(dt)
+    if holdingAction ~= 0 then
+        holdTimer = holdTimer + dt
+        if holdTimer >= initialDelay then
+            local speed = 100 -- Tốc độ chạy liên tục (units/giây)
+            changeDistance(holdingAction * speed * dt)
+        end
+    end
+end)
+
 ToggleViewBtn.MouseButton1Click:Connect(function()
     isFirstPerson = not isFirstPerson
     updateUI()
@@ -196,16 +236,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         isFirstPerson = not isFirstPerson
         updateUI()
     end
-end)
-
-DistIncBtn.MouseButton1Click:Connect(function()
-    thirdPersonDistance = math.clamp(thirdPersonDistance + 2, 6, 30)
-    DistLabel.Text = "Xa: " .. thirdPersonDistance
-end)
-
-DistDecBtn.MouseButton1Click:Connect(function()
-    thirdPersonDistance = math.clamp(thirdPersonDistance - 2, 6, 30)
-    DistLabel.Text = "Xa: " .. thirdPersonDistance
 end)
 
 MinimizeButton.MouseButton1Click:Connect(function()
