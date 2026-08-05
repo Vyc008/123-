@@ -1,5 +1,5 @@
 -- ==========================================
--- MENU FULLBRIGHT & XÓA SƯƠNG MÙ (TỐI ƯU FPS)
+-- MENU FULLBRIGHT & NO FOG (FIX LỖI ATMOSPHERE & THÊM NÚT ẨN/HIỆN MENU)
 -- ==========================================
 
 if getgenv().FullBrightCleanup then
@@ -16,17 +16,51 @@ local connections = {}
 
 -- Khởi tạo biến
 if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = true end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 2.5 end
+if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 3 end
 
 local DefaultLighting = {
     Brightness = Lighting.Brightness,
     ClockTime = Lighting.ClockTime,
+    FogStart = Lighting.FogStart,
+    FogEnd = Lighting.FogEnd,
     GlobalShadows = Lighting.GlobalShadows,
     Ambient = Lighting.Ambient,
     OutdoorAmbient = Lighting.OutdoorAmbient,
     ColorShift_Top = Lighting.ColorShift_Top,
     ColorShift_Bottom = Lighting.ColorShift_Bottom
 }
+
+local OriginalAtmospheres = {}
+local CachedEffects = {}
+
+local function CacheAtmosphereData()
+    OriginalAtmospheres = {}
+    CachedEffects = {}
+    
+    local function ScanForEffects(parentObj)
+        for _, v in ipairs(parentObj:GetDescendants()) do
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                table.insert(CachedEffects, v)
+                
+                if v:IsA("Atmosphere") then
+                    OriginalAtmospheres[v] = {
+                        Density = v.Density, 
+                        Haze = v.Haze, 
+                        Glare = v.Glare
+                    }
+                else
+                    OriginalAtmospheres[v] = {
+                        Enabled = v.Enabled
+                    }
+                end
+            end
+        end
+    end
+    
+    ScanForEffects(Lighting)
+    ScanForEffects(Workspace)
+end
+CacheAtmosphereData()
 
 local function RestoreLighting()
     Lighting.Brightness = DefaultLighting.Brightness
@@ -38,7 +72,48 @@ local function RestoreLighting()
     Lighting.ColorShift_Bottom = DefaultLighting.ColorShift_Bottom
 end
 
--- Vòng lặp giữ ánh sáng (Đã loại bỏ hoàn toàn phần No Fog ngầm)
+local function RestoreFog()
+    Lighting.FogStart = DefaultLighting.FogStart
+    Lighting.FogEnd = DefaultLighting.FogEnd
+    
+    for v, data in pairs(OriginalAtmospheres) do
+        if v and v.Parent then
+            pcall(function()
+                if v:IsA("Atmosphere") then
+                    v.Density = data.Density
+                    v.Haze = data.Haze
+                    v.Glare = data.Glare
+                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                    v.Enabled = data.Enabled
+                end
+            end)
+        end
+    end
+end
+
+-- Hàm thực thi xoá sương mù 1 lần khi bấm nút
+local function ClearFogOnce()
+    CacheAtmosphereData() -- Cập nhật danh sách hiệu ứng mới nhất trước khi xoá
+    
+    Lighting.FogStart = 9e9
+    Lighting.FogEnd = 9e9
+    
+    for _, v in ipairs(CachedEffects) do
+        if v and v.Parent then
+            pcall(function()
+                if v:IsA("Atmosphere") then
+                    v.Density = 0
+                    v.Haze = 0
+                    v.Glare = 0
+                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+                    v.Enabled = false
+                end
+            end)
+        end
+    end
+end
+
+-- Vòng lặp chỉ còn giữ trạng thái ánh sáng (FullBright)
 local renderConn = RunService.RenderStepped:Connect(function()
     if getgenv().FullBrightEnabled then
         Lighting.Brightness = getgenv().CurrentBrightness
@@ -73,7 +148,7 @@ UI.IgnoreGuiInset = true
 UI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 UI.Parent = GetSafeParent()
 
--- 1. NÚT ẨN / HIỆN MENU
+-- 1. NÚT ẨN / HIỆN MENU (MỞ Ở NGOÀI MÀN HÌNH, CÓ THỂ KÉO THẢ)
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 85, 0, 30)
 ToggleMenuBtn.Position = UDim2.new(0.5, -42, 0, 65)
@@ -147,7 +222,7 @@ MinusBtn.TextSize = 15
 MinusBtn.Parent = MainFrame
 Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
 
--- [VỊ TRÍ 3]: Ô Nhập Số
+-- [VỊ TRÍ 3]: Ô Nhập Số (2.5)
 local BrightnessBox = Instance.new("TextBox")
 BrightnessBox.LayoutOrder = 3
 BrightnessBox.Size = UDim2.new(0, 48, 0, 28)
@@ -173,13 +248,13 @@ PlusBtn.TextSize = 15
 PlusBtn.Parent = MainFrame
 Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
 
--- [VỊ TRÍ 5]: Nút Xóa Sương Mù (Click Button 1 Lần)
+-- [VỊ TRÍ 5]: Nút No Fog (Nút Bấm 1 Lần)
 local ClearFogBtn = Instance.new("TextButton")
 ClearFogBtn.LayoutOrder = 5
 ClearFogBtn.Size = UDim2.new(0, 100, 0, 28)
 ClearFogBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-ClearFogBtn.Text = "Xóa Sương Mù"
-ClearFogBtn.TextColor3 = Color3.fromRGB(255, 150, 0)
+ClearFogBtn.Text = "Clear Fog"
+ClearFogBtn.TextColor3 = Color3.fromRGB(255, 180, 50)
 ClearFogBtn.Font = Enum.Font.GothamBold
 ClearFogBtn.TextSize = 11
 ClearFogBtn.Parent = MainFrame
@@ -217,33 +292,19 @@ ToggleBrightBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Sự kiện nút Xóa Sương Mù (Click 1 lần duy nhất)
+-- Sự kiện Click 1 lần loại bỏ Fog
 ClearFogBtn.MouseButton1Click:Connect(function()
-    -- Hiệu ứng click đổi màu nhẹ
-    local oldColor = ClearFogBtn.BackgroundColor3
-    ClearFogBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    task.delay(0.1, function()
-        ClearFogBtn.BackgroundColor3 = oldColor
-    end)
+    ClearFogOnce()
     
-    -- Xóa sương mù ngay lập tức 1 lần duy nhất
-    Lighting.FogStart = 9e9
-    Lighting.FogEnd = 9e9
-    
-    local function CleanFogEffects(parent)
-        for _, v in ipairs(parent:GetDescendants()) do
-            pcall(function()
-                if v:IsA("Atmosphere") then
-                    v:Destroy() -- Xóa bỏ hẳn Atmosphere
-                elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") then
-                    v.Enabled = false -- Tắt các hiệu ứng làm mờ
-                end
-            end)
+    -- Phản hồi trực quan khi bấm nút
+    ClearFogBtn.Text = "Đã Xoá Fog!"
+    ClearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+    task.delay(1.5, function()
+        if ClearFogBtn and ClearFogBtn.Parent then
+            ClearFogBtn.Text = "Clear Fog"
+            ClearFogBtn.TextColor3 = Color3.fromRGB(255, 180, 50)
         end
-    end
-    
-    CleanFogEffects(Lighting)
-    CleanFogEffects(Workspace)
+    end)
 end)
 
 MinusBtn.MouseButton1Click:Connect(function()
@@ -274,6 +335,7 @@ getgenv().FullBrightCleanup = function()
         UI:Destroy()
     end
     RestoreLighting()
+    RestoreFog()
 end
 
-print("✅ Menu Fullbright & Xóa Sương Mù Loaded Successfully!")
+print("✅ Menu Fullbright Loaded Successfully!")
