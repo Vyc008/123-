@@ -1,6 +1,6 @@
 --[[
-    👁️ CAMERA VIEW CONTROLLER V3 (FIXED: SURVIVE MAP CHANGES)
-    🛡️ Chức năng: Khóa chết góc nhìn 1/3 với độ ưu tiên tuyệt đối (Priority Max)
+    👁️ CAMERA VIEW CONTROLLER V3 (FIXED: SURVIVE MAP CHANGES + FOV CONTROL)
+    🛡️ Chức năng: Khóa chết góc nhìn 1/3 và FOV với độ ưu tiên tuyệt đối (Priority Max)
     🔥 Chấp mọi loại script vũ khí/súng ép góc nhìn của game
 ]]
 
@@ -30,9 +30,10 @@ pcall(function()
     RunService:UnbindFromRenderStep("AbsoluteCameraLock_V3")
 end)
 
--- ================= CẤU HÌNH GÓC NHÌN =================
+-- ================= CẤU HÌNH GÓC NHÌN & FOV =================
 local isFirstPerson = false
 local thirdPersonDistance = 12 
+local cameraFOV = 70 -- Mặc định FOV Roblox
 local isGuiMinimized = false
 
 -- ================= HÀM HỖ TRỢ THIẾT KẾ =================
@@ -75,7 +76,7 @@ local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
-MainFrame.Size = UDim2.new(0, 170, 0, 130)
+MainFrame.Size = UDim2.new(0, 170, 0, 170)
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.ClipsDescendants = true
@@ -118,7 +119,7 @@ ListLayout.Padding = UDim.new(0, 8)
 ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 -- 1. NÚT CHUYỂN ĐỔI GÓC NHÌN CHÍNH (1st / 3rd)
-local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: 3RD", UDim2.new(1, 0, 0, 35), nil, 13)
+local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: 3RD", UDim2.new(1, 0, 0, 32), nil, 13)
 ToggleViewBtn.Font = Enum.Font.GothamBold
 ToggleViewBtn.LayoutOrder = 1
 
@@ -126,7 +127,7 @@ ToggleViewBtn.LayoutOrder = 1
 local DistanceFrame = Instance.new("Frame")
 DistanceFrame.Parent = InnerFrame
 DistanceFrame.BackgroundTransparency = 1
-DistanceFrame.Size = UDim2.new(1, 0, 0, 30)
+DistanceFrame.Size = UDim2.new(1, 0, 0, 28)
 DistanceFrame.LayoutOrder = 2
 
 local DistLayout = Instance.new("UIListLayout", DistanceFrame)
@@ -138,6 +139,23 @@ local DistDecBtn = CreateButton(DistanceFrame, "–", UDim2.new(0, 35, 1, 0), ni
 local DistLabel = CreateButton(DistanceFrame, "Xa: " .. thirdPersonDistance, UDim2.new(0, 68, 1, 0), nil, 11)
 DistLabel.BackgroundColor3 = Theme.Background
 local DistIncBtn = CreateButton(DistanceFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
+
+-- 3. HÀNG CHỈNH FOV CAMERA (FIELD OF VIEW)
+local FovFrame = Instance.new("Frame")
+FovFrame.Parent = InnerFrame
+FovFrame.BackgroundTransparency = 1
+FovFrame.Size = UDim2.new(1, 0, 0, 28)
+FovFrame.LayoutOrder = 3
+
+local FovLayout = Instance.new("UIListLayout", FovFrame)
+FovLayout.FillDirection = Enum.FillDirection.Horizontal
+FovLayout.Padding = UDim.new(0, 6)
+FovLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local FovDecBtn = CreateButton(FovFrame, "–", UDim2.new(0, 35, 1, 0), nil, 16)
+local FovLabel = CreateButton(FovFrame, "FOV: " .. cameraFOV, UDim2.new(0, 68, 1, 0), nil, 11)
+FovLabel.BackgroundColor3 = Theme.Background
+local FovIncBtn = CreateButton(FovFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
 
 -- ================= LOGIC CẬP NHẬT GIAO DIỆN =================
 local function updateUI()
@@ -158,8 +176,13 @@ RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Va
     local char = player.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-    if cam and cam.CameraType ~= Enum.CameraType.Custom then
-        cam.CameraType = Enum.CameraType.Custom
+    if cam then
+        if cam.CameraType ~= Enum.CameraType.Custom then
+            cam.CameraType = Enum.CameraType.Custom
+        end
+        pcall(function()
+            cam.FieldOfView = cameraFOV
+        end)
     end
 
     if hum and hum.CameraOffset ~= Vector3.new(0, 0, 0) then
@@ -181,51 +204,61 @@ RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Va
     end
 end)
 
--- ================= KẾT NỐI SỰ KIỆN & GIỮ NÚT TĂNG/GIẢM LIÊN TỤC =================
+-- ================= HỆ THỐNG XỬ LÝ NHẤN GIỮ NÚT LIÊN TỤC (+1 / -1) =================
+local initialDelay = 0.35
+
+-- Xử lý Distance
 local function changeDistance(delta)
-    thirdPersonDistance = math.clamp(thirdPersonDistance + delta, 6, 250) -- Giới hạn tối đa 250
+    thirdPersonDistance = math.clamp(thirdPersonDistance + delta, 6, 250)
     DistLabel.Text = "Xa: " .. math.floor(thirdPersonDistance + 0.5)
 end
 
-local holdingAction = 0 -- 1: Tăng (+), -1: Giảm (-), 0: Không giữ
-local holdTimer = 0
-local initialDelay = 0.35 -- Thời gian trễ nhẹ trước khi tua liên tục nhanh hơn
+local holdingDistAction = 0 
+local distHoldTimer = 0
 
-DistIncBtn.MouseButton1Down:Connect(function()
-    holdingAction = 1
-    holdTimer = 0
-    changeDistance(4) -- Nhấn 1 cái ăn ngay một khoảng
-end)
-DistIncBtn.MouseButton1Up:Connect(function()
-    if holdingAction == 1 then holdingAction = 0 end
-end)
-DistIncBtn.MouseLeave:Connect(function()
-    if holdingAction == 1 then holdingAction = 0 end
-end)
+DistIncBtn.MouseButton1Down:Connect(function() holdingDistAction = 1; distHoldTimer = 0; changeDistance(1) end)
+DistIncBtn.MouseButton1Up:Connect(function() if holdingDistAction == 1 then holdingDistAction = 0 end end)
+DistIncBtn.MouseLeave:Connect(function() if holdingDistAction == 1 then holdingDistAction = 0 end end)
 
-DistDecBtn.MouseButton1Down:Connect(function()
-    holdingAction = -1
-    holdTimer = 0
-    changeDistance(-4) -- Nhấn 1 cái ăn ngay một khoảng
-end)
-DistDecBtn.MouseButton1Up:Connect(function()
-    if holdingAction == -1 then holdingAction = 0 end
-end)
-DistDecBtn.MouseLeave:Connect(function()
-    if holdingAction == -1 then holdingAction = 0 end
-end)
+DistDecBtn.MouseButton1Down:Connect(function() holdingDistAction = -1; distHoldTimer = 0; changeDistance(-1) end)
+DistDecBtn.MouseButton1Up:Connect(function() if holdingDistAction == -1 then holdingDistAction = 0 end end)
+DistDecBtn.MouseLeave:Connect(function() if holdingDistAction == -1 then holdingDistAction = 0 end end)
 
--- Xử lý vòng lặp tăng giảm liên tục khi giữ nút
+-- Xử lý FOV
+local function changeFOV(delta)
+    cameraFOV = math.clamp(cameraFOV + delta, 10, 120)
+    FovLabel.Text = "FOV: " .. math.floor(cameraFOV + 0.5)
+end
+
+local holdingFovAction = 0
+local fovHoldTimer = 0
+
+FovIncBtn.MouseButton1Down:Connect(function() holdingFovAction = 1; fovHoldTimer = 0; changeFOV(1) end)
+FovIncBtn.MouseButton1Up:Connect(function() if holdingFovAction == 1 then holdingFovAction = 0 end end)
+FovIncBtn.MouseLeave:Connect(function() if holdingFovAction == 1 then holdingFovAction = 0 end end)
+
+FovDecBtn.MouseButton1Down:Connect(function() holdingFovAction = -1; fovHoldTimer = 0; changeFOV(-1) end)
+FovDecBtn.MouseButton1Up:Connect(function() if holdingFovAction == -1 then holdingFovAction = 0 end end)
+FovDecBtn.MouseLeave:Connect(function() if holdingFovAction == -1 then holdingFovAction = 0 end end)
+
+-- Vòng lặp tăng giảm liên tục mượt mà khi giữ nút lâu
 RunService.RenderStepped:Connect(function(dt)
-    if holdingAction ~= 0 then
-        holdTimer = holdTimer + dt
-        if holdTimer >= initialDelay then
-            local speed = 100 -- Tốc độ chạy liên tục (units/giây)
-            changeDistance(holdingAction * speed * dt)
+    if holdingDistAction ~= 0 then
+        distHoldTimer = distHoldTimer + dt
+        if distHoldTimer >= initialDelay then
+            changeDistance(holdingDistAction * 25 * dt)
+        end
+    end
+
+    if holdingFovAction ~= 0 then
+        fovHoldTimer = fovHoldTimer + dt
+        if fovHoldTimer >= initialDelay then
+            changeFOV(holdingFovAction * 25 * dt)
         end
     end
 end)
 
+-- ================= KẾT NỐI SỰ KIỆN KHÁC =================
 ToggleViewBtn.MouseButton1Click:Connect(function()
     isFirstPerson = not isFirstPerson
     updateUI()
@@ -247,7 +280,7 @@ MinimizeButton.MouseButton1Click:Connect(function()
     else
         MinimizeButton.Text = "–"
         InnerFrame.Visible = true
-        MainFrame:TweenSize(UDim2.new(0, 170, 0, 130), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+        MainFrame:TweenSize(UDim2.new(0, 170, 0, 170), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
     end
 end)
 
