@@ -41,12 +41,12 @@ local LocalPlayer = Players.LocalPlayer
 local outlineEnabled = false
 local distanceEnabled = false
 local fullbrightEnabled = false
-local currentTextSize = 10 
+local currentTextSize = 10 -- Đã cố định mặc định là 10
 
 -- Cấu hình Movement
-getgenv().Walkspeed = 18
+getgenv().Walkspeed = 17
 getgenv().loopW = false
-getgenv().TPSpeed = 0.01
+getgenv().TPSpeed = 0.02
 getgenv().TPWalk = false
 
 local defaultLighting = {
@@ -177,13 +177,7 @@ local function UpdateESPVisibility()
     end
 end
 
-local function UpdateTextSize(newSize)
-    currentTextSize = newSize
-    for _, data in ipairs(espElements) do
-        if data.Label then data.Label.TextSize = currentTextSize end
-    end
-end
-
+-- Hàm thực thi No Fog (Bấm 1 lần)
 local function ClearFogOnce()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
@@ -222,6 +216,7 @@ local renderConn = RunService.RenderStepped:Connect(function()
     end
 
     if not distanceEnabled then return end
+    
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -314,7 +309,7 @@ end)
 table.insert(connections, btnDragConn1)
 table.insert(connections, btnDragConn2)
 
--- [Main Frame] Kích thước gọn gàng, không che màn hình
+-- [Main Frame]
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 270, 0, 310)
 MainFrame.Position = UDim2.new(0.5, -135, 0.5, -155)
@@ -379,7 +374,7 @@ ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.BorderSizePixel = 0
 ScrollFrame.ScrollBarThickness = 5
 ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 390) -- Tổng chiều dài nội dung (tự cuộn)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 390) 
 ScrollFrame.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
@@ -388,7 +383,7 @@ UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Parent = ScrollFrame
 
--- Cập nhật tự động chiều dài của trang khi thêm/bớt nút
+-- Cập nhật tự động chiều dài của trang
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
 end)
@@ -436,49 +431,6 @@ local function CreateButton(text, callback)
         pcall(callback)
     end)
     return btn
-end
-
--- Helper: Tạo TextBox thường
-local function CreateTextBox(labelText, defaultValue, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -15, 0, 35)
-    container.BackgroundColor3 = Colors.Element
-    container.Parent = ScrollFrame
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", container).Color = Colors.Border
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.65, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = labelText
-    label.TextColor3 = Colors.Text
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 13
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
-
-    local box = Instance.new("TextBox")
-    box.Size = UDim2.new(0.3, -10, 0.7, 0)
-    box.Position = UDim2.new(0.7, 0, 0.15, 0)
-    box.BackgroundColor3 = Colors.Bg
-    box.Text = tostring(defaultValue)
-    box.TextColor3 = Colors.Accent
-    box.Font = Enum.Font.GothamBold
-    box.TextSize = 13
-    box.ClearTextOnFocus = false
-    box.Parent = container
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
-    Instance.new("UIStroke", box).Color = Colors.Border
-
-    box.FocusLost:Connect(function()
-        local num = tonumber(box.Text)
-        if num and num > 0 then
-            callback(num)
-        else
-            box.Text = tostring(defaultValue)
-        end
-    end)
 end
 
 -- Helper: Tạo Combo "6 phần Textbox - 4 phần Button" cho (Speed & TP Walk)
@@ -592,10 +544,6 @@ clearFogBtn = CreateButton("Xoá Xương Mù", function()
     end)
 end)
 
-CreateTextBox("Cỡ chữ ESP:", currentTextSize, function(newSize)
-    UpdateTextSize(newSize)
-end)
-
 CreateButton("🔄 Load Generators Trên Map", function()
     InitESPObjects()
 end)
@@ -603,7 +551,7 @@ end)
 -- Nhóm Movement (Gộp 6/4 - Bên Trái Nhập Thông Số, Bên Phải Bật/Tắt)
 CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
     function(val) -- Xử lý khi nhập textbox
-        getgenv().Walkspeed = tonumber(val) or 18
+        getgenv().Walkspeed = tonumber(val) or 17
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
         if hum and not getgenv().loopW then
@@ -617,7 +565,7 @@ CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW,
 
 CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
     function(val) -- Xử lý khi nhập textbox
-        getgenv().TPSpeed = tonumber(val) or 0.01
+        getgenv().TPSpeed = tonumber(val) or 0.02
     end, 
     function(state) -- Xử lý khi ấn nút ON/OFF
         getgenv().TPWalk = state
