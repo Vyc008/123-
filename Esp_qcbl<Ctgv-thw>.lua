@@ -603,7 +603,7 @@ end)
 -- Nhóm Movement (Gộp 6/4 - Bên Trái Nhập Thông Số, Bên Phải Bật/Tắt)
 CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
     function(val) -- Xử lý khi nhập textbox
-        getgenv().Walkspeed = tonumber(val) or 17
+        getgenv().Walkspeed = tonumber(val) or 18
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
         if hum and not getgenv().loopW then
@@ -617,7 +617,7 @@ CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW,
 
 CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
     function(val) -- Xử lý khi nhập textbox
-        getgenv().TPSpeed = tonumber(val) or 0.02
+        getgenv().TPSpeed = tonumber(val) or 0.01
     end, 
     function(state) -- Xử lý khi ấn nút ON/OFF
         getgenv().TPWalk = state
