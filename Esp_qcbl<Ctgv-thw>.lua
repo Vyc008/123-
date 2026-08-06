@@ -44,9 +44,9 @@ local fullbrightEnabled = false
 local currentTextSize = 10 
 
 -- Cấu hình Movement
-getgenv().Walkspeed = 16
+getgenv().Walkspeed = 18
 getgenv().loopW = false
-getgenv().TPSpeed = 0.1
+getgenv().TPSpeed = 0.01
 getgenv().TPWalk = false
 
 local defaultLighting = {
