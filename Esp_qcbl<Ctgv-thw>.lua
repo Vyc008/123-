@@ -177,27 +177,25 @@ local function UpdateESPVisibility()
     end
 end
 
--- Hàm thực thi No Fog (Bấm 1 lần)
+-- Hàm thực thi No Fog (Xóa sạch hoàn toàn các hiệu ứng sương mù/mờ để tránh gây lag)
 local function ClearFogOnce()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
     
+    -- Xóa hẳn các Effect trong Lighting
     for _, v in ipairs(Lighting:GetChildren()) do
         pcall(function()
-            if v:IsA("Atmosphere") then
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
                 v:Destroy()
-            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = false
             end
         end)
     end
 
+    -- Xóa hẳn các Effect còn sót lại trong Workspace
     for _, v in ipairs(Workspace:GetDescendants()) do
         pcall(function()
-            if v:IsA("Atmosphere") then
+            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
                 v:Destroy()
-            elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
-                v.Enabled = false
             end
         end)
     end
@@ -569,5 +567,4 @@ CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk,
     end, 
     function(state) -- Xử lý khi ấn nút ON/OFF
         getgenv().TPWalk = state
-    end
-)
+    end)
