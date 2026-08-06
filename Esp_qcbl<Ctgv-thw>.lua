@@ -5,7 +5,6 @@ if getgenv().GenEsp_Cleanup then
     pcall(getgenv().GenEsp_Cleanup)
 end
 
--- Biến cờ hiệu để dừng vòng lặp ngầm khi chạy lại script
 getgenv().GenEsp_IsRunning = true
 
 local connections = {}
@@ -36,13 +35,20 @@ local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("Core
 
 local LocalPlayer = Players.LocalPlayer
 
--- Cấu hình trạng thái mặc định
+-- ==========================================
+-- CẤU HÌNH TRẠNG THÁI MẶC ĐỊNH
+-- ==========================================
 local outlineEnabled = false
 local distanceEnabled = false
 local fullbrightEnabled = false
-local currentTextSize = 10 -- Cỡ chữ mặc định ban đầu
+local currentTextSize = 10 
 
--- Lưu lại thông số Lighting gốc để khôi phục khi tắt
+-- Cấu hình Movement
+getgenv().Walkspeed = 16
+getgenv().loopW = false
+getgenv().TPSpeed = 0.1
+getgenv().TPWalk = false
+
 local defaultLighting = {
     Ambient = Lighting.Ambient,
     ColorShift_Top = Lighting.ColorShift_Top,
@@ -59,7 +65,7 @@ local defaultLighting = {
 -- ==========================================
 local function GetValidGenerators()
     local validBodies = {}
-    local addedBodies = {} -- Bảng lưu trữ chống trùng lặp ESP
+    local addedBodies = {} 
     
     local function AddBodySafe(body)
         if body and body:IsA("BasePart") and not addedBodies[body] then
@@ -69,28 +75,20 @@ local function GetValidGenerators()
     end
 
     local map = workspace:FindFirstChild("Map")
-    if not map then 
-        return validBodies 
-    end
+    if not map then return validBodies end
 
-    -- [1] THÊM THỦ CÔNG CÁC GENERATOR THEO ĐÚNG ĐƯỜNG DẪN VIOLENCE DISTRICT
     pcall(function()
         local genFolder = map:FindFirstChild("Generator")
         if genFolder then
             local children = genFolder:GetChildren()
             for i = 7, 2, -1 do
-                if children[i] then
-                    AddBodySafe(children[i]:FindFirstChild("GeneratorBody"))
-                end
+                if children[i] then AddBodySafe(children[i]:FindFirstChild("GeneratorBody")) end
             end
             local specificGen = genFolder:FindFirstChild("Generator")
-            if specificGen then
-                AddBodySafe(specificGen:FindFirstChild("GeneratorBody"))
-            end
+            if specificGen then AddBodySafe(specificGen:FindFirstChild("GeneratorBody")) end
         end
     end)
 
-    -- [2] QUÉT TỰ ĐỘNG DỰ PHÒNG
     local folderNames = {"Gens", "Generators", "newGenerators", "new Generators", "Generator"}
     for _, folderName in ipairs(folderNames) do
         local folder = map:FindFirstChild(folderName)
@@ -111,9 +109,7 @@ local espFolder = nil
 local espElements = {}
 
 local function InitESPObjects()
-    if espFolder then 
-        espFolder:Destroy() 
-    end
+    if espFolder then espFolder:Destroy() end
     espElements = {}
     
     espFolder = Instance.new("Folder")
@@ -124,7 +120,6 @@ local function InitESPObjects()
     local targets = GetValidGenerators()
     
     for _, body in ipairs(targets) do
-        -- Highlight (Outline)
         local highlight = Instance.new("Highlight")
         highlight.Adornee = body
         highlight.FillTransparency = 0.8
@@ -134,7 +129,6 @@ local function InitESPObjects()
         highlight.Enabled = outlineEnabled
         highlight.Parent = espFolder
         
-        -- BillboardGui (Text Khoảng cách)
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = body
         billboard.Size = UDim2.new(0, 200, 0, 50)
@@ -175,9 +169,7 @@ local function UpdateESPVisibility()
         end
     end
 
-    if needsReinit then
-        InitESPObjects()
-    end
+    if needsReinit then InitESPObjects() end
     
     for _, data in ipairs(espElements) do
         if data.Highlight then data.Highlight.Enabled = outlineEnabled end
@@ -188,13 +180,10 @@ end
 local function UpdateTextSize(newSize)
     currentTextSize = newSize
     for _, data in ipairs(espElements) do
-        if data.Label then
-            data.Label.TextSize = currentTextSize
-        end
+        if data.Label then data.Label.TextSize = currentTextSize end
     end
 end
 
--- Hàm xoá sương mù 1 lần
 local function ClearFogOnce()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
@@ -202,10 +191,7 @@ local function ClearFogOnce()
     for _, v in ipairs(Lighting:GetChildren()) do
         pcall(function()
             if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Haze = 0
-                v.Glare = 0
-                v.Enabled = false
+                v:Destroy()
             elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
                 v.Enabled = false
             end
@@ -215,8 +201,7 @@ local function ClearFogOnce()
     for _, v in ipairs(Workspace:GetDescendants()) do
         pcall(function()
             if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Enabled = false
+                v:Destroy()
             elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
                 v.Enabled = false
             end
@@ -224,9 +209,10 @@ local function ClearFogOnce()
     end
 end
 
--- RenderStepped Cập nhật vị trí ESP & Chế độ Fullbright
+-- ==========================================
+-- CORE LOGIC NGẦM (RENDERSTEPPED & HEARTBEAT)
+-- ==========================================
 local renderConn = RunService.RenderStepped:Connect(function()
-    -- 1. Fullbright Logic
     if fullbrightEnabled then
         Lighting.Ambient = Color3.fromRGB(255, 255, 255)
         Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
@@ -235,7 +221,6 @@ local renderConn = RunService.RenderStepped:Connect(function()
         Lighting.ClockTime = 14
     end
 
-    -- 2. Cập nhật khoảng cách Generator ESP
     if not distanceEnabled then return end
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -252,8 +237,28 @@ local renderConn = RunService.RenderStepped:Connect(function()
 end)
 table.insert(connections, renderConn)
 
+local moveConn = RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    
+    if char and hum and hum.Parent then
+        if getgenv().loopW then 
+            local targetWS = tonumber(getgenv().Walkspeed) or 16
+            if hum.WalkSpeed ~= targetWS then 
+                hum.WalkSpeed = targetWS 
+            end 
+        end
+        
+        if getgenv().TPWalk and hum.MoveDirection.Magnitude > 0 then
+            local speed = tonumber(getgenv().TPSpeed) or 0.1
+            char:TranslateBy(hum.MoveDirection * speed)
+        end
+    end
+end)
+table.insert(connections, moveConn)
+
 -- ==========================================
--- 3. GIAO DIỆN MENU (MINIMAL UI TỔNG HỢP)
+-- 3. GIAO DIỆN MENU (MINIMAL UI VỚI SCROLLINGFRAME)
 -- ==========================================
 local UI = Instance.new("ScreenGui")
 UI.Name = "GenEspHub"
@@ -270,7 +275,6 @@ local Colors = {
     Border = Color3.fromRGB(50, 50, 50)
 }
 
--- [Nút Ẩn/Hiện Menu]
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleMenuBtn.Position = UDim2.new(0, 20, 0, 20)
@@ -279,13 +283,11 @@ ToggleMenuBtn.Text = "HUB"
 ToggleMenuBtn.TextColor3 = Colors.Accent
 ToggleMenuBtn.Font = Enum.Font.GothamBold
 ToggleMenuBtn.TextSize = 13
-ToggleMenuBtn.Active = true
 ToggleMenuBtn.Parent = UI
 
 Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
 
--- Kéo thả nút Ẩn/Hiện Menu
 local btnDragging, btnDragInput, btnDragStart, btnStartPos
 ToggleMenuBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -307,18 +309,15 @@ local btnDragConn1 = UserInputService.InputChanged:Connect(function(input)
 end)
 
 local btnDragConn2 = UserInputService.InputEnded:Connect(function(input)
-    if input == btnDragInput then
-        btnDragging = false
-        btnDragInput = nil
-    end
+    if input == btnDragInput then btnDragging = false; btnDragInput = nil end
 end)
 table.insert(connections, btnDragConn1)
 table.insert(connections, btnDragConn2)
 
--- [Main Frame]
+-- [Main Frame] Kích thước gọn gàng, không che màn hình
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 310)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -155)
+MainFrame.Size = UDim2.new(0, 270, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -135, 0.5, -155)
 MainFrame.BackgroundColor3 = Colors.Bg
 MainFrame.Visible = false
 MainFrame.Active = true
@@ -327,14 +326,13 @@ MainFrame.Parent = UI
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Colors.Border
 
--- Tiêu đề
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.BackgroundTransparency = 1
-Title.Text = "Violence District Hub"
+Title.Text = "Violence District & Movement"
 Title.TextColor3 = Colors.Accent
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
+Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
 Title.Parent = MainFrame
@@ -343,12 +341,10 @@ local TitlePadding = Instance.new("UIPadding")
 TitlePadding.PaddingLeft = UDim.new(0, 10)
 TitlePadding.Parent = Title
 
--- Click Nút Ẩn/Hiện Menu
 ToggleMenuBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- Dragging Logic Main Menu
 local dragging, dragInput, dragStart, startPos
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -362,33 +358,51 @@ end)
 local dragConn1 = UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X, 
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
 local dragConn2 = UserInputService.InputEnded:Connect(function(input)
-    if input == dragInput then 
-        dragging = false
-        dragInput = nil
-    end
+    if input == dragInput then dragging = false; dragInput = nil end
 end)
 table.insert(connections, dragConn1)
 table.insert(connections, dragConn2)
 
--- Helper: Tạo Button Bật/Tắt
-local function CreateToggleButton(text, yPos, initialState, callback)
+-- ==========================================
+-- TẠO SCROLLING FRAME VỚI THANH TRƯỢT NGOÀI
+-- ==========================================
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -10, 1, -45)
+ScrollFrame.Position = UDim2.new(0, 5, 0, 40)
+ScrollFrame.BackgroundColor3 = Colors.Bg
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 5
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 390) -- Tổng chiều dài nội dung (tự cuộn)
+ScrollFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 7)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = ScrollFrame
+
+-- Cập nhật tự động chiều dài của trang khi thêm/bớt nút
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
+end)
+
+-- Helper: Tạo Toggle Button thường
+local function CreateToggleButton(text, initialState, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 35)
-    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.Size = UDim2.new(1, -15, 0, 35)
     btn.BackgroundColor3 = initialState and Colors.ElementActive or Colors.Element
     btn.Text = text .. (initialState and " [BẬT]" or " [TẮT]")
     btn.TextColor3 = Colors.Text
     btn.Font = Enum.Font.GothamMedium
     btn.TextSize = 13
-    btn.Parent = MainFrame
+    btn.Parent = ScrollFrame
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", btn).Color = Colors.Border
     
@@ -402,38 +416,34 @@ local function CreateToggleButton(text, yPos, initialState, callback)
     return btn
 end
 
--- Helper: Tạo Button Thường
-local function CreateButton(text, yPos, callback)
+-- Helper: Tạo Button Action
+local function CreateButton(text, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 35)
-    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.Size = UDim2.new(1, -15, 0, 35)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.Text = text
     btn.TextColor3 = Colors.Accent
     btn.Font = Enum.Font.GothamMedium
     btn.TextSize = 13
-    btn.Parent = MainFrame
+    btn.Parent = ScrollFrame
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", btn).Color = Colors.Border
     
     btn.MouseButton1Click:Connect(function()
         local oldColor = btn.BackgroundColor3
         btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-        task.delay(0.1, function()
-            btn.BackgroundColor3 = oldColor
-        end)
+        task.delay(0.1, function() btn.BackgroundColor3 = oldColor end)
         pcall(callback)
     end)
     return btn
 end
 
--- Helper: Tạo TextBox
-local function CreateTextBox(labelText, yPos, defaultValue, callback)
+-- Helper: Tạo TextBox thường
+local function CreateTextBox(labelText, defaultValue, callback)
     local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -20, 0, 35)
-    container.Position = UDim2.new(0, 10, 0, yPos)
+    container.Size = UDim2.new(1, -15, 0, 35)
     container.BackgroundColor3 = Colors.Element
-    container.Parent = MainFrame
+    container.Parent = ScrollFrame
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", container).Color = Colors.Border
 
@@ -447,10 +457,6 @@ local function CreateTextBox(labelText, yPos, defaultValue, callback)
     label.TextSize = 13
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = container
-    
-    local labelPadding = Instance.new("UIPadding")
-    labelPadding.PaddingLeft = UDim.new(0, 10)
-    labelPadding.Parent = label
 
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(0.3, -10, 0.7, 0)
@@ -465,13 +471,84 @@ local function CreateTextBox(labelText, yPos, defaultValue, callback)
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
     Instance.new("UIStroke", box).Color = Colors.Border
 
-    box.FocusLost:Connect(function(enterPressed)
+    box.FocusLost:Connect(function()
         local num = tonumber(box.Text)
         if num and num > 0 then
             callback(num)
         else
-            box.Text = tostring(currentTextSize)
+            box.Text = tostring(defaultValue)
         end
+    end)
+end
+
+-- Helper: Tạo Combo "6 phần Textbox - 4 phần Button" cho (Speed & TP Walk)
+local function CreateSplitControl(labelText, defaultValue, initialToggle, textCallback, toggleCallback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -15, 0, 35)
+    container.BackgroundTransparency = 1
+    container.Parent = ScrollFrame
+
+    -- Phần 6 (60%): Text Label + Ô nhập liệu
+    local leftBox = Instance.new("Frame")
+    leftBox.Size = UDim2.new(0.58, 0, 1, 0)
+    leftBox.Position = UDim2.new(0, 0, 0, 0)
+    leftBox.BackgroundColor3 = Colors.Element
+    leftBox.Parent = container
+    Instance.new("UICorner", leftBox).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", leftBox).Color = Colors.Border
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.55, 0, 1, 0)
+    label.Position = UDim2.new(0, 8, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Colors.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = leftBox
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.38, -4, 0.7, 0)
+    box.Position = UDim2.new(0.6, 0, 0.15, 0)
+    box.BackgroundColor3 = Colors.Bg
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Colors.Accent
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 12
+    box.ClearTextOnFocus = false
+    box.Parent = leftBox
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    Instance.new("UIStroke", box).Color = Colors.Border
+
+    box.FocusLost:Connect(function()
+        local num = tonumber(box.Text)
+        if num and num > 0 then
+            textCallback(num)
+        else
+            box.Text = tostring(defaultValue)
+        end
+    end)
+
+    -- Phần 4 (40%): Nút Bật / Tắt (On/Off)
+    local state = initialToggle
+    local rightBtn = Instance.new("TextButton")
+    rightBtn.Size = UDim2.new(0.39, 0, 1, 0)
+    rightBtn.Position = UDim2.new(0.61, 0, 0, 0)
+    rightBtn.BackgroundColor3 = state and Colors.ElementActive or Colors.Element
+    rightBtn.Text = state and "ON" or "OFF"
+    rightBtn.TextColor3 = Colors.Text
+    rightBtn.Font = Enum.Font.GothamBold
+    rightBtn.TextSize = 12
+    rightBtn.Parent = container
+    Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", rightBtn).Color = Colors.Border
+
+    rightBtn.MouseButton1Click:Connect(function()
+        state = not state
+        rightBtn.BackgroundColor3 = state and Colors.ElementActive or Colors.Element
+        rightBtn.Text = state and "ON" or "OFF"
+        pcall(toggleCallback, state)
     end)
 end
 
@@ -480,20 +557,18 @@ end
 -- ==========================================
 InitESPObjects()
 
--- 1. Outline ESP (y: 42)
-CreateToggleButton("Outline ESP", 42, false, function(state)
+-- Nhóm ESP & Map
+CreateToggleButton("Outline ESP", false, function(state)
     outlineEnabled = state
     UpdateESPVisibility()
 end)
 
--- 2. Show Distance (y: 85)
-CreateToggleButton("Show Distance", 85, false, function(state)
+CreateToggleButton("Show Distance", false, function(state)
     distanceEnabled = state
     UpdateESPVisibility()
 end)
 
--- 3. Fullbright (y: 128)
-CreateToggleButton("Fullbright", 128, false, function(state)
+CreateToggleButton("Fullbright", false, function(state)
     fullbrightEnabled = state
     if not state then
         Lighting.Ambient = defaultLighting.Ambient
@@ -504,12 +579,9 @@ CreateToggleButton("Fullbright", 128, false, function(state)
     end
 end)
 
--- 4. Nút bấm 1 lần No Fog (y: 171)
 local clearFogBtn
-clearFogBtn = CreateButton("Xoá Xương Mù", 171, function()
+clearFogBtn = CreateButton("Xoá Xương Mù", function()
     ClearFogOnce()
-    
-    -- Hiệu ứng thay đổi text để báo đã click
     clearFogBtn.Text = "Đã Xoá Xương Mù!"
     clearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
     task.delay(1.5, function()
@@ -520,12 +592,34 @@ clearFogBtn = CreateButton("Xoá Xương Mù", 171, function()
     end)
 end)
 
--- 5. TextBox Cỡ chữ ESP (y: 214)
-CreateTextBox("Cỡ chữ ESP:", 214, currentTextSize, function(newSize)
+CreateTextBox("Cỡ chữ ESP:", currentTextSize, function(newSize)
     UpdateTextSize(newSize)
 end)
 
--- 6. Load lại Generator (y: 257)
-CreateButton("🔄 Load Generators Trên Map", 257, function()
+CreateButton("🔄 Load Generators Trên Map", function()
     InitESPObjects()
 end)
+
+-- Nhóm Movement (Gộp 6/4 - Bên Trái Nhập Thông Số, Bên Phải Bật/Tắt)
+CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
+    function(val) -- Xử lý khi nhập textbox
+        getgenv().Walkspeed = tonumber(val) or 17
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        if hum and not getgenv().loopW then
+            hum.WalkSpeed = getgenv().Walkspeed
+        end
+    end, 
+    function(state) -- Xử lý khi ấn nút ON/OFF
+        getgenv().loopW = state
+    end
+)
+
+CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
+    function(val) -- Xử lý khi nhập textbox
+        getgenv().TPSpeed = tonumber(val) or 0.02
+    end, 
+    function(state) -- Xử lý khi ấn nút ON/OFF
+        getgenv().TPWalk = state
+    end
+)
