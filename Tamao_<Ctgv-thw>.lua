@@ -1,18 +1,19 @@
 -- ==================================================
--- BATMAN MINIMALIST HUB V9 - FIX MẤT GUI KHI CHẾT
+-- BATMAN MINIMALIST HUB V10 - FIX LỖI RESET CÀI ĐẶT
 -- ==================================================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
+-- FIX: Nếu GUI đã tồn tại, dừng script ngay để không xóa cài đặt cũ
 if PlayerGui:FindFirstChild("BatmanHub") then 
-    PlayerGui.BatmanHub:Destroy() 
+    return 
 end
 
 local Gui = Instance.new("ScreenGui", PlayerGui)
 Gui.Name = "BatmanHub"
 Gui.IgnoreGuiInset = true
-Gui.ResetOnSpawn = false -- ĐÂY LÀ DÒNG FIX LỖI KHI CHẾT
+Gui.ResetOnSpawn = false -- Giữ GUI tồn tại khi chết
 
 -- ==========================================
 -- 1. TÂM ẢO (KÍCH CỠ MẶC ĐỊNH 20)
@@ -118,7 +119,6 @@ SliderTrack.Position = UDim2.new(0.075, 0, 0, 160)
 SliderTrack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1, 0)
 
--- Nút trượt căn đúng vị trí của số 20 (Khoảng 7.1%)
 local Knob = Instance.new("Frame", SliderTrack)
 Knob.Size = UDim2.new(0, 18, 0, 18)
 Knob.Position = UDim2.new(0.071, -9, 0.5, -9) 
