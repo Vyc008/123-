@@ -46,7 +46,7 @@ local currentTextSize = 10 -- Đã cố định mặc định là 10
 -- Cấu hình Movement
 getgenv().Walkspeed = 17
 getgenv().loopW = false
-getgenv().TPSpeed = 0.02
+getgenv().TPSpeed = 0.03
 getgenv().TPWalk = false
 
 local defaultLighting = {
@@ -569,7 +569,7 @@ CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW,
 
 CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
     function(val) -- Xử lý khi nhập textbox
-        getgenv().TPSpeed = tonumber(val) or 0.02
+        getgenv().TPSpeed = tonumber(val) or 0.03
     end, 
     function(state) -- Xử lý khi ấn nút ON/OFF
         getgenv().TPWalk = state
