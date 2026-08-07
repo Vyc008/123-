@@ -177,27 +177,33 @@ local function UpdateESPVisibility()
     end
 end
 
--- Hàm thực thi No Fog (Xóa sạch hoàn toàn các hiệu ứng sương mù/mờ để tránh gây lag)
+-- ==========================================
+-- HÀM THỰC THI NO FOG (ĐÃ FIX LAG)
+-- ==========================================
 local function ClearFogOnce()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
     
-    -- Xóa hẳn các Effect trong Lighting
-    for _, v in ipairs(Lighting:GetChildren()) do
-        pcall(function()
-            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
-                v:Destroy()
-            end
-        end)
+    local function DisableEffect(v)
+        if v:IsA("Atmosphere") then
+            -- Atmosphere không có thuộc tính Enabled, ta set về 0 để nó trong suốt
+            v.Density = 0
+            v.Haze = 0
+            v.Offset = 0
+        elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
+            -- Các hiệu ứng khác có thuộc tính Enabled, ta tắt đi
+            v.Enabled = false
+        end
     end
 
-    -- Xóa hẳn các Effect còn sót lại trong Workspace
+    -- Xử lý trong Lighting
+    for _, v in ipairs(Lighting:GetChildren()) do
+        pcall(function() DisableEffect(v) end)
+    end
+
+    -- Xử lý trong Workspace
     for _, v in ipairs(Workspace:GetDescendants()) do
-        pcall(function()
-            if v:IsA("Atmosphere") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
-                v:Destroy()
-            end
-        end)
+        pcall(function() DisableEffect(v) end)
     end
 end
 
