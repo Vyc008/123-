@@ -24,12 +24,12 @@ _G.NuclearBobo5_Cleanup = function()
     end
 end
 
--- CẤU HÌNH PHÍM TẮT
+-- CẤU HÌNH PHÍM TẮT (ĐÃ FIX GIỐNG SCRIPT 1)
 local Config = {
     ToggleKey = Enum.KeyCode.X,
     UIToggleKey = Enum.KeyCode.M,
-    TeleportHeight = -200000,
-    Transparency = 0.7,
+    TeleportHeight = 900, -- FIX LỖI: Đổi từ -200000 thành 900 (Đưa lên trời thay vì xuống vực gây chết)
+    Transparency = 0.5,   -- FIX LỖI: Đổi thành 0.5 để có hiệu ứng bóng ma giống Script 1
 }
 
 -- ==========================================
@@ -50,7 +50,7 @@ local function applyStyle(instance, radius)
 end
 
 -- ==========================================
--- LOGIC TÀNG HÌNH
+-- LOGIC TÀNG HÌNH (ÁP DỤNG TỪ SCRIPT 1)
 -- ==========================================
 local function setupCharacter()
     character = player.Character or player.CharacterAdded:Wait()
@@ -58,8 +58,9 @@ local function setupCharacter()
     rootPart = character:WaitForChild("HumanoidRootPart")
     parts = {}
     
+    -- FIX LỖI: Chỉ lưu những part hiện hình (Transparency == 0) để không làm hiện HumanoidRootPart
     for _, obj in pairs(character:GetDescendants()) do
-        if obj:IsA("BasePart") then
+        if obj:IsA("BasePart") and obj.Transparency == 0 then
             table.insert(parts, obj)
         end
     end
@@ -123,7 +124,6 @@ local function createMainUI()
     gui.ResetOnSpawn = false
     gui.Parent = player.PlayerGui
     
-    -- MAIN FRAME (Thu nhỏ đáng kể kích thước)
     mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 140, 0, 95)
     mainFrame.Position = UDim2.new(0.5, -70, 0.4, 0)
@@ -133,7 +133,6 @@ local function createMainUI()
     mainFrame.Parent = gui
     applyStyle(mainFrame, 10)
     
-    -- TITLE (Đổi tên thành Batman Gui <Ctgv-thw>)
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 28)
     title.Text = "Batman Gui <Ctgv-thw>"
@@ -145,7 +144,6 @@ local function createMainUI()
     title.Parent = mainFrame
     applyStyle(title, 10)
     
-    -- STATUS HINT (Rút ngắn văn bản để vừa khung nhỏ)
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Name = "StatusLabel"
     statusLabel.Size = UDim2.new(1, 0, 0, 18)
@@ -157,7 +155,6 @@ local function createMainUI()
     statusLabel.TextSize = 11
     statusLabel.Parent = mainFrame
     
-    -- HOTKEY HINT (Làm mờ nhỏ gọn bên dưới)
     local hotkeyLabel = Instance.new("TextLabel")
     hotkeyLabel.Size = UDim2.new(1, 0, 0, 12)
     hotkeyLabel.Position = UDim2.new(0, 0, 0, 50)
@@ -168,7 +165,6 @@ local function createMainUI()
     hotkeyLabel.TextSize = 9
     hotkeyLabel.Parent = mainFrame
 
-    -- TOGGLE BUTTON
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "ToggleBtn"
     toggleBtn.Size = UDim2.new(1, -20, 0, 24)
@@ -183,7 +179,6 @@ local function createMainUI()
     
     toggleBtn.MouseButton1Click:Connect(toggleInvisibility)
     
-    -- NÚT ẨN/HIỆN GIAO DIỆN CHÍNH
     toggleOpenBtn = Instance.new("TextButton")
     toggleOpenBtn.Size = UDim2.new(0, 35, 0, 35)
     toggleOpenBtn.Position = UDim2.new(0, 10, 0, 60)
@@ -197,9 +192,7 @@ local function createMainUI()
     
     toggleOpenBtn.MouseButton1Click:Connect(toggleUI)
     
-    -- ==========================================
-    -- HỆ THỐNG KÉO MENU (DRAG THEO TITLE)
-    -- ==========================================
+    -- Kéo thả Menu
     local draggingMenu = false
     local dragInput, dragStart, startPos
 
@@ -232,22 +225,24 @@ local function createMainUI()
 end
 
 -- ==========================================
--- TELEPORT LOOP (LÕI TÀNG HÌNH)
+-- TELEPORT LOOP (LÕI TÀNG HÌNH TỪ SCRIPT 1)
 -- ==========================================
 local function startTeleportLoop()
     connections.Heartbeat = RunService.Heartbeat:Connect(function()
         if invisible and character and rootPart and humanoid then
-            local cf = rootPart.CFrame
-            local camOffset = humanoid.CameraOffset
-            local hidden = cf * CFrame.new(0, Config.TeleportHeight, 0)
+            local originalCF = rootPart.CFrame
+            local originalOffset = humanoid.CameraOffset
             
-            rootPart.CFrame = hidden
-            humanoid.CameraOffset = hidden:ToObjectSpace(CFrame.new(cf.Position)).Position
+            -- Đưa nhân vật lên trời (Config.TeleportHeight = 900)
+            local newCF = originalCF * CFrame.new(0, Config.TeleportHeight, 0)
+            
+            rootPart.CFrame = newCF
+            humanoid.CameraOffset = newCF:ToObjectSpace(CFrame.new(originalCF.Position)).Position
             
             RunService.RenderStepped:Wait()
             
-            rootPart.CFrame = cf
-            humanoid.CameraOffset = camOffset
+            rootPart.CFrame = originalCF
+            humanoid.CameraOffset = originalOffset
         end
     end)
 end
