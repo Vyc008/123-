@@ -1,5 +1,5 @@
 -- ==================================================
--- BATMAN HUB V12 - BẤT TỬ (BYPASS CORE-GUI) + FULL TÍNH NĂNG
+-- TÂM ẢO QUÂN CHỦ BẠO LỰC (BYPASS CORE-GUI)
 -- ==================================================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -12,36 +12,39 @@ pcall(function()
 end)
 
 -- Xóa bản cũ nếu còn sót
-if safeParent:FindFirstChild("BatmanHub") then 
-    safeParent.BatmanHub:Destroy() 
+if safeParent:FindFirstChild("TamAoQuanChuBaoLuc") then 
+    safeParent.TamAoQuanChuBaoLuc:Destroy() 
 end
 
 local Gui = Instance.new("ScreenGui", safeParent)
-Gui.Name = "BatmanHub"
+Gui.Name = "TamAoQuanChuBaoLuc"
 Gui.IgnoreGuiInset = true
 Gui.ResetOnSpawn = false 
 
 -- ==========================================
--- 2. TÂM ẢO (MẶC ĐỊNH SIZE 20)
+-- 2. TÂM ẢO (MẶC ĐỊNH X = -16, Y = 4.1, SIZE = 15)
 -- ==========================================
 local Crosshair = Instance.new("ImageLabel", Gui)
 Crosshair.Name = "Crosshair"
 Crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-local offsetX, offsetY = 0, 0
+
+-- Cấu hình tọa độ mặc định
+local offsetX, offsetY = -16, 4.1
+
 Crosshair.Position = UDim2.new(0.5, offsetX, 0.5, offsetY)
-Crosshair.Size = UDim2.new(0, 20, 0, 20) 
+Crosshair.Size = UDim2.new(0, 15, 0, 15) 
 Crosshair.BackgroundTransparency = 1
 Crosshair.Image = "rbxassetid://119703340047941"
 Crosshair.Visible = false
 Crosshair.ZIndex = 999
 
 -- ==========================================
--- 3. NÚT BAT (BẤM ĐỂ HIỆN MENU, KÉO ĐỂ DI CHUYỂN)
+-- 3. NÚT TOGGLE (BẤM ĐỂ HIỆN MENU, KÉO ĐỂ DI CHUYỂN)
 -- ==========================================
 local ToggleBtn = Instance.new("TextButton", Gui)
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 10, 0.5, -25)
-ToggleBtn.Text = "BAT"
+ToggleBtn.Text = "TÂM"
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 204, 0)
 ToggleBtn.Font = Enum.Font.GothamBold
@@ -66,10 +69,10 @@ MainStroke.Thickness = 2
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "BATMAN HUB (Kéo ở đây)"
+Title.Text = "Tâm Ảo Quân Chủ Bạo Lực (Kéo ở đây)"
 Title.TextColor3 = Color3.fromRGB(255, 204, 0)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
+Title.TextSize = 11
 Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Title.Active = true
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
@@ -99,7 +102,7 @@ SizeHeader.BackgroundTransparency = 1
 
 local SizeInput = Instance.new("TextBox", Main)
 SizeInput.Size = UDim2.new(0.35, 0, 0, 25); SizeInput.Position = UDim2.new(0.575, 0, 0, 125)
-SizeInput.Text = "20"; SizeInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SizeInput.Text = "15"; SizeInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 SizeInput.TextColor3 = Color3.fromRGB(255, 204, 0); SizeInput.Font = Enum.Font.GothamBold
 Instance.new("UICorner", SizeInput).CornerRadius = UDim.new(0, 4)
 
@@ -109,7 +112,7 @@ SliderTrack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1, 0)
 
 local Knob = Instance.new("Frame", SliderTrack)
-Knob.Size = UDim2.new(0, 18, 0, 18); Knob.Position = UDim2.new(0.071, -9, 0.5, -9) 
+Knob.Size = UDim2.new(0, 18, 0, 18); Knob.Position = UDim2.new(0.036, -9, 0.5, -9) 
 Knob.BackgroundColor3 = Color3.fromRGB(255, 204, 0)
 Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
 
@@ -167,7 +170,6 @@ local function MakeDraggable(dragPart, movePart, isToggleBtn)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if dragging then
                 dragging = false
-                -- Nếu là nút BAT, kiểm tra xem người dùng nhấn hay kéo. Kéo < 5px thì tính là nhấn mở menu.
                 if isToggleBtn then
                     local dist = (input.Position - dragStart).Magnitude
                     if dist < 5 then Main.Visible = not Main.Visible end
@@ -196,6 +198,9 @@ local function UpdatePosition()
     yInput.Text = string.format("%g", math.round(offsetY * 10) / 10)
 end
 
+-- Khởi tạo vị trí mặc định ban đầu lên ô Text
+UpdatePosition()
+
 xMinus.Activated:Connect(function() offsetX = offsetX - 0.1; UpdatePosition() end)
 xPlus.Activated:Connect(function() offsetX = offsetX + 0.1; UpdatePosition() end)
 yMinus.Activated:Connect(function() offsetY = offsetY - 0.1; UpdatePosition() end)
@@ -204,7 +209,7 @@ yPlus.Activated:Connect(function() offsetY = offsetY + 0.1; UpdatePosition() end
 xInput.FocusLost:Connect(function() offsetX = tonumber(xInput.Text) or offsetX; UpdatePosition() end)
 yInput.FocusLost:Connect(function() offsetY = tonumber(yInput.Text) or offsetY; UpdatePosition() end)
 
-local minSize, maxSize, currentSize = 10, 150, 20
+local minSize, maxSize, currentSize = 10, 150, 15
 local function UpdateSize(newSize, updateSlider)
     currentSize = math.clamp(math.round(newSize), minSize, maxSize)
     Crosshair.Size = UDim2.new(0, currentSize, 0, currentSize)
