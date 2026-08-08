@@ -1,22 +1,28 @@
 -- ==================================================
--- BATMAN MINIMALIST HUB V10 - FIX LỖI RESET CÀI ĐẶT
+-- BATMAN HUB V12 - BẤT TỬ (BYPASS CORE-GUI) + FULL TÍNH NĂNG
 -- ==================================================
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- FIX: Nếu GUI đã tồn tại, dừng script ngay để không xóa cài đặt cũ
-if PlayerGui:FindFirstChild("BatmanHub") then 
-    return 
+-- 1. HỆ THỐNG TÌM NƠI TRÚ ẨN AN TOÀN (CHỐNG ANTI-CHEAT)
+local safeParent = Players.LocalPlayer:WaitForChild("PlayerGui")
+pcall(function()
+    -- Ưu tiên nhét vào CoreGui, game sẽ không thể tìm thấy để xóa
+    safeParent = (gethui and gethui()) or game:GetService("CoreGui")
+end)
+
+-- Xóa bản cũ nếu còn sót
+if safeParent:FindFirstChild("BatmanHub") then 
+    safeParent.BatmanHub:Destroy() 
 end
 
-local Gui = Instance.new("ScreenGui", PlayerGui)
+local Gui = Instance.new("ScreenGui", safeParent)
 Gui.Name = "BatmanHub"
 Gui.IgnoreGuiInset = true
-Gui.ResetOnSpawn = false -- Giữ GUI tồn tại khi chết
+Gui.ResetOnSpawn = false 
 
 -- ==========================================
--- 1. TÂM ẢO (KÍCH CỠ MẶC ĐỊNH 20)
+-- 2. TÂM ẢO (MẶC ĐỊNH SIZE 20)
 -- ==========================================
 local Crosshair = Instance.new("ImageLabel", Gui)
 Crosshair.Name = "Crosshair"
@@ -30,7 +36,7 @@ Crosshair.Visible = false
 Crosshair.ZIndex = 999
 
 -- ==========================================
--- 2. NÚT BAT (TÍCH HỢP KÉO THẢ THÔNG MINH)
+-- 3. NÚT BAT (BẤM ĐỂ HIỆN MENU, KÉO ĐỂ DI CHUYỂN)
 -- ==========================================
 local ToggleBtn = Instance.new("TextButton", Gui)
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
@@ -45,7 +51,7 @@ Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(255, 204, 0)
 
 -- ==========================================
--- 3. GIAO DIỆN MENU CHÍNH
+-- 4. GIAO DIỆN MENU CHÍNH
 -- ==========================================
 local Main = Instance.new("Frame", Gui)
 Main.Size = UDim2.new(0, 230, 0, 360) 
@@ -58,7 +64,6 @@ local MainStroke = Instance.new("UIStroke", Main)
 MainStroke.Color = Color3.fromRGB(255, 204, 0)
 MainStroke.Thickness = 2
 
--- Tiêu đề (DÙNG ĐỂ KÉO MENU)
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 35)
 Title.Text = "BATMAN HUB (Kéo ở đây)"
@@ -70,96 +75,67 @@ Title.Active = true
 Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
 
 local TitleFix = Instance.new("Frame", Title)
-TitleFix.Size = UDim2.new(1, 0, 0, 5)
-TitleFix.Position = UDim2.new(0, 0, 1, -5)
-TitleFix.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-TitleFix.BorderSizePixel = 0
+TitleFix.Size = UDim2.new(1, 0, 0, 5); TitleFix.Position = UDim2.new(0, 0, 1, -5)
+TitleFix.BackgroundColor3 = Color3.fromRGB(25, 25, 25); TitleFix.BorderSizePixel = 0
 
 -- ID & KÍCH CỠ
 local InputID = Instance.new("TextBox", Main)
-InputID.Size = UDim2.new(0.85, 0, 0, 32)
-InputID.Position = UDim2.new(0.075, 0, 0, 45)
-InputID.PlaceholderText = "Nhập ID Tâm..."
-InputID.Text = ""
-InputID.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-InputID.TextColor3 = Color3.new(1, 1, 1)
-InputID.Font = Enum.Font.Gotham
+InputID.Size = UDim2.new(0.85, 0, 0, 32); InputID.Position = UDim2.new(0.075, 0, 0, 45)
+InputID.PlaceholderText = "Nhập ID Tâm..."; InputID.Text = ""
+InputID.BackgroundColor3 = Color3.fromRGB(30, 30, 30); InputID.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", InputID).CornerRadius = UDim.new(0, 6)
 
 local ApplyBtn = Instance.new("TextButton", Main)
-ApplyBtn.Size = UDim2.new(0.85, 0, 0, 32)
-ApplyBtn.Position = UDim2.new(0.075, 0, 0, 85)
-ApplyBtn.Text = "Đổi ID Tâm"
-ApplyBtn.BackgroundColor3 = Color3.fromRGB(255, 204, 0)
-ApplyBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-ApplyBtn.Font = Enum.Font.GothamBold
+ApplyBtn.Size = UDim2.new(0.85, 0, 0, 32); ApplyBtn.Position = UDim2.new(0.075, 0, 0, 85)
+ApplyBtn.Text = "Đổi ID Tâm"; ApplyBtn.BackgroundColor3 = Color3.fromRGB(255, 204, 0)
+ApplyBtn.TextColor3 = Color3.fromRGB(0, 0, 0); ApplyBtn.Font = Enum.Font.GothamBold
 Instance.new("UICorner", ApplyBtn).CornerRadius = UDim.new(0, 6)
 
 local SizeHeader = Instance.new("TextLabel", Main)
-SizeHeader.Size = UDim2.new(0.5, 0, 0, 25)
-SizeHeader.Position = UDim2.new(0.075, 0, 0, 125)
-SizeHeader.Text = "Kích cỡ:"
-SizeHeader.TextColor3 = Color3.fromRGB(200, 200, 200)
-SizeHeader.Font = Enum.Font.GothamSemibold
-SizeHeader.TextXAlignment = Enum.TextXAlignment.Left
+SizeHeader.Size = UDim2.new(0.5, 0, 0, 25); SizeHeader.Position = UDim2.new(0.075, 0, 0, 125)
+SizeHeader.Text = "Kích cỡ:"; SizeHeader.TextColor3 = Color3.fromRGB(200, 200, 200)
+SizeHeader.Font = Enum.Font.GothamSemibold; SizeHeader.TextXAlignment = Enum.TextXAlignment.Left
 SizeHeader.BackgroundTransparency = 1
 
 local SizeInput = Instance.new("TextBox", Main)
-SizeInput.Size = UDim2.new(0.35, 0, 0, 25)
-SizeInput.Position = UDim2.new(0.575, 0, 0, 125)
-SizeInput.Text = "20"
-SizeInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-SizeInput.TextColor3 = Color3.fromRGB(255, 204, 0)
-SizeInput.Font = Enum.Font.GothamBold
+SizeInput.Size = UDim2.new(0.35, 0, 0, 25); SizeInput.Position = UDim2.new(0.575, 0, 0, 125)
+SizeInput.Text = "20"; SizeInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SizeInput.TextColor3 = Color3.fromRGB(255, 204, 0); SizeInput.Font = Enum.Font.GothamBold
 Instance.new("UICorner", SizeInput).CornerRadius = UDim.new(0, 4)
 
 local SliderTrack = Instance.new("Frame", Main)
-SliderTrack.Size = UDim2.new(0.85, 0, 0, 8)
-SliderTrack.Position = UDim2.new(0.075, 0, 0, 160)
+SliderTrack.Size = UDim2.new(0.85, 0, 0, 8); SliderTrack.Position = UDim2.new(0.075, 0, 0, 160)
 SliderTrack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1, 0)
 
 local Knob = Instance.new("Frame", SliderTrack)
-Knob.Size = UDim2.new(0, 18, 0, 18)
-Knob.Position = UDim2.new(0.071, -9, 0.5, -9) 
+Knob.Size = UDim2.new(0, 18, 0, 18); Knob.Position = UDim2.new(0.071, -9, 0.5, -9) 
 Knob.BackgroundColor3 = Color3.fromRGB(255, 204, 0)
 Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
 
 -- ==========================================
--- 4. KHU VỰC TỌA ĐỘ (X / Y) CHỈNH 0.1
+-- 5. TỌA ĐỘ X/Y & BẬT TẮT
 -- ==========================================
 local function CreateAxisEditor(axisName, yPos)
     local Label = Instance.new("TextLabel", Main)
-    Label.Size = UDim2.new(0, 20, 0, 30)
-    Label.Position = UDim2.new(0.075, 0, 0, yPos)
-    Label.Text = axisName .. ":"
-    Label.TextColor3 = Color3.fromRGB(255, 204, 0)
-    Label.Font = Enum.Font.GothamBold
-    Label.BackgroundTransparency = 1
+    Label.Size = UDim2.new(0, 20, 0, 30); Label.Position = UDim2.new(0.075, 0, 0, yPos)
+    Label.Text = axisName .. ":"; Label.TextColor3 = Color3.fromRGB(255, 204, 0)
+    Label.Font = Enum.Font.GothamBold; Label.BackgroundTransparency = 1
 
     local BtnMinus = Instance.new("TextButton", Main)
-    BtnMinus.Size = UDim2.new(0, 30, 0, 30)
-    BtnMinus.Position = UDim2.new(0.075, 25, 0, yPos)
-    BtnMinus.Text = "-"
-    BtnMinus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    BtnMinus.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", BtnMinus).CornerRadius = UDim.new(0, 5)
+    BtnMinus.Size = UDim2.new(0, 30, 0, 30); BtnMinus.Position = UDim2.new(0.075, 25, 0, yPos)
+    BtnMinus.Text = "-"; BtnMinus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    BtnMinus.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", BtnMinus).CornerRadius = UDim.new(0, 5)
 
     local InputBox = Instance.new("TextBox", Main)
-    InputBox.Size = UDim2.new(0, 75, 0, 30)
-    InputBox.Position = UDim2.new(0.075, 60, 0, yPos)
-    InputBox.Text = "0"
-    InputBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    InputBox.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", InputBox).CornerRadius = UDim.new(0, 5)
+    InputBox.Size = UDim2.new(0, 75, 0, 30); InputBox.Position = UDim2.new(0.075, 60, 0, yPos)
+    InputBox.Text = "0"; InputBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    InputBox.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", InputBox).CornerRadius = UDim.new(0, 5)
 
     local BtnPlus = Instance.new("TextButton", Main)
-    BtnPlus.Size = UDim2.new(0, 30, 0, 30)
-    BtnPlus.Position = UDim2.new(0.075, 140, 0, yPos)
-    BtnPlus.Text = "+"
-    BtnPlus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    BtnPlus.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", BtnPlus).CornerRadius = UDim.new(0, 5)
+    BtnPlus.Size = UDim2.new(0, 30, 0, 30); BtnPlus.Position = UDim2.new(0.075, 140, 0, yPos)
+    BtnPlus.Text = "+"; BtnPlus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    BtnPlus.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", BtnPlus).CornerRadius = UDim.new(0, 5)
 
     return BtnMinus, BtnPlus, InputBox
 end
@@ -168,16 +144,13 @@ local xMinus, xPlus, xInput = CreateAxisEditor("X", 185)
 local yMinus, yPlus, yInput = CreateAxisEditor("Y", 225)
 
 local ToggleCross = Instance.new("TextButton", Main)
-ToggleCross.Size = UDim2.new(0.85, 0, 0, 35)
-ToggleCross.Position = UDim2.new(0.075, 0, 0, 275)
-ToggleCross.Text = "Bật / Tắt Tâm"
-ToggleCross.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-ToggleCross.TextColor3 = Color3.new(1, 1, 1)
-ToggleCross.Font = Enum.Font.GothamSemibold
+ToggleCross.Size = UDim2.new(0.85, 0, 0, 35); ToggleCross.Position = UDim2.new(0.075, 0, 0, 275)
+ToggleCross.Text = "Bật / Tắt Tâm"; ToggleCross.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleCross.TextColor3 = Color3.new(1, 1, 1); ToggleCross.Font = Enum.Font.GothamSemibold
 Instance.new("UICorner", ToggleCross).CornerRadius = UDim.new(0, 6)
 
 -- ==========================================
--- HỆ THỐNG DRAG (CHỐNG LOẠN CẢM ỨNG)
+-- 6. HỆ THỐNG DRAG & CLICK CẢM ỨNG
 -- ==========================================
 local function MakeDraggable(dragPart, movePart, isToggleBtn)
     local dragging, dragStart, startPos
@@ -194,6 +167,7 @@ local function MakeDraggable(dragPart, movePart, isToggleBtn)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if dragging then
                 dragging = false
+                -- Nếu là nút BAT, kiểm tra xem người dùng nhấn hay kéo. Kéo < 5px thì tính là nhấn mở menu.
                 if isToggleBtn then
                     local dist = (input.Position - dragStart).Magnitude
                     if dist < 5 then Main.Visible = not Main.Visible end
@@ -214,7 +188,7 @@ MakeDraggable(Title, Main, false)
 MakeDraggable(ToggleBtn, ToggleBtn, true)
 
 -- ==========================================
--- LOGIC KÍCH CỠ & TỌA ĐỘ
+-- 7. CHỨC NĂNG HOẠT ĐỘNG
 -- ==========================================
 local function UpdatePosition()
     Crosshair.Position = UDim2.new(0.5, offsetX, 0.5, offsetY)
@@ -227,28 +201,20 @@ xPlus.Activated:Connect(function() offsetX = offsetX + 0.1; UpdatePosition() end
 yMinus.Activated:Connect(function() offsetY = offsetY - 0.1; UpdatePosition() end)
 yPlus.Activated:Connect(function() offsetY = offsetY + 0.1; UpdatePosition() end)
 
-xInput.FocusLost:Connect(function()
-    offsetX = tonumber(xInput.Text) or offsetX; UpdatePosition()
-end)
-yInput.FocusLost:Connect(function()
-    offsetY = tonumber(yInput.Text) or offsetY; UpdatePosition()
-end)
+xInput.FocusLost:Connect(function() offsetX = tonumber(xInput.Text) or offsetX; UpdatePosition() end)
+yInput.FocusLost:Connect(function() offsetY = tonumber(yInput.Text) or offsetY; UpdatePosition() end)
 
 local minSize, maxSize, currentSize = 10, 150, 20
 local function UpdateSize(newSize, updateSlider)
     currentSize = math.clamp(math.round(newSize), minSize, maxSize)
     Crosshair.Size = UDim2.new(0, currentSize, 0, currentSize)
     SizeInput.Text = tostring(currentSize)
-    if updateSlider then
-        Knob.Position = UDim2.new((currentSize - minSize)/(maxSize - minSize), -9, 0.5, -9)
-    end
+    if updateSlider then Knob.Position = UDim2.new((currentSize - minSize)/(maxSize - minSize), -9, 0.5, -9) end
 end
 
 local isSliderDragging = false
 SliderTrack.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isSliderDragging = true
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isSliderDragging = true end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if isSliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
@@ -258,9 +224,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isSliderDragging = false
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isSliderDragging = false end
 end)
 
 SizeInput.FocusLost:Connect(function() UpdateSize(tonumber(SizeInput.Text) or currentSize, true) end)
