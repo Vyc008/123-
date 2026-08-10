@@ -41,7 +41,7 @@ local LocalPlayer = Players.LocalPlayer
 local outlineEnabled = false
 local distanceEnabled = false
 local fullbrightEnabled = false
-local currentTextSize = 10 -- Đã cố định mặc định là 10
+local currentTextSize = 10 
 
 -- Cấu hình Movement
 getgenv().Walkspeed = 17
@@ -177,31 +177,30 @@ local function UpdateESPVisibility()
     end
 end
 
--- ==========================================
--- HÀM THỰC THI NO FOG (ĐÃ FIX LAG)
--- ==========================================
+local function UpdateTextSize(newSize)
+    currentTextSize = newSize
+    for _, data in ipairs(espElements) do
+        if data.Label then data.Label.TextSize = currentTextSize end
+    end
+end
+
 local function ClearFogOnce()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
     
     local function DisableEffect(v)
         if v:IsA("Atmosphere") then
-            -- Atmosphere không có thuộc tính Enabled, ta set về 0 để nó trong suốt
             v.Density = 0
             v.Haze = 0
             v.Offset = 0
         elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
-            -- Các hiệu ứng khác có thuộc tính Enabled, ta tắt đi
             v.Enabled = false
         end
     end
 
-    -- Xử lý trong Lighting
     for _, v in ipairs(Lighting:GetChildren()) do
         pcall(function() DisableEffect(v) end)
     end
-
-    -- Xử lý trong Workspace
     for _, v in ipairs(Workspace:GetDescendants()) do
         pcall(function() DisableEffect(v) end)
     end
@@ -257,7 +256,7 @@ end)
 table.insert(connections, moveConn)
 
 -- ==========================================
--- 3. GIAO DIỆN MENU (MINIMAL UI VỚI SCROLLINGFRAME)
+-- 3. GIAO DIỆN MENU & NÚT NỔI BÊN NGOÀI
 -- ==========================================
 local UI = Instance.new("ScreenGui")
 UI.Name = "GenEspHub"
@@ -274,6 +273,7 @@ local Colors = {
     Border = Color3.fromRGB(50, 50, 50)
 }
 
+-- [NÚT ẨN/HIỆN HUB]
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleMenuBtn.Position = UDim2.new(0, 20, 0, 20)
@@ -290,30 +290,56 @@ Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
 local btnDragging, btnDragInput, btnDragStart, btnStartPos
 ToggleMenuBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        btnDragging = true
-        btnDragInput = input 
-        btnDragStart = input.Position
-        btnStartPos = ToggleMenuBtn.Position
+        btnDragging = true; btnDragInput = input; btnDragStart = input.Position; btnStartPos = ToggleMenuBtn.Position
     end
 end)
-
 local btnDragConn1 = UserInputService.InputChanged:Connect(function(input)
     if input == btnDragInput and btnDragging then
         local delta = input.Position - btnDragStart
-        ToggleMenuBtn.Position = UDim2.new(
-            btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, 
-            btnStartPos.Y.Scale, btnStartPos.Y.Offset + delta.Y
-        )
+        ToggleMenuBtn.Position = UDim2.new(btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, btnStartPos.Y.Scale, btnStartPos.Y.Offset + delta.Y)
     end
 end)
-
 local btnDragConn2 = UserInputService.InputEnded:Connect(function(input)
     if input == btnDragInput then btnDragging = false; btnDragInput = nil end
 end)
 table.insert(connections, btnDragConn1)
 table.insert(connections, btnDragConn2)
 
--- [Main Frame]
+-- [NÚT NỔI MASTER BẬT/TẮT SPEED + TPWALK]
+local FloatMoveBtn = Instance.new("TextButton")
+FloatMoveBtn.Size = UDim2.new(0, 120, 0, 35)
+FloatMoveBtn.Position = UDim2.new(0, 75, 0, 25)
+FloatMoveBtn.BackgroundColor3 = Colors.Element
+FloatMoveBtn.Text = "🏃 TỐC ĐỘ: TẮT"
+FloatMoveBtn.TextColor3 = Colors.Text
+FloatMoveBtn.Font = Enum.Font.GothamBold
+FloatMoveBtn.TextSize = 11
+FloatMoveBtn.Visible = false -- Mặc định ẩn, bật qua menu
+FloatMoveBtn.Parent = UI
+
+Instance.new("UICorner", FloatMoveBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UIStroke", FloatMoveBtn).Color = Colors.Border
+
+local fmDragging, fmDragInput, fmDragStart, fmStartPos
+FloatMoveBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        fmDragging = true; fmDragInput = input; fmDragStart = input.Position; fmStartPos = FloatMoveBtn.Position
+    end
+end)
+local fmDragConn1 = UserInputService.InputChanged:Connect(function(input)
+    if input == fmDragInput and fmDragging then
+        local delta = input.Position - fmDragStart
+        FloatMoveBtn.Position = UDim2.new(fmStartPos.X.Scale, fmStartPos.X.Offset + delta.X, fmStartPos.Y.Scale, fmStartPos.Y.Offset + delta.Y)
+    end
+end)
+local fmDragConn2 = UserInputService.InputEnded:Connect(function(input)
+    if input == fmDragInput then fmDragging = false; fmDragInput = nil end
+end)
+table.insert(connections, fmDragConn1)
+table.insert(connections, fmDragConn2)
+
+
+-- [Main Frame Menu]
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 270, 0, 310)
 MainFrame.Position = UDim2.new(0.5, -135, 0.5, -155)
@@ -347,20 +373,15 @@ end)
 local dragging, dragInput, dragStart, startPos
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragInput = input 
-        dragStart = input.Position
-        startPos = MainFrame.Position
+        dragging = true; dragInput = input; dragStart = input.Position; startPos = MainFrame.Position
     end
 end)
-
 local dragConn1 = UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
 local dragConn2 = UserInputService.InputEnded:Connect(function(input)
     if input == dragInput then dragging = false; dragInput = nil end
 end)
@@ -368,7 +389,7 @@ table.insert(connections, dragConn1)
 table.insert(connections, dragConn2)
 
 -- ==========================================
--- TẠO SCROLLING FRAME VỚI THANH TRƯỢT NGOÀI
+-- SCROLLING FRAME VÀ CÁC THÀNH PHẦN BÊN TRONG
 -- ==========================================
 local ScrollFrame = Instance.new("ScrollingFrame")
 ScrollFrame.Size = UDim2.new(1, -10, 1, -45)
@@ -387,7 +408,6 @@ UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Parent = ScrollFrame
 
--- Cập nhật tự động chiều dài của trang
 UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 15)
 end)
@@ -437,14 +457,57 @@ local function CreateButton(text, callback)
     return btn
 end
 
--- Helper: Tạo Combo "6 phần Textbox - 4 phần Button" cho (Speed & TP Walk)
+-- Helper: Tạo TextBox
+local function CreateTextBox(labelText, defaultValue, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -15, 0, 35)
+    container.BackgroundColor3 = Colors.Element
+    container.Parent = ScrollFrame
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", container).Color = Colors.Border
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Colors.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.3, -10, 0.7, 0)
+    box.Position = UDim2.new(0.7, 0, 0.15, 0)
+    box.BackgroundColor3 = Colors.Bg
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Colors.Accent
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 13
+    box.ClearTextOnFocus = false
+    box.Parent = container
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    Instance.new("UIStroke", box).Color = Colors.Border
+
+    box.FocusLost:Connect(function()
+        local num = tonumber(box.Text)
+        if num and num > 0 then
+            callback(num)
+        else
+            box.Text = tostring(defaultValue)
+        end
+    end)
+end
+
+-- Helper: Khung gộp 6/4 (Trả về hàm SetState để có thể đồng bộ với Nút Nổi Master)
 local function CreateSplitControl(labelText, defaultValue, initialToggle, textCallback, toggleCallback)
     local container = Instance.new("Frame")
     container.Size = UDim2.new(1, -15, 0, 35)
     container.BackgroundTransparency = 1
     container.Parent = ScrollFrame
 
-    -- Phần 6 (60%): Text Label + Ô nhập liệu
+    -- Phần 6 (60%)
     local leftBox = Instance.new("Frame")
     leftBox.Size = UDim2.new(0.58, 0, 1, 0)
     leftBox.Position = UDim2.new(0, 0, 0, 0)
@@ -486,7 +549,7 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
         end
     end)
 
-    -- Phần 4 (40%): Nút Bật / Tắt (On/Off)
+    -- Phần 4 (40%)
     local state = initialToggle
     local rightBtn = Instance.new("TextButton")
     rightBtn.Size = UDim2.new(0.39, 0, 1, 0)
@@ -506,6 +569,16 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
         rightBtn.Text = state and "ON" or "OFF"
         pcall(toggleCallback, state)
     end)
+    
+    -- Trả về hàm để gọi thay đổi từ bên ngoài (Master Button)
+    return {
+        SetState = function(newState)
+            state = newState
+            rightBtn.BackgroundColor3 = state and Colors.ElementActive or Colors.Element
+            rightBtn.Text = state and "ON" or "OFF"
+            pcall(toggleCallback, state)
+        end
+    }
 end
 
 -- ==========================================
@@ -513,7 +586,6 @@ end
 -- ==========================================
 InitESPObjects()
 
--- Nhóm ESP & Map
 CreateToggleButton("Outline ESP", false, function(state)
     outlineEnabled = state
     UpdateESPVisibility()
@@ -548,13 +620,22 @@ clearFogBtn = CreateButton("Xoá Xương Mù", function()
     end)
 end)
 
+CreateTextBox("Cỡ chữ ESP:", currentTextSize, function(newSize)
+    UpdateTextSize(newSize)
+end)
+
 CreateButton("🔄 Load Generators Trên Map", function()
     InitESPObjects()
 end)
 
--- Nhóm Movement (Gộp 6/4 - Bên Trái Nhập Thông Số, Bên Phải Bật/Tắt)
-CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
-    function(val) -- Xử lý khi nhập textbox
+-- Nút bật / tắt nút Master bên ngoài màn hình
+CreateToggleButton("📌 Ghim Nút Tốc Độ Rời", false, function(state)
+    FloatMoveBtn.Visible = state
+end)
+
+-- Nhóm Movement (Lưu lại Controller để kết nối với nút nổi Master)
+local speedControl = CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
+    function(val) 
         getgenv().Walkspeed = tonumber(val) or 17
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChild("Humanoid")
@@ -562,15 +643,28 @@ CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW,
             hum.WalkSpeed = getgenv().Walkspeed
         end
     end, 
-    function(state) -- Xử lý khi ấn nút ON/OFF
+    function(state) 
         getgenv().loopW = state
     end
 )
 
-CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
-    function(val) -- Xử lý khi nhập textbox
+local tpWalkControl = CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
+    function(val)
         getgenv().TPSpeed = tonumber(val) or 0.03
     end, 
-    function(state) -- Xử lý khi ấn nút ON/OFF
+    function(state) 
         getgenv().TPWalk = state
-    end)
+    end
+)
+
+-- Kết nối Nút Master Floating ngoài màn hình với 2 Control bên trong Menu
+local masterMoveState = false
+FloatMoveBtn.MouseButton1Click:Connect(function()
+    masterMoveState = not masterMoveState
+    FloatMoveBtn.BackgroundColor3 = masterMoveState and Colors.ElementActive or Colors.Element
+    FloatMoveBtn.Text = masterMoveState and "🏃 TỐC ĐỘ: BẬT" or "🏃 TỐC ĐỘ: TẮT"
+    
+    -- Đồng bộ trạng thái và UI của Speed và TP Walk trong menu
+    speedControl.SetState(masterMoveState)
+    tpWalkControl.SetState(masterMoveState)
+end)
