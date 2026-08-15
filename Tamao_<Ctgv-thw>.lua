@@ -22,7 +22,7 @@ if getgenv()._Aimbot_RenderLoop then getgenv()._Aimbot_RenderLoop:Disconnect(); 
 -- ==========================================
 -- 2. CẤU HÌNH & BIẾN TOÀN CỤC
 -- ==========================================
-local offsetX, offsetY = -16, 4.1 -- Tọa độ Tâm Ảo
+local offsetX, offsetY = -6.4, 4.1 -- Tọa độ Tâm Ảo
 
 local AimbotSettings = {
     CamAim = false,
