@@ -51,7 +51,7 @@ local currentTextSize = 10
 
 getgenv().Walkspeed = 17
 getgenv().loopW = false
-getgenv().TPSpeed = 0.03
+getgenv().TPSpeed = 0.04
 getgenv().TPWalk = false
 
 local defaultLighting = {
@@ -779,7 +779,7 @@ local speedControl = CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv()
 )
 
 local tpWalkControl = CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
-    function(val) getgenv().TPSpeed = tonumber(val) or 0.03 end, 
+    function(val) getgenv().TPSpeed = tonumber(val) or 0.04 end, 
     function(s) getgenv().TPWalk = s end, 
     WorldScroll
 )
