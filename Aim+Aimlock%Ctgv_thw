@@ -148,7 +148,7 @@ MainFrame.Size = UDim2.new(0, 480, 0, 395); MainFrame.Position = UDim2.new(0.5, 
 applyUICorner(MainFrame, 10); applyUIStroke(MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Pro Render)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Ctgv_thw)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 applyUICorner(Title, 10)
 
 local TabFrame = Instance.new("Frame", MainFrame)
