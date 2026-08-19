@@ -1,5 +1,5 @@
 -- ==========================================
--- 0. TỰ ĐỘNG DỌN DẸP SCRIPT CŨ 
+-- 0. TỰ ĐỘNG DỌN DẸP SCRIPT CŨ (FIX CHẠY 2 LẦN)
 -- ==========================================
 if getgenv().GenEsp_Cleanup then
     pcall(getgenv().GenEsp_Cleanup)
@@ -13,10 +13,14 @@ local instancesToDestroy = {}
 getgenv().GenEsp_Cleanup = function()
     getgenv().GenEsp_IsRunning = false
     for _, conn in ipairs(connections) do
-        if conn and conn.Connected then conn:Disconnect() end
+        if conn and conn.Connected then
+            conn:Disconnect()
+        end
     end
     for _, inst in ipairs(instancesToDestroy) do
-        if inst and inst.Destroy then pcall(function() inst:Destroy() end) end
+        if inst and inst.Destroy then
+            pcall(function() inst:Destroy() end)
+        end
     end
     if getgenv()._ESP_Tracer_Cache then
         for _, tracer in pairs(getgenv()._ESP_Tracer_Cache) do pcall(function() tracer:Remove() end) end
@@ -38,14 +42,14 @@ local LocalPlayer = Players.LocalPlayer
 getgenv()._ESP_Tracer_Cache = {}
 
 -- ==========================================
--- CẤU HÌNH WORLD & MOVEMENT
+-- CẤU HÌNH WORLD & MOVEMENT (SCRIPT 2)
 -- ==========================================
 local outlineEnabled = false
 local distanceEnabled = false
 local fullbrightEnabled = false
 local currentTextSize = 10 
 
-getgenv().Walkspeed = 27
+getgenv().Walkspeed = 17
 getgenv().loopW = false
 getgenv().TPSpeed = 0.04
 getgenv().TPWalk = false
@@ -62,24 +66,7 @@ local defaultLighting = {
 }
 
 -- ==========================================
--- HOOK: BẢO VỆ TỐC ĐỘ KHỎI SPRINT SCRIPT CỦA MAP
--- ==========================================
-pcall(function()
-    local mt = getrawmetatable(game)
-    local oldNewIndex = mt.__newindex
-    setreadonly(mt, false)
-    mt.__newindex = newcclosure(function(t, k, v)
-        if not checkcaller() and t:IsA("Humanoid") and k == "WalkSpeed" and getgenv().loopW then
-            -- Chặn game tự đổi tốc độ khi đang chạy bộ/chạy nhanh
-            return oldNewIndex(t, k, getgenv().Walkspeed)
-        end
-        return oldNewIndex(t, k, v)
-    end)
-    setreadonly(mt, true)
-end)
-
--- ==========================================
--- CẤU HÌNH PLAYER ESP
+-- CẤU HÌNH PLAYER ESP (SCRIPT 1)
 -- ==========================================
 local PlayerESPSettings = {
     BoxESP = false,
@@ -193,7 +180,12 @@ local function InitGeneratorESP()
         textLabel.TextStrokeTransparency = 0.2
         textLabel.Parent = billboard
         
-        table.insert(espElements, {Part = body, Highlight = highlight, Billboard = billboard, Label = textLabel})
+        table.insert(espElements, {
+            Part = body,
+            Highlight = highlight,
+            Billboard = billboard,
+            Label = textLabel
+        })
     end
 end
 
@@ -203,7 +195,10 @@ local function UpdateGeneratorVisibility()
         needsReinit = true
     else
         for _, data in ipairs(espElements) do
-            if not data.Part or not data.Part.Parent then needsReinit = true; break end
+            if not data.Part or not data.Part.Parent then
+                needsReinit = true
+                break
+            end
         end
     end
     if needsReinit then InitGeneratorESP() end
@@ -225,7 +220,7 @@ local function ClearFogOnce()
 end
 
 -- ==========================================
--- 2. LOGIC PLAYER ESP
+-- 2. LOGIC PLAYER ESP (SCRIPT 1 TÍCH HỢP)
 -- ==========================================
 local PlayerESPFolder = Instance.new("Folder")
 PlayerESPFolder.Name = "PlayerESP_System"
@@ -234,7 +229,9 @@ table.insert(instancesToDestroy, PlayerESPFolder)
 
 local function shouldESP(p)
     if p == LocalPlayer then return false end
-    if not PlayerESPSettings.ESPTeammates and LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then return false end
+    if not PlayerESPSettings.ESPTeammates then
+        if LocalPlayer.Team and p.Team and LocalPlayer.Team == p.Team then return false end
+    end
     return true
 end
 
@@ -274,7 +271,10 @@ local function setupESP(p)
     hl.FillTransparency = 1
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     hl.Enabled = false 
-    if activeHighlights < 31 then hl.Parent = PlayerESPFolder; activeHighlights = activeHighlights + 1 end
+    if activeHighlights < 31 then
+        hl.Parent = PlayerESPFolder 
+        activeHighlights = activeHighlights + 1
+    end
 
     local bb = Instance.new("BillboardGui")
     bb.Size = UDim2.new(0, 200, 0, 40)
@@ -300,15 +300,19 @@ local function setupESP(p)
 end
 
 for _, p in pairs(Players:GetPlayers()) do setupESP(p) end
-table.insert(connections, Players.PlayerAdded:Connect(setupESP))
-table.insert(connections, Players.PlayerRemoving:Connect(function(p)
+local pAdded = Players.PlayerAdded:Connect(function(p) setupESP(p) end)
+local pRemoving = Players.PlayerRemoving:Connect(function(p)
     cleanESP(p) 
     if CustomPlayerColors[p.Name] then CustomPlayerColors[p.Name] = nil end
     if SelectedPlayerName == p.Name then SelectedPlayerName = nil end
-end))
+end)
+table.insert(connections, pAdded)
+table.insert(connections, pRemoving)
 
 local function RebuildPlayerHighlights()
-    for p, e in pairs(PlayerESP) do if e.HL then pcall(function() e.HL:Destroy() end); e.HL = nil end end
+    for p, e in pairs(PlayerESP) do
+        if e.HL then pcall(function() e.HL:Destroy() end); e.HL = nil end
+    end
     activeHighlights = 0
     for p, e in pairs(PlayerESP) do
         if activeHighlights < 31 then
@@ -328,6 +332,7 @@ table.insert(connections, UserInputService.WindowFocused:Connect(RebuildPlayerHi
 -- 3. CORE LOGIC (RENDER & HEARTBEAT)
 -- ==========================================
 local renderConn = RunService.RenderStepped:Connect(function()
+    -- WORLD: Fullbright & Generator Distances
     if fullbrightEnabled then
         Lighting.Ambient = Color3.fromRGB(255, 255, 255)
         Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
@@ -342,16 +347,22 @@ local renderConn = RunService.RenderStepped:Connect(function()
     if distanceEnabled and root then
         for _, data in ipairs(espElements) do
             if data.Part and data.Part.Parent then
-                data.Label.Text = string.format("Generator\n[%.1f m]", (root.Position - data.Part.Position).Magnitude)
-            else data.Label.Text = "" end
+                local distance = (root.Position - data.Part.Position).Magnitude
+                data.Label.Text = string.format("Generator\n[%.1f m]", distance)
+            else
+                data.Label.Text = "" 
+            end
         end
     end
 
+    -- PLAYER ESP UPDATE
     local CamPos = Cam.CFrame.Position 
     local ViewportCenter = Vector2.new(Cam.ViewportSize.X / 2, 0)
 
     for p, e in pairs(PlayerESP) do
-        if not p or p.Parent ~= Players then cleanESP(p); continue end
+        if not p or p.Parent ~= Players then
+            cleanESP(p); continue
+        end
 
         local c = p.Character
         local hrp = c and c:FindFirstChild("HumanoidRootPart")
@@ -361,10 +372,15 @@ local renderConn = RunService.RenderStepped:Connect(function()
         if isVisible then
             local col = getESPColor(p)
             e.Box.Color3 = col; e.TXT.TextColor3 = col
-            e.Box.Visible = PlayerESPSettings.BoxESP; e.Box.Adornee = PlayerESPSettings.BoxESP and c or nil 
             
-            if PlayerESPSettings.OutlineESP and e.HL then e.HL.Enabled = true; e.HL.OutlineColor = col; e.HL.Adornee = c 
-            elseif e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end
+            e.Box.Visible = PlayerESPSettings.BoxESP
+            e.Box.Adornee = PlayerESPSettings.BoxESP and c or nil 
+            
+            if PlayerESPSettings.OutlineESP and e.HL then
+                e.HL.Enabled = true; e.HL.OutlineColor = col; e.HL.Adornee = c 
+            elseif e.HL then
+                e.HL.Enabled = false; e.HL.Adornee = nil
+            end
 
             local showBB = PlayerESPSettings.ShowName or PlayerESPSettings.ShowDistance
             e.BB.Enabled = showBB; e.BB.Adornee = showBB and hrp or nil 
@@ -382,7 +398,8 @@ local renderConn = RunService.RenderStepped:Connect(function()
             if PlayerESPSettings.TracerESP then
                 local pos, onScreen = Cam:WorldToViewportPoint(hrp.Position)
                 if onScreen then
-                    e.Tracer.From = ViewportCenter; e.Tracer.To = Vector2.new(pos.X, pos.Y)
+                    e.Tracer.From = ViewportCenter
+                    e.Tracer.To = Vector2.new(pos.X, pos.Y)
                     e.Tracer.Color = col; e.Tracer.Visible = true
                 else e.Tracer.Visible = false end
             else e.Tracer.Visible = false end
@@ -395,90 +412,18 @@ local renderConn = RunService.RenderStepped:Connect(function()
 end)
 table.insert(connections, renderConn)
 
--- ==========================================================
--- LOGIC DI CHUYỂN AN TOÀN CHỐNG ANTI-CHEAT & CHỐNG KẸT (V2.1 - DEEP SCAN FIX MAP)
--- ==========================================================
 local moveConn = RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    
-    if not (char and hum and root and hum.Parent) then return end
-    
-    local currentState = hum:GetState()
-    local isPhysicsLocked = hum.PlatformStand or hum.Sit or root.Anchored or 
-        (currentState == Enum.HumanoidStateType.FallingDown) or 
-        (currentState == Enum.HumanoidStateType.Ragdoll) or
-        (currentState == Enum.HumanoidStateType.Dead)
-    
-    local isCarriedOrBound = false
-    for _, desc in ipairs(char:GetDescendants()) do
-        if desc:IsA("JointInstance") or desc:IsA("WeldConstraint") then
-            local p0 = desc:IsA("WeldConstraint") and desc.Part0 or desc.Part0
-            local p1 = desc:IsA("WeldConstraint") and desc.Part1 or desc.Part1
-            
-            if p0 and p1 and (not p0:IsDescendantOf(char) or not p1:IsDescendantOf(char)) then
-                isCarriedOrBound = true
-                break
-            end
+    local hum = char and char:FindFirstChild("Humanoid")
+    if char and hum and hum.Parent then
+        if getgenv().loopW then 
+            local targetWS = tonumber(getgenv().Walkspeed) or 16
+            if hum.WalkSpeed ~= targetWS then hum.WalkSpeed = targetWS end 
         end
-    end
-
-    local isDownedState = false
-    -- ĐÃ FIX: Bỏ qua "cooldown", "cam" để không bị nhận nhầm trong map
-    local riskKeywords = {"knock", "down", "carry", "grab", "stun", "ragdoll", "bind", "taze", "freeze", "arrest"}
-    local safeKeywords = {"cool", "cam", "mouse", "ui", "frame", "gui"}
-    
-    local function checkWord(str)
-        str = string.lower(str)
-        for _, safe in ipairs(safeKeywords) do
-            if string.find(str, safe) then return false end
+        if getgenv().TPWalk and hum.MoveDirection.Magnitude > 0 then
+            local speed = tonumber(getgenv().TPSpeed) or 0.1
+            char:TranslateBy(hum.MoveDirection * speed)
         end
-        for _, kw in ipairs(riskKeywords) do
-            if string.find(str, kw) then return true end
-        end
-        return false
-    end
-
-    for _, child in ipairs(char:GetDescendants()) do
-        if child:IsA("BoolValue") and child.Value == true then
-            if checkWord(child.Name) then isDownedState = true; break end
-        elseif child:IsA("StringValue") then
-            if checkWord(child.Value) or checkWord(child.Name) then isDownedState = true; break end
-        elseif child:IsA("NumberValue") or child:IsA("IntValue") then
-            if child.Value > 0 and checkWord(child.Name) then isDownedState = true; break end
-        end
-    end
-
-    if not isDownedState then
-        local function checkObjAttrs(obj)
-            for attrName, attrValue in pairs(obj:GetAttributes()) do
-                if type(attrValue) == "boolean" and attrValue == true and checkWord(attrName) then return true end
-                if type(attrValue) == "string" and (checkWord(attrName) or checkWord(attrValue)) then return true end
-                if type(attrValue) == "number" and attrValue > 0 and checkWord(attrName) then return true end
-            end
-            return false
-        end
-        if checkObjAttrs(char) or checkObjAttrs(hum) then
-            isDownedState = true
-        end
-    end
-
-    if isPhysicsLocked or isCarriedOrBound or isDownedState then
-        if hum.WalkSpeed > 16 then hum.WalkSpeed = 16 end
-        return 
-    end
-
-    -- THỰC THI DI CHUYỂN
-    if getgenv().loopW then 
-        local targetWS = tonumber(getgenv().Walkspeed) or 16
-        if hum.WalkSpeed ~= targetWS then hum.WalkSpeed = targetWS end 
-    end
-    
-    if getgenv().TPWalk and hum.MoveDirection.Magnitude > 0 then
-        local speed = tonumber(getgenv().TPSpeed) or 0.04
-        root.CFrame = root.CFrame + (hum.MoveDirection * speed)
-        root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
     end
 end)
 table.insert(connections, moveConn)
@@ -501,6 +446,7 @@ local Colors = {
     Border = Color3.fromRGB(50, 50, 50)
 }
 
+-- Helpers Kéo thả UI
 local function MakeDraggable(dragObject, moveObject)
     local dragging, dragInput, dragStart, startPos
     dragObject.InputBegan:Connect(function(input)
@@ -508,17 +454,20 @@ local function MakeDraggable(dragObject, moveObject)
             dragging = true; dragInput = input; dragStart = input.Position; startPos = moveObject.Position
         end
     end)
-    table.insert(connections, UserInputService.InputChanged:Connect(function(input)
+    local dragConn1 = UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
             moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
-    end))
-    table.insert(connections, UserInputService.InputEnded:Connect(function(input)
+    end)
+    local dragConn2 = UserInputService.InputEnded:Connect(function(input)
         if input == dragInput then dragging = false; dragInput = nil end
-    end))
+    end)
+    table.insert(connections, dragConn1)
+    table.insert(connections, dragConn2)
 end
 
+-- [NÚT ẨN/HIỆN HUB]
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 45, 0, 45)
 ToggleMenuBtn.Position = UDim2.new(0, 20, 0, 20)
@@ -532,6 +481,7 @@ Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", ToggleMenuBtn).Color = Colors.Border
 MakeDraggable(ToggleMenuBtn, ToggleMenuBtn)
 
+-- [NÚT NỔI MASTER]
 local FloatMoveBtn = Instance.new("TextButton")
 FloatMoveBtn.Size = UDim2.new(0, 120, 0, 35)
 FloatMoveBtn.Position = UDim2.new(0, 75, 0, 25)
@@ -546,6 +496,7 @@ Instance.new("UICorner", FloatMoveBtn).CornerRadius = UDim.new(0, 6)
 Instance.new("UIStroke", FloatMoveBtn).Color = Colors.Border
 MakeDraggable(FloatMoveBtn, FloatMoveBtn)
 
+-- [Main Frame Menu]
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 300, 0, 360)
 MainFrame.Position = UDim2.new(0.5, -150, 0.5, -180)
@@ -566,11 +517,14 @@ Title.TextSize = 12
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
 Title.Parent = MainFrame
-Instance.new("UIPadding", Title).PaddingLeft = UDim.new(0, 10)
+local TitlePadding = Instance.new("UIPadding")
+TitlePadding.PaddingLeft = UDim.new(0, 10)
+TitlePadding.Parent = Title
 MakeDraggable(Title, MainFrame)
 
 ToggleMenuBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
+-- [THIẾT LẬP HỆ THỐNG TABS]
 local TabFrame = Instance.new("Frame")
 TabFrame.Size = UDim2.new(1, 0, 0, 30)
 TabFrame.Position = UDim2.new(0, 0, 0, 35)
@@ -597,6 +551,7 @@ TabESP.TextColor3 = Color3.new(1, 1, 1)
 TabESP.BackgroundColor3 = Color3.fromRGB(45, 45, 50) 
 TabESP.BorderSizePixel = 0
 
+-- TẠO 2 KHUNG CUỘN (SCROLL) CHO 2 TAB
 local function createScroll(name)
     local Scroll = Instance.new("ScrollingFrame")
     Scroll.Name = name
@@ -614,22 +569,30 @@ local function createScroll(name)
     Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = Scroll
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 15) end)
+
+    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 15)
+    end)
     return Scroll
 end
 
 local WorldScroll = createScroll("WorldScroll")
-local ESPScroll = createScroll("ESPScroll"); ESPScroll.Visible = false
+local ESPScroll = createScroll("ESPScroll")
+ESPScroll.Visible = false -- Mặc định ẩn
 
+-- Logic Chuyển Tab
 TabWorld.Activated:Connect(function()
     WorldScroll.Visible = true; ESPScroll.Visible = false
-    TabWorld.BackgroundColor3 = Color3.fromRGB(60, 120, 180); TabESP.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    TabWorld.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
+    TabESP.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 end)
 TabESP.Activated:Connect(function()
     WorldScroll.Visible = false; ESPScroll.Visible = true
-    TabESP.BackgroundColor3 = Color3.fromRGB(60, 120, 180); TabWorld.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    TabESP.BackgroundColor3 = Color3.fromRGB(60, 120, 180)
+    TabWorld.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 end)
 
+-- UI Helpers
 local function CreateToggleButton(text, initialState, callback, parentFrame)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -15, 0, 32)
@@ -684,14 +647,23 @@ local function CreateTextBox(labelText, defaultValue, callback, parentFrame)
     label.Size = UDim2.new(0.65, 0, 1, 0)
     label.Position = UDim2.new(0, 10, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = labelText; label.TextColor3 = Colors.Text; label.Font = Enum.Font.GothamMedium; label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = container
+    label.Text = labelText
+    label.TextColor3 = Colors.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
 
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(0.3, -10, 0.7, 0)
     box.Position = UDim2.new(0.7, 0, 0.15, 0)
-    box.BackgroundColor3 = Colors.Bg; box.Text = tostring(defaultValue); box.TextColor3 = Colors.Accent
-    box.Font = Enum.Font.GothamBold; box.TextSize = 12; box.ClearTextOnFocus = false; box.Parent = container
+    box.BackgroundColor3 = Colors.Bg
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Colors.Accent
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 12
+    box.ClearTextOnFocus = false
+    box.Parent = container
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
     Instance.new("UIStroke", box).Color = Colors.Border
 
@@ -718,14 +690,23 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
     label.Size = UDim2.new(0.55, 0, 1, 0)
     label.Position = UDim2.new(0, 8, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = labelText; label.TextColor3 = Colors.Text; label.Font = Enum.Font.GothamMedium
-    label.TextSize = 11; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = leftBox
+    label.Text = labelText
+    label.TextColor3 = Colors.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = leftBox
 
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(0.38, -4, 0.7, 0)
     box.Position = UDim2.new(0.6, 0, 0.15, 0)
-    box.BackgroundColor3 = Colors.Bg; box.Text = tostring(defaultValue); box.TextColor3 = Colors.Accent
-    box.Font = Enum.Font.GothamBold; box.TextSize = 11; box.ClearTextOnFocus = false; box.Parent = leftBox
+    box.BackgroundColor3 = Colors.Bg
+    box.Text = tostring(defaultValue)
+    box.TextColor3 = Colors.Accent
+    box.Font = Enum.Font.GothamBold
+    box.TextSize = 11
+    box.ClearTextOnFocus = false
+    box.Parent = leftBox
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
     Instance.new("UIStroke", box).Color = Colors.Border
     box.FocusLost:Connect(function()
@@ -739,7 +720,9 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
     rightBtn.Position = UDim2.new(0.61, 0, 0, 0)
     rightBtn.BackgroundColor3 = state and Colors.ElementActive or Colors.Element
     rightBtn.Text = state and "ON" or "OFF"
-    rightBtn.TextColor3 = Colors.Text; rightBtn.Font = Enum.Font.GothamBold; rightBtn.TextSize = 11
+    rightBtn.TextColor3 = Colors.Text
+    rightBtn.Font = Enum.Font.GothamBold
+    rightBtn.TextSize = 11
     rightBtn.Parent = container
     Instance.new("UICorner", rightBtn).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", rightBtn).Color = Colors.Border
@@ -749,6 +732,7 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
         rightBtn.Text = state and "ON" or "OFF"
         pcall(toggleCallback, state)
     end)
+    
     return {
         SetState = function(newState)
             state = newState
@@ -760,9 +744,10 @@ local function CreateSplitControl(labelText, defaultValue, initialToggle, textCa
 end
 
 -- ==========================================
--- WORLD TAB SETUP
+-- TẠO CÁC NÚT TRONG TAB [WORLD]
 -- ==========================================
 InitGeneratorESP()
+
 CreateToggleButton("Outline Gens", false, function(s) outlineEnabled = s; UpdateGeneratorVisibility() end, WorldScroll)
 CreateToggleButton("Distance Gens", false, function(s) distanceEnabled = s; UpdateGeneratorVisibility() end, WorldScroll)
 CreateToggleButton("Fullbright", false, function(s) 
@@ -770,8 +755,11 @@ CreateToggleButton("Fullbright", false, function(s)
     if not s then Lighting.Ambient = defaultLighting.Ambient; Lighting.ColorShift_Top = defaultLighting.ColorShift_Top; Lighting.ColorShift_Bottom = defaultLighting.ColorShift_Bottom; Lighting.OutdoorAmbient = defaultLighting.OutdoorAmbient; Lighting.ClockTime = defaultLighting.ClockTime end
 end, WorldScroll)
 
-local clearFogBtn = CreateButton("Xoá Sương Mù", function()
-    ClearFogOnce(); clearFogBtn.Text = "Đã Xoá!"; clearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+local clearFogBtn
+clearFogBtn = CreateButton("Xoá Sương Mù", function()
+    ClearFogOnce()
+    clearFogBtn.Text = "Đã Xoá!"
+    clearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
     task.delay(1.5, function() if clearFogBtn then clearFogBtn.Text = "Xoá Sương Mù"; clearFogBtn.TextColor3 = Colors.Accent end end)
 end, WorldScroll)
 
@@ -781,29 +769,20 @@ CreateToggleButton("📌 Ghim Nút Tốc Độ Rời", false, function(s) FloatM
 
 local speedControl = CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
     function(val) 
-        getgenv().Walkspeed = tonumber(val) or 16
-        if getgenv().loopW then
-            local char = LocalPlayer.Character; local hum = char and char:FindFirstChild("Humanoid")
-            if hum then hum.WalkSpeed = getgenv().Walkspeed end
-        end
+        getgenv().Walkspeed = tonumber(val) or 17
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        if hum and not getgenv().loopW then hum.WalkSpeed = getgenv().Walkspeed end
     end, 
-    function(s) 
-        getgenv().loopW = s 
-        if not s then
-            local char = LocalPlayer.Character; local hum = char and char:FindFirstChild("Humanoid")
-            if hum then hum.WalkSpeed = 16 end
-        end
-    end, WorldScroll)
+    function(s) getgenv().loopW = s end, 
+    WorldScroll
+)
 
 local tpWalkControl = CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
     function(val) getgenv().TPSpeed = tonumber(val) or 0.04 end, 
-    function(s) 
-        getgenv().TPWalk = s 
-        if not s then
-            local char = LocalPlayer.Character; local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0) end
-        end
-    end, WorldScroll)
+    function(s) getgenv().TPWalk = s end, 
+    WorldScroll
+)
 
 local masterMoveState = false
 FloatMoveBtn.MouseButton1Click:Connect(function()
@@ -814,7 +793,7 @@ FloatMoveBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- ESP PLAYER TAB SETUP
+-- TẠO CÁC NÚT TRONG TAB [ESP PLAYER]
 -- ==========================================
 CreateToggleButton("👥 ESP Box", PlayerESPSettings.BoxESP, function(s) PlayerESPSettings.BoxESP = s end, ESPScroll)
 CreateToggleButton("👥 ESP Outline", PlayerESPSettings.OutlineESP, function(s) PlayerESPSettings.OutlineESP = s end, ESPScroll)
@@ -824,27 +803,38 @@ CreateToggleButton("👥 ESP Distance", PlayerESPSettings.ShowDistance, function
 CreateToggleButton("👥 ESP Teammates", PlayerESPSettings.ESPTeammates, function(s) PlayerESPSettings.ESPTeammates = s end, ESPScroll)
 CreateButton("🔄 Sửa Lỗi Tàng Hình Outline (Fix)", function() RebuildPlayerHighlights() end, ESPScroll)
 
+-- Khung chọn màu và xem người chơi
 local TargetStatus = Instance.new("TextLabel")
 TargetStatus.Size = UDim2.new(1, -15, 0, 20)
 TargetStatus.BackgroundTransparency = 1
-TargetStatus.Text = "Đang chọn: TẤT CẢ (Global)"; TargetStatus.TextColor3 = Color3.fromRGB(255, 255, 0)
-TargetStatus.Font = Enum.Font.GothamBold; TargetStatus.TextSize = 11; TargetStatus.Parent = ESPScroll
+TargetStatus.Text = "Đang chọn: TẤT CẢ (Global)"
+TargetStatus.TextColor3 = Color3.fromRGB(255, 255, 0)
+TargetStatus.Font = Enum.Font.GothamBold
+TargetStatus.TextSize = 11
+TargetStatus.Parent = ESPScroll
 
 local SearchBox = Instance.new("TextBox")
 SearchBox.Size = UDim2.new(1, -15, 0, 30)
-SearchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45); SearchBox.TextColor3 = Color3.new(1, 1, 1)
+SearchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SearchBox.TextColor3 = Color3.new(1, 1, 1)
 SearchBox.PlaceholderText = "🔍 Tìm kiếm tên người chơi..."
-SearchBox.Font = Enum.Font.Gotham; SearchBox.TextSize = 11; SearchBox.Parent = ESPScroll
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 11
+SearchBox.Parent = ESPScroll
 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 5)
 
+-- Danh sách người chơi
 local PListFrame = Instance.new("ScrollingFrame")
 PListFrame.Size = UDim2.new(1, -15, 0, 90)
 PListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-PListFrame.BorderSizePixel = 0; PListFrame.ScrollBarThickness = 4; PListFrame.Parent = ESPScroll
+PListFrame.BorderSizePixel = 0
+PListFrame.ScrollBarThickness = 4
+PListFrame.Parent = ESPScroll
 Instance.new("UICorner", PListFrame).CornerRadius = UDim.new(0, 5)
 
 local PListLayout = Instance.new("UIListLayout")
-PListLayout.Padding = UDim.new(0, 2); PListLayout.Parent = PListFrame
+PListLayout.Padding = UDim.new(0, 2)
+PListLayout.Parent = PListFrame
 PListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() PListFrame.CanvasSize = UDim2.new(0, 0, 0, PListLayout.AbsoluteContentSize.Y) end)
 
 local currentSearch = ""
@@ -860,46 +850,65 @@ local function RefreshPlayerListUI()
     local btnAll = Instance.new("TextButton", PListFrame)
     btnAll.Size = UDim2.new(1, 0, 0, 22)
     btnAll.Text = "[ TẤT CẢ MỌI NGƯỜI ]"
-    btnAll.BackgroundColor3 = Color3.fromRGB(80, 80, 20); btnAll.TextColor3 = Color3.new(1, 1, 1)
-    btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 11; btnAll.BorderSizePixel = 0
+    btnAll.BackgroundColor3 = Color3.fromRGB(80, 80, 20)
+    btnAll.TextColor3 = Color3.new(1, 1, 1)
+    btnAll.Font = Enum.Font.GothamBold
+    btnAll.TextSize = 11
+    btnAll.BorderSizePixel = 0
     btnAll.MouseButton1Click:Connect(function() SetTargetPlayer(nil) end)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and (currentSearch == "" or string.find(string.lower(p.Name), currentSearch) or string.find(string.lower(p.DisplayName), currentSearch)) then
-            local btn = Instance.new("TextButton", PListFrame)
-            btn.Size = UDim2.new(1, 0, 0, 22)
-            btn.Text = p.Name; btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); btn.TextColor3 = Color3.new(1, 1, 1)
-            btn.Font = Enum.Font.Gotham; btn.TextSize = 11; btn.BorderSizePixel = 0
-            btn.MouseButton1Click:Connect(function() SetTargetPlayer(p.Name) end)
+        if p ~= LocalPlayer then
+            if currentSearch == "" or string.find(string.lower(p.Name), currentSearch) or string.find(string.lower(p.DisplayName), currentSearch) then
+                local btn = Instance.new("TextButton", PListFrame)
+                btn.Size = UDim2.new(1, 0, 0, 22)
+                btn.Text = p.Name
+                btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                btn.TextColor3 = Color3.new(1, 1, 1)
+                btn.Font = Enum.Font.Gotham
+                btn.TextSize = 11
+                btn.BorderSizePixel = 0
+                btn.MouseButton1Click:Connect(function() SetTargetPlayer(p.Name) end)
+            end
         end
     end
 end
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function() currentSearch = string.lower(SearchBox.Text); RefreshPlayerListUI() end)
 RefreshPlayerListUI()
-table.insert(connections, Players.PlayerAdded:Connect(RefreshPlayerListUI))
-table.insert(connections, Players.PlayerRemoving:Connect(RefreshPlayerListUI))
+local pUpdate = Players.PlayerAdded:Connect(RefreshPlayerListUI)
+local pUpdate2 = Players.PlayerRemoving:Connect(RefreshPlayerListUI)
+table.insert(connections, pUpdate); table.insert(connections, pUpdate2)
 
 CreateButton("🗑️ Reset Màu ESP Về Mặc Định", function()
-    if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil else currentESPColor = nil; table.clear(CustomPlayerColors) end
+    if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil
+    else currentESPColor = nil; table.clear(CustomPlayerColors) end
 end, ESPScroll)
 
+-- Danh sách màu sắc
 local CListFrame = Instance.new("ScrollingFrame")
 CListFrame.Size = UDim2.new(1, -15, 0, 70)
 CListFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-CListFrame.BorderSizePixel = 0; CListFrame.ScrollBarThickness = 4; CListFrame.Parent = ESPScroll
+CListFrame.BorderSizePixel = 0
+CListFrame.ScrollBarThickness = 4
+CListFrame.Parent = ESPScroll
 Instance.new("UICorner", CListFrame).CornerRadius = UDim.new(0, 5)
 
 local CListLayout = Instance.new("UIListLayout")
-CListLayout.Padding = UDim.new(0, 2); CListLayout.Parent = CListFrame
+CListLayout.Padding = UDim.new(0, 2)
+CListLayout.Parent = CListFrame
 CListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() CListFrame.CanvasSize = UDim2.new(0, 0, 0, CListLayout.AbsoluteContentSize.Y) end)
 
 for _, cData in ipairs(colorOrder) do
     local btn = Instance.new("TextButton", CListFrame)
     btn.Size = UDim2.new(1, 0, 0, 22)
-    btn.Text = cData.name; btn.BackgroundColor3 = cData.color
+    btn.Text = cData.name
+    btn.BackgroundColor3 = cData.color
     btn.TextColor3 = (cData.color.R + cData.color.G + cData.color.B) / 3 > 0.5 and Color3.new(0,0,0) or Color3.new(1,1,1)
-    btn.Font = Enum.Font.GothamMedium; btn.TextSize = 11; btn.BorderSizePixel = 0
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 11
+    btn.BorderSizePixel = 0
     btn.MouseButton1Click:Connect(function()
-        if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = cData.color else currentESPColor = cData.color; table.clear(CustomPlayerColors) end
+        if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = cData.color
+        else currentESPColor = cData.color; table.clear(CustomPlayerColors) end
     end)
 end
