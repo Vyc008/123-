@@ -412,17 +412,26 @@ local renderConn = RunService.RenderStepped:Connect(function()
 end)
 table.insert(connections, renderConn)
 
+-- LOGIC DI CHUYỂN AN TOÀN CHỐNG ANTI-CHEAT
 local moveConn = RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
-    if char and hum and hum.Parent then
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if char and hum and root and hum.Parent then
+        -- Xử lý Speed (chỉ ép tốc độ khi đang BẬT)
         if getgenv().loopW then 
             local targetWS = tonumber(getgenv().Walkspeed) or 16
-            if hum.WalkSpeed ~= targetWS then hum.WalkSpeed = targetWS end 
+            if hum.WalkSpeed ~= targetWS then 
+                hum.WalkSpeed = targetWS 
+            end 
         end
+        
+        -- Xử lý TP Walk (CFrame mượt chống giật lag)
         if getgenv().TPWalk and hum.MoveDirection.Magnitude > 0 then
-            local speed = tonumber(getgenv().TPSpeed) or 0.1
-            char:TranslateBy(hum.MoveDirection * speed)
+            local speed = tonumber(getgenv().TPSpeed) or 0.04
+            root.CFrame = root.CFrame + (hum.MoveDirection * speed)
+            root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
         end
     end
 end)
@@ -578,7 +587,7 @@ end
 
 local WorldScroll = createScroll("WorldScroll")
 local ESPScroll = createScroll("ESPScroll")
-ESPScroll.Visible = false -- Mặc định ẩn
+ESPScroll.Visible = false
 
 -- Logic Chuyển Tab
 TabWorld.Activated:Connect(function()
@@ -767,20 +776,40 @@ CreateTextBox("Cỡ chữ ESP:", currentTextSize, function(val) currentTextSize 
 CreateButton("🔄 Load Generators Trên Map", function() InitGeneratorESP() end, WorldScroll)
 CreateToggleButton("📌 Ghim Nút Tốc Độ Rời", false, function(s) FloatMoveBtn.Visible = s end, WorldScroll)
 
+-- Cấu hình Speed (Tự ép về 16 khi TẮT)
 local speedControl = CreateSplitControl("Speed:", getgenv().Walkspeed, getgenv().loopW, 
     function(val) 
-        getgenv().Walkspeed = tonumber(val) or 17
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChild("Humanoid")
-        if hum and not getgenv().loopW then hum.WalkSpeed = getgenv().Walkspeed end
+        getgenv().Walkspeed = tonumber(val) or 16
+        if getgenv().loopW then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then hum.WalkSpeed = getgenv().Walkspeed end
+        end
     end, 
-    function(s) getgenv().loopW = s end, 
+    function(s) 
+        getgenv().loopW = s 
+        if not s then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then hum.WalkSpeed = 16 end
+        end
+    end, 
     WorldScroll
 )
 
+-- Cấu hình TP Walk (Triệt tiêu lực khi TẮT)
 local tpWalkControl = CreateSplitControl("TP Walk:", getgenv().TPSpeed, getgenv().TPWalk, 
     function(val) getgenv().TPSpeed = tonumber(val) or 0.04 end, 
-    function(s) getgenv().TPWalk = s end, 
+    function(s) 
+        getgenv().TPWalk = s 
+        if not s then
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+            end
+        end
+    end, 
     WorldScroll
 )
 
