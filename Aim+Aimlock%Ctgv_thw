@@ -1,5 +1,5 @@
 --// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED JITTER & LOCK)
---// Bản Hợp Nhất: Tích hợp Nút Sửa Outline ESP & Giao diện Chọn/Reset Mục tiêu
+--// Bản Hợp Nhất: Tích hợp Nút Sửa Outline ESP, Giao diện Chọn/Reset Mục tiêu & TP Walk
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -44,7 +44,8 @@ local PlayerSettings = {
     WalkSpeed = 16, LoopW = false,
     JumpPower = 50, LoopJ = false,
     Noclip = false, InfJ = false,
-    FovCam = 70, LockFov = false
+    FovCam = 70, LockFov = false,
+    TPWalk = false, TPSpeed = 3 -- Đã thêm cấu hình TP Walk
 }
 
 local MasterSwitch = false
@@ -147,7 +148,7 @@ MainFrame.Size = UDim2.new(0, 480, 0, 395); MainFrame.Position = UDim2.new(0.5, 
 applyUICorner(MainFrame, 10); applyUIStroke(MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Ctgv_thw)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Pro Render)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 applyUICorner(Title, 10)
 
 local TabFrame = Instance.new("Frame", MainFrame)
@@ -203,7 +204,7 @@ local AimModeBtn = Instance.new("TextButton", AimbotContainer); AimModeBtn.Size 
 AimModeBtn.Activated:Connect(function() AimbotSettings.AimMode = (AimbotSettings.AimMode == "CFrame") and "Mouse" or "CFrame"; AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode end)
 
 -- ==========================================
--- TAB ESP (ĐÃ THÊM NÚT FIX VÀ CHỌN TẤT CẢ)
+-- TAB ESP 
 -- ==========================================
 createToggle(ESPContainer, "Box ESP: ON", "Box ESP: OFF", 15, 10, ESPSettings, "BoxESP")
 createToggle(ESPContainer, "Outline (Chéo Tường): ON", "Outline (Chéo Tường): OFF", 15, 45, ESPSettings, "OutlineESP")
@@ -265,15 +266,21 @@ resetColorBtn.MouseButton1Click:Connect(function()
     RefreshPlayerList()
 end)
 
--- Tab Player
+-- ==========================================
+-- TAB PLAYER (TÍCH HỢP TP WALK TẠI ĐÂY)
+-- ==========================================
 createSettingRow(PlayerContainer, "Tốc chạy (WS):", 15, 10, PlayerSettings, "WalkSpeed")
 createToggle(PlayerContainer, "🏃 Loop Tốc Chạy: ON", "🏃 Loop Tốc Chạy: OFF", 15, 45, PlayerSettings, "LoopW")
 createSettingRow(PlayerContainer, "Lực nhảy (JP):", 15, 80, PlayerSettings, "JumpPower")
 createToggle(PlayerContainer, "⬆️ Loop Lực Nhảy: ON", "⬆️ Loop Lực Nhảy: OFF", 15, 115, PlayerSettings, "LoopJ")
 createToggle(PlayerContainer, "👻 Xuyên tường (Noclip): ON", "👻 Xuyên tường (Noclip): OFF", 15, 150, PlayerSettings, "Noclip")
+
 createToggle(PlayerContainer, "☁️ Nhảy vô hạn (Inf Jump): ON", "☁️ Nhảy vô hạn (Inf Jump): OFF", 240, 10, PlayerSettings, "InfJ")
-createSettingRow(PlayerContainer, "FOV Camera:", 240, 80, PlayerSettings, "FovCam")
-createToggle(PlayerContainer, "👁️ Khóa FOV Cam: ON", "👁️ Khóa FOV Cam: OFF", 240, 115, PlayerSettings, "LockFov")
+createSettingRow(PlayerContainer, "FOV Camera:", 240, 45, PlayerSettings, "FovCam")
+createToggle(PlayerContainer, "👁️ Khóa FOV Cam: ON", "👁️ Khóa FOV Cam: OFF", 240, 80, PlayerSettings, "LockFov")
+-- THÊM GIAO DIỆN TP WALK TỪ SCRIPT 1 VÀO SCRIPT 2 (Cột Phải)
+createSettingRow(PlayerContainer, "Tốc độ TP Walk:", 240, 115, PlayerSettings, "TPSpeed")
+createToggle(PlayerContainer, "🚀 TP Walk: ON", "🚀 TP Walk: OFF", 240, 150, PlayerSettings, "TPWalk")
 
 -- ==========================================
 -- XỬ LÝ KÉO THẢ UI
@@ -311,13 +318,16 @@ MasterAimbotToggleBtn.Activated:Connect(toggleMasterSwitch); MasterFloatingBtn.A
 MenuCamAimBtn.Activated:Connect(toggleCamAim); MenuBodyAimBtn.Activated:Connect(toggleBodyAim)
 
 local function getAimbotTargetPart(character) return character and (character:FindFirstChild(AimbotSettings.FocusPart) or character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")) end
-local function isAimbotTargetValid(p)
+
+local function isAimbotTargetValid(p, isHolding)
     if not p or not p.Parent or p == Player then return false end
     local char = p.Character; if not char then return false end
     local tPart = getAimbotTargetPart(char); local hum = char:FindFirstChildOfClass("Humanoid")
     if not tPart or not hum or (AimbotSettings.DeadCheck and hum.Health <= 0) then return false end
     if AimbotSettings.TeamCheck and p.Team == Player.Team then return false end
-    if AimbotSettings.WallCheck then
+    
+    -- NẾU KHÔNG ĐANG GIỮ LOCK (isHolding = false) VÀ BẬT WALLCHECK -> Mới check tường
+    if AimbotSettings.WallCheck and not isHolding then
         local params = RaycastParams.new(); params.FilterType = Enum.RaycastFilterType.Exclude; local ignoreList = {}
         for _, pl in ipairs(Players:GetPlayers()) do if pl.Character then table.insert(ignoreList, pl.Character) end end
         params.FilterDescendantsInstances = ignoreList; params.IgnoreWater = true
@@ -390,7 +400,9 @@ FixBtn.Activated:Connect(RebuildHighlights)
 RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if isAiming or AimbotSettings.BodyAim then
         local hold = false
-        if lockedTarget and isAimbotTargetValid(lockedTarget) then
+        
+        -- Truyền AimbotSettings.LockTarget vào làm biến isHolding để bỏ qua check tường
+        if lockedTarget and isAimbotTargetValid(lockedTarget, AimbotSettings.LockTarget) then
             if AimbotSettings.LockTarget then
                 hold = true
             else
@@ -408,9 +420,11 @@ RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 
                 local finalPos = tPart.Position + (vel * (AimbotSettings.EnablePrediction and AimbotSettings.Prediction or 0))
                 
                 if AimbotSettings.AimMode == "CFrame" then
+                    -- CFrame: Khóa chết camera bất chấp mục tiêu ở đâu
                     local dir = (finalPos - Cam.CFrame.Position).Unit
                     Cam.CFrame = AimbotSettings.Smooth == 1 and CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + dir) or CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + Cam.CFrame.LookVector:Lerp(dir, AimbotSettings.Smooth))
                 elseif AimbotSettings.AimMode == "Mouse" and mousemoverel then
+                    -- Mouse: Tạm dừng di chuyển chuột nếu mục tiêu ra sau lưng (vis = false) để tránh loạn tọa độ 2D, nhưng vẫn KHÔNG mất Lock
                     local sPos, vis = Cam:WorldToViewportPoint(finalPos)
                     if vis then
                         local center = Cam.ViewportSize / 2
@@ -475,13 +489,19 @@ RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, 
 end)
 
 -- ==========================================
--- LOGIC PLAYER MODS
+-- LOGIC PLAYER MODS (THÊM THỰC THI TP WALK)
 -- ==========================================
 getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
         local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+        
         if PlayerSettings.LoopW then hum.WalkSpeed = PlayerSettings.WalkSpeed end
         if PlayerSettings.LoopJ then hum.UseJumpPower = true; hum.JumpPower = PlayerSettings.JumpPower end
+        
+        -- THỰC THI LOGIC TP WALK TỪ SCRIPT 1
+        if PlayerSettings.TPWalk and hum.MoveDirection.Magnitude > 0 then
+            Player.Character:TranslateBy(hum.MoveDirection * PlayerSettings.TPSpeed)
+        end
     end
     if PlayerSettings.LockFov then Cam.FieldOfView = PlayerSettings.FovCam end
 end)
