@@ -1,5 +1,5 @@
---// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED JITTER, LOCK, TRACER ORIGIN)
---// Bản Hợp Nhất: Nút Tracer chia 2 (Bật/Tắt và Chỉnh Vị Trí Gốc Tia)
+--// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED: SMOOTH INPUT + AIMBOT COLOR PALETTE)
+--// Bản Hợp Nhất: Đã sửa lỗi lưu Smooth và thêm chọn màu FOV/Focus
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -38,7 +38,7 @@ local AimbotSettings = {
 local ESPSettings = {
     BoxESP = false, OutlineESP = true, ShowName = false,
     ShowDistance = true, ESPTeammates = true, TracerESP = true,
-    TracerOrigin = "Top" -- Vị trí mặc định
+    TracerOrigin = "Top"
 }
 
 local PlayerSettings = {
@@ -79,7 +79,8 @@ local function applyUIStroke(instance, color, thickness)
     stroke.Thickness = thickness or 1.5; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.Parent = instance
 end
 
-local function createSettingRow(parent, labelText, xPos, yPos, settingsTable, configKey)
+-- ĐÃ FIX: Thêm tham số minVal và maxVal để khoá giá trị chuẩn, tránh lỗi nhập liệu
+local function createSettingRow(parent, labelText, xPos, yPos, settingsTable, configKey, minVal, maxVal)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(0, 110, 0, 30); Label.Position = UDim2.new(0, xPos, 0, yPos); Label.BackgroundTransparency = 1
     Label.Text = labelText; Label.TextColor3 = Color3.fromRGB(220, 220, 220); Label.Font = Enum.Font.GothamMedium; Label.TextSize = 12; Label.TextXAlignment = Enum.TextXAlignment.Left
@@ -91,7 +92,11 @@ local function createSettingRow(parent, labelText, xPos, yPos, settingsTable, co
 
     Input.FocusLost:Connect(function()
         local val = tonumber(Input.Text)
-        if val then settingsTable[configKey] = val else Input.Text = tostring(settingsTable[configKey]) end
+        if val then 
+            if minVal and maxVal then val = math.clamp(val, minVal, maxVal) end
+            settingsTable[configKey] = val 
+        end
+        Input.Text = tostring(settingsTable[configKey])
     end)
     return Input
 end
@@ -145,11 +150,11 @@ MasterFloatingBtn.Text = "TỔNG: OFF\nC:OFF | B:OFF"; MasterFloatingBtn.TextCol
 applyUICorner(MasterFloatingBtn, 8); applyUIStroke(MasterFloatingBtn, Color3.fromRGB(150, 40, 40), 2)
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 480, 0, 395); MainFrame.Position = UDim2.new(0.5, -240, 0.5, -197); MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MainFrame.Active = true
+MainFrame.Size = UDim2.new(0, 480, 0, 435); MainFrame.Position = UDim2.new(0.5, -240, 0.5, -217); MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MainFrame.Active = true
 applyUICorner(MainFrame, 10); applyUIStroke(MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Ctgv_thw)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 applyUICorner(Title, 10)
 
 local TabFrame = Instance.new("Frame", MainFrame)
@@ -190,9 +195,12 @@ local MenuBodyAimBtn = Instance.new("TextButton", AimbotContainer); MenuBodyAimB
 local TargetPartBtn = Instance.new("TextButton", AimbotContainer); TargetPartBtn.Size = UDim2.new(0, 205, 0, 30); TargetPartBtn.Position = UDim2.new(0, 15, 0, 150); TargetPartBtn.Font = Enum.Font.GothamBold; TargetPartBtn.TextSize = 11; TargetPartBtn.TextColor3 = Color3.fromRGB(255, 255, 255); applyUICorner(TargetPartBtn, 6)
 local function updateTargetPartText() TargetPartBtn.Text = AimbotSettings.FocusPart == "Head" and "🎯 Mục tiêu: Đầu (Head)" or "🎯 Mục tiêu: Thân (Body)"; TargetPartBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80) end
 TargetPartBtn.Activated:Connect(function() AimbotSettings.FocusPart = (AimbotSettings.FocusPart == "Head") and "HumanoidRootPart" or "Head"; updateTargetPartText() end); updateTargetPartText()
+
 createSettingRow(AimbotContainer, "Đoán hướng (Val):", 15, 185, AimbotSettings, "Prediction")
-local SmoothInput = createSettingRow(AimbotContainer, "Độ mượt (Smooth):", 15, 220, AimbotSettings, "Smooth"); SmoothInput.FocusLost:Connect(function() AimbotSettings.Smooth = math.clamp(AimbotSettings.Smooth, 0.01, 1); SmoothInput.Text = tostring(AimbotSettings.Smooth) end)
+-- Đã Fix: Smooth được giới hạn cứng từ 0.01 đến 1 ngay trong createSettingRow
+createSettingRow(AimbotContainer, "Độ mượt (Smooth):", 15, 220, AimbotSettings, "Smooth", 0.01, 1)
 createSettingRow(AimbotContainer, "Phạm vi FOV:", 15, 255, AimbotSettings, "FovRadius")
+
 createToggle(AimbotContainer, "👥 Team Check: ON", "👥 Team Check: OFF", 240, 10, AimbotSettings, "TeamCheck")
 createToggle(AimbotContainer, "🔒 LUÔN LUÔN AIM (LOCK)", "🔒 KHÔNG BUÔNG: OFF", 240, 45, AimbotSettings, "LockTarget")
 createToggle(AimbotContainer, "👁️ FOV: HIỆN", "👁️ FOV: ẨN", 240, 80, AimbotSettings, "ShowFov", function(state) FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and state end)
@@ -204,13 +212,33 @@ FocusDeadBtn.Activated:Connect(function() AimbotSettings.DeadCheck = not AimbotS
 local AimModeBtn = Instance.new("TextButton", AimbotContainer); AimModeBtn.Size = UDim2.new(0, 205, 0, 30); AimModeBtn.Position = UDim2.new(0, 240, 0, 220); AimModeBtn.Font = Enum.Font.GothamBold; AimModeBtn.TextSize = 12; AimModeBtn.BackgroundColor3 = Color3.fromRGB(45, 100, 180); AimModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255); AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode; applyUICorner(AimModeBtn, 6)
 AimModeBtn.Activated:Connect(function() AimbotSettings.AimMode = (AimbotSettings.AimMode == "CFrame") and "Mouse" or "CFrame"; AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode end)
 
+-- TÍNH NĂNG MỚI: Bảng màu FOV/Focus cho Aimbot
+local AimbotColorLabel = Instance.new("TextLabel", AimbotContainer)
+AimbotColorLabel.Size = UDim2.new(0, 110, 0, 30); AimbotColorLabel.Position = UDim2.new(0, 15, 0, 290); AimbotColorLabel.BackgroundTransparency = 1
+AimbotColorLabel.Text = "Màu FOV/Focus:"; AimbotColorLabel.TextColor3 = Color3.fromRGB(220, 220, 220); AimbotColorLabel.Font = Enum.Font.GothamMedium; AimbotColorLabel.TextSize = 12; AimbotColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local AimbotColorScroll = Instance.new("ScrollingFrame", AimbotContainer)
+AimbotColorScroll.Size = UDim2.new(0, 430, 0, 35); AimbotColorScroll.Position = UDim2.new(0, 15, 0, 320); AimbotColorScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35); AimbotColorScroll.ScrollBarThickness = 0; AimbotColorScroll.CanvasSize = UDim2.new(0, (#colorOrder * 35) + 5, 0, 0); AimbotColorScroll.ScrollingDirection = Enum.ScrollingDirection.X
+applyUICorner(AimbotColorScroll, 4)
+local AimbotColorListLayout = Instance.new("UIListLayout", AimbotColorScroll); AimbotColorListLayout.FillDirection = Enum.FillDirection.Horizontal; AimbotColorListLayout.SortOrder = Enum.SortOrder.LayoutOrder; AimbotColorListLayout.Padding = UDim.new(0, 5)
+
+for i, c in ipairs(colorOrder) do
+    local cb = Instance.new("TextButton", AimbotColorScroll)
+    cb.Size = UDim2.new(0, 30, 0, 30); cb.BackgroundColor3 = c.color; cb.Text = ""; cb.LayoutOrder = i
+    applyUICorner(cb, 15)
+    cb.MouseButton1Click:Connect(function()
+        AimbotSettings.FovColor = c.color
+        FOVstroke.Color = c.color
+        FocusCircle.BackgroundColor3 = c.color
+    end)
+end
+
 -- ==========================================
 -- TAB ESP 
 -- ==========================================
 createToggle(ESPContainer, "Box ESP: ON", "Box ESP: OFF", 15, 10, ESPSettings, "BoxESP")
 createToggle(ESPContainer, "Outline (Chéo Tường): ON", "Outline (Chéo Tường): OFF", 15, 45, ESPSettings, "OutlineESP")
 
--- Nút Tracer chia làm 2 phần (3/5 Tắt bật - 2/5 Chỉnh gốc)
 local TracerToggleBtn = createToggle(ESPContainer, "Tracer: ON", "Tracer: OFF", 15, 80, ESPSettings, "TracerESP")
 TracerToggleBtn.Size = UDim2.new(0, 120, 0, 30)
 
@@ -221,7 +249,6 @@ applyUICorner(TracerPosBtn, 6)
 
 local tracerPosList = {"Bottom", "Center", "Top"}
 local currentTracerPosIdx = 3
-
 local function updateTracerPosBtn()
     local pos = tracerPosList[currentTracerPosIdx]
     ESPSettings.TracerOrigin = pos
@@ -229,7 +256,6 @@ local function updateTracerPosBtn()
     elseif pos == "Center" then TracerPosBtn.Text = "Gốc: GIỮA"
     elseif pos == "Top" then TracerPosBtn.Text = "Gốc: TRÊN" end
 end
-
 TracerPosBtn.Activated:Connect(function()
     currentTracerPosIdx = currentTracerPosIdx + 1
     if currentTracerPosIdx > 3 then currentTracerPosIdx = 1 end
@@ -241,10 +267,8 @@ createToggle(ESPContainer, "ESP Name: ON", "ESP Name: OFF", 15, 115, ESPSettings
 createToggle(ESPContainer, "ESP Distance: ON", "ESP Distance: OFF", 15, 150, ESPSettings, "ShowDistance")
 createToggle(ESPContainer, "ESP Teammates: ON", "ESP Teammates: OFF", 15, 185, ESPSettings, "ESPTeammates")
 
--- Nút Sửa Lỗi Outline ESP
 local FixBtn = Instance.new("TextButton", ESPContainer); FixBtn.Size = UDim2.new(0, 205, 0, 30); FixBtn.Position = UDim2.new(0, 15, 0, 220); FixBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); FixBtn.Text = "🔄 Sửa Lỗi Tàng Hình Outline"; FixBtn.Font = Enum.Font.GothamBold; FixBtn.TextSize = 11; FixBtn.TextColor3 = Color3.new(1, 1, 1); applyUICorner(FixBtn, 6)
 
--- Khung Tìm Kiếm Cột Phải
 local TargetPanel = Instance.new("Frame", ESPContainer); TargetPanel.Size = UDim2.new(0, 230, 0, 240); TargetPanel.Position = UDim2.new(0, 235, 0, 10); TargetPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 45); applyUICorner(TargetPanel, 6); applyUIStroke(TargetPanel, Color3.fromRGB(60, 60, 65), 1)
 
 local SelectedLabel = Instance.new("TextLabel", TargetPanel); SelectedLabel.Size = UDim2.new(1, 0, 0, 20); SelectedLabel.Position = UDim2.new(0, 0, 0, 5); SelectedLabel.BackgroundTransparency = 1; SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0); SelectedLabel.Font = Enum.Font.GothamBold; SelectedLabel.TextSize = 11
@@ -477,7 +501,6 @@ RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, 
         if vis and AimbotSettings.ShowFocus then FocusCircle.Position = UDim2.new(0, sPos.X, 0, sPos.Y); FocusCircle.Visible = true else FocusCircle.Visible = false end
     else FocusCircle.Visible = false end
 
-    -- Lấy vị trí gốc cho TracerESP dựa trên Settings
     local origin
     if ESPSettings.TracerOrigin == "Bottom" then
         origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y)
