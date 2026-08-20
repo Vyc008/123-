@@ -1,7 +1,7 @@
 --[[
-    👁️ CAMERA VIEW CONTROLLER V3 (FIXED: SURVIVE MAP CHANGES + FOV CONTROL)
-    🛡️ Chức năng: Khóa chết góc nhìn 1/3 và FOV với độ ưu tiên tuyệt đối (Priority Max)
-    🔥 Chấp mọi loại script vũ khí/súng ép góc nhìn của game
+    👁️ CAMERA VIEW CONTROLLER V4 (FIXED: FREE ZOOM 3RD PERSON + FOV CONTROL)
+    🛡️ Chức năng: Khóa FOV, ép góc nhìn thứ nhất (nếu bật), thả tự do zoom ở góc nhìn thứ 3.
+    🔥 Chấp mọi loại script vũ khí/súng ép góc nhìn của game.
 ]]
 
 local Players = game:GetService("Players")
@@ -32,7 +32,6 @@ end)
 
 -- ================= CẤU HÌNH GÓC NHÌN & FOV =================
 local isFirstPerson = false
-local thirdPersonDistance = 12 
 local cameraFOV = 70 -- Mặc định FOV Roblox
 local isGuiMinimized = false
 
@@ -71,12 +70,12 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui -- Đặt vào CoreGui để chống mất UI
 
--- Khung Menu Chính
+-- Khung Menu Chính (Đã thu gọn chiều cao vì bỏ thanh Zoom)
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
-MainFrame.Size = UDim2.new(0, 170, 0, 170)
+MainFrame.Size = UDim2.new(0, 170, 0, 125)
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.ClipsDescendants = true
@@ -89,7 +88,7 @@ Title.BackgroundTransparency = 1
 Title.Size = UDim2.new(1, -45, 0, 35)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "Camera V3"
+Title.Text = "Camera V4"
 Title.TextColor3 = Theme.Text
 Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -119,33 +118,16 @@ ListLayout.Padding = UDim.new(0, 8)
 ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 -- 1. NÚT CHUYỂN ĐỔI GÓC NHÌN CHÍNH (1st / 3rd)
-local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: 3RD", UDim2.new(1, 0, 0, 32), nil, 13)
+local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: TỰ DO", UDim2.new(1, 0, 0, 32), nil, 13)
 ToggleViewBtn.Font = Enum.Font.GothamBold
 ToggleViewBtn.LayoutOrder = 1
 
--- 2. HÀNG CHỈNH KHOẢNG CÁCH GÓC NHÌN 3 (DISTANCE)
-local DistanceFrame = Instance.new("Frame")
-DistanceFrame.Parent = InnerFrame
-DistanceFrame.BackgroundTransparency = 1
-DistanceFrame.Size = UDim2.new(1, 0, 0, 28)
-DistanceFrame.LayoutOrder = 2
-
-local DistLayout = Instance.new("UIListLayout", DistanceFrame)
-DistLayout.FillDirection = Enum.FillDirection.Horizontal
-DistLayout.Padding = UDim.new(0, 6)
-DistLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-local DistDecBtn = CreateButton(DistanceFrame, "–", UDim2.new(0, 35, 1, 0), nil, 16)
-local DistLabel = CreateButton(DistanceFrame, "Xa: " .. thirdPersonDistance, UDim2.new(0, 68, 1, 0), nil, 11)
-DistLabel.BackgroundColor3 = Theme.Background
-local DistIncBtn = CreateButton(DistanceFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
-
--- 3. HÀNG CHỈNH FOV CAMERA (FIELD OF VIEW)
+-- 2. HÀNG CHỈNH FOV CAMERA (FIELD OF VIEW)
 local FovFrame = Instance.new("Frame")
 FovFrame.Parent = InnerFrame
 FovFrame.BackgroundTransparency = 1
 FovFrame.Size = UDim2.new(1, 0, 0, 28)
-FovFrame.LayoutOrder = 3
+FovFrame.LayoutOrder = 2
 
 local FovLayout = Instance.new("UIListLayout", FovFrame)
 FovLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -160,11 +142,11 @@ local FovIncBtn = CreateButton(FovFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
 -- ================= LOGIC CẬP NHẬT GIAO DIỆN =================
 local function updateUI()
     if isFirstPerson then
-        ToggleViewBtn.Text = "GÓC NHÌN: 1ST"
+        ToggleViewBtn.Text = "GÓC NHÌN: ÉP 1ST"
         ToggleViewBtn.BackgroundColor3 = Theme.Active
         ToggleViewBtn.TextColor3 = Theme.Background
     else
-        ToggleViewBtn.Text = "GÓC NHÌN: 3RD"
+        ToggleViewBtn.Text = "GÓC NHÌN: TỰ DO"
         ToggleViewBtn.BackgroundColor3 = Theme.Panel
         ToggleViewBtn.TextColor3 = Theme.Text
     end
@@ -180,6 +162,7 @@ RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Va
         if cam.CameraType ~= Enum.CameraType.Custom then
             cam.CameraType = Enum.CameraType.Custom
         end
+        -- Khóa chết FOV không cho script súng đổi
         pcall(function()
             cam.FieldOfView = cameraFOV
         end)
@@ -190,39 +173,24 @@ RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Va
     end
 
     if isFirstPerson then
+        -- Khi bật: Ép buộc góc nhìn thứ nhất
         pcall(function()
             player.CameraMode = Enum.CameraMode.LockFirstPerson
             player.CameraMinZoomDistance = 0.5
             player.CameraMaxZoomDistance = 0.5
         end)
     else
+        -- Khi tắt: Trả về trạng thái tự do zoom (0.5 đến 400 là mặc định của Roblox)
         pcall(function()
             player.CameraMode = Enum.CameraMode.Classic
-            player.CameraMinZoomDistance = thirdPersonDistance
-            player.CameraMaxZoomDistance = thirdPersonDistance
+            player.CameraMinZoomDistance = 0.5
+            player.CameraMaxZoomDistance = 400
         end)
     end
 end)
 
--- ================= HỆ THỐNG XỬ LÝ NHẤN GIỮ NÚT LIÊN TỤC (+1 / -1) =================
+-- ================= HỆ THỐNG XỬ LÝ NHẤN GIỮ NÚT LIÊN TỤC =================
 local initialDelay = 0.35
-
--- Xử lý Distance
-local function changeDistance(delta)
-    thirdPersonDistance = math.clamp(thirdPersonDistance + delta, 6, 250)
-    DistLabel.Text = "Xa: " .. math.floor(thirdPersonDistance + 0.5)
-end
-
-local holdingDistAction = 0 
-local distHoldTimer = 0
-
-DistIncBtn.MouseButton1Down:Connect(function() holdingDistAction = 1; distHoldTimer = 0; changeDistance(1) end)
-DistIncBtn.MouseButton1Up:Connect(function() if holdingDistAction == 1 then holdingDistAction = 0 end end)
-DistIncBtn.MouseLeave:Connect(function() if holdingDistAction == 1 then holdingDistAction = 0 end end)
-
-DistDecBtn.MouseButton1Down:Connect(function() holdingDistAction = -1; distHoldTimer = 0; changeDistance(-1) end)
-DistDecBtn.MouseButton1Up:Connect(function() if holdingDistAction == -1 then holdingDistAction = 0 end end)
-DistDecBtn.MouseLeave:Connect(function() if holdingDistAction == -1 then holdingDistAction = 0 end end)
 
 -- Xử lý FOV
 local function changeFOV(delta)
@@ -243,13 +211,6 @@ FovDecBtn.MouseLeave:Connect(function() if holdingFovAction == -1 then holdingFo
 
 -- Vòng lặp tăng giảm liên tục mượt mà khi giữ nút lâu
 RunService.RenderStepped:Connect(function(dt)
-    if holdingDistAction ~= 0 then
-        distHoldTimer = distHoldTimer + dt
-        if distHoldTimer >= initialDelay then
-            changeDistance(holdingDistAction * 25 * dt)
-        end
-    end
-
     if holdingFovAction ~= 0 then
         fovHoldTimer = fovHoldTimer + dt
         if fovHoldTimer >= initialDelay then
@@ -280,7 +241,7 @@ MinimizeButton.MouseButton1Click:Connect(function()
     else
         MinimizeButton.Text = "–"
         InnerFrame.Visible = true
-        MainFrame:TweenSize(UDim2.new(0, 170, 0, 170), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
+        MainFrame:TweenSize(UDim2.new(0, 170, 0, 125), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.25, true)
     end
 end)
 
