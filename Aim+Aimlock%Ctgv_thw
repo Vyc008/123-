@@ -1,5 +1,5 @@
---// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED JITTER & LOCK)
---// Bản Hợp Nhất: Tích hợp Nút Sửa Outline ESP, Giao diện Chọn/Reset Mục tiêu & TP Walk
+--// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED JITTER, LOCK, TRACER ORIGIN)
+--// Bản Hợp Nhất: Nút Tracer chia 2 (Bật/Tắt và Chỉnh Vị Trí Gốc Tia)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -37,7 +37,8 @@ local AimbotSettings = {
 
 local ESPSettings = {
     BoxESP = false, OutlineESP = true, ShowName = false,
-    ShowDistance = true, ESPTeammates = true, TracerESP = true
+    ShowDistance = true, ESPTeammates = true, TracerESP = true,
+    TracerOrigin = "Top" -- Vị trí mặc định
 }
 
 local PlayerSettings = {
@@ -45,7 +46,7 @@ local PlayerSettings = {
     JumpPower = 50, LoopJ = false,
     Noclip = false, InfJ = false,
     FovCam = 70, LockFov = false,
-    TPWalk = false, TPSpeed = 3 -- Đã thêm cấu hình TP Walk
+    TPWalk = false, TPSpeed = 0.1
 }
 
 local MasterSwitch = false
@@ -148,7 +149,7 @@ MainFrame.Size = UDim2.new(0, 480, 0, 395); MainFrame.Position = UDim2.new(0.5, 
 applyUICorner(MainFrame, 10); applyUIStroke(MainFrame)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Ctgv_thw)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 applyUICorner(Title, 10)
 
 local TabFrame = Instance.new("Frame", MainFrame)
@@ -208,12 +209,39 @@ AimModeBtn.Activated:Connect(function() AimbotSettings.AimMode = (AimbotSettings
 -- ==========================================
 createToggle(ESPContainer, "Box ESP: ON", "Box ESP: OFF", 15, 10, ESPSettings, "BoxESP")
 createToggle(ESPContainer, "Outline (Chéo Tường): ON", "Outline (Chéo Tường): OFF", 15, 45, ESPSettings, "OutlineESP")
-createToggle(ESPContainer, "Tracer (Line 2D): ON", "Tracer (Line 2D): OFF", 15, 80, ESPSettings, "TracerESP")
+
+-- Nút Tracer chia làm 2 phần (3/5 Tắt bật - 2/5 Chỉnh gốc)
+local TracerToggleBtn = createToggle(ESPContainer, "Tracer: ON", "Tracer: OFF", 15, 80, ESPSettings, "TracerESP")
+TracerToggleBtn.Size = UDim2.new(0, 120, 0, 30)
+
+local TracerPosBtn = Instance.new("TextButton", ESPContainer)
+TracerPosBtn.Size = UDim2.new(0, 80, 0, 30); TracerPosBtn.Position = UDim2.new(0, 140, 0, 80)
+TracerPosBtn.Font = Enum.Font.GothamBold; TracerPosBtn.TextSize = 10; TracerPosBtn.BackgroundColor3 = Color3.fromRGB(45, 100, 180); TracerPosBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+applyUICorner(TracerPosBtn, 6)
+
+local tracerPosList = {"Bottom", "Center", "Top"}
+local currentTracerPosIdx = 3
+
+local function updateTracerPosBtn()
+    local pos = tracerPosList[currentTracerPosIdx]
+    ESPSettings.TracerOrigin = pos
+    if pos == "Bottom" then TracerPosBtn.Text = "Gốc: DƯỚI"
+    elseif pos == "Center" then TracerPosBtn.Text = "Gốc: GIỮA"
+    elseif pos == "Top" then TracerPosBtn.Text = "Gốc: TRÊN" end
+end
+
+TracerPosBtn.Activated:Connect(function()
+    currentTracerPosIdx = currentTracerPosIdx + 1
+    if currentTracerPosIdx > 3 then currentTracerPosIdx = 1 end
+    updateTracerPosBtn()
+end)
+updateTracerPosBtn()
+
 createToggle(ESPContainer, "ESP Name: ON", "ESP Name: OFF", 15, 115, ESPSettings, "ShowName")
 createToggle(ESPContainer, "ESP Distance: ON", "ESP Distance: OFF", 15, 150, ESPSettings, "ShowDistance")
 createToggle(ESPContainer, "ESP Teammates: ON", "ESP Teammates: OFF", 15, 185, ESPSettings, "ESPTeammates")
 
--- Nút Sửa Lỗi Outline ESP (Cột Trái)
+-- Nút Sửa Lỗi Outline ESP
 local FixBtn = Instance.new("TextButton", ESPContainer); FixBtn.Size = UDim2.new(0, 205, 0, 30); FixBtn.Position = UDim2.new(0, 15, 0, 220); FixBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); FixBtn.Text = "🔄 Sửa Lỗi Tàng Hình Outline"; FixBtn.Font = Enum.Font.GothamBold; FixBtn.TextSize = 11; FixBtn.TextColor3 = Color3.new(1, 1, 1); applyUICorner(FixBtn, 6)
 
 -- Khung Tìm Kiếm Cột Phải
@@ -221,9 +249,8 @@ local TargetPanel = Instance.new("Frame", ESPContainer); TargetPanel.Size = UDim
 
 local SelectedLabel = Instance.new("TextLabel", TargetPanel); SelectedLabel.Size = UDim2.new(1, 0, 0, 20); SelectedLabel.Position = UDim2.new(0, 0, 0, 5); SelectedLabel.BackgroundTransparency = 1; SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0); SelectedLabel.Font = Enum.Font.GothamBold; SelectedLabel.TextSize = 11
 
-local SearchBar = Instance.new("TextBox", TargetPanel); SearchBar.Size = UDim2.new(1, -20, 0, 24); SearchBar.Position = UDim2.new(0, 10, 0, 25); SearchBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35); SearchBar.TextColor3 = Color3.fromRGB(255, 255, 255); SearchBar.PlaceholderText = "Tìm người chơi..."; SearchBar.Font = Enum.Font.Gotham; SearchBar.TextSize = 11; SearchBar.Text = ""; applyUICorner(SearchBar, 4)
+local SearchBar = Instance.new("TextBox", TargetPanel); SearchBar.Size = UDim2.new(1, -20, 0, 24); SearchBar.Position = UDim2.new(0, 10, 0, 25); SearchBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35); SearchBar.TextColor3 = Color3.fromRGB(255, 255, 255); SearchBar.PlaceholderText = "Nhập tên đăng nhập..."; SearchBar.Font = Enum.Font.Gotham; SearchBar.TextSize = 11; SearchBar.Text = ""; applyUICorner(SearchBar, 4)
 
--- Hai nút (Chọn Tất Cả & Reset Màu) nằm song song
 local btnAll = Instance.new("TextButton", TargetPanel); btnAll.Size = UDim2.new(0.5, -15, 0, 22); btnAll.Position = UDim2.new(0, 10, 0, 55); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9; btnAll.BackgroundColor3 = Color3.fromRGB(60, 120, 180); btnAll.TextColor3 = Color3.fromRGB(255, 255, 255); btnAll.Text = "[ CHỌN TẤT CẢ ]"; applyUICorner(btnAll, 4)
 local resetColorBtn = Instance.new("TextButton", TargetPanel); resetColorBtn.Size = UDim2.new(0.5, -15, 0, 22); resetColorBtn.Position = UDim2.new(0.5, 5, 0, 55); resetColorBtn.Font = Enum.Font.GothamBold; resetColorBtn.TextSize = 9; resetColorBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60); resetColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255); resetColorBtn.Text = "[ RESET MÀU ]"; applyUICorner(resetColorBtn, 4)
 
@@ -251,7 +278,15 @@ local function RefreshPlayerList()
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= Player and (filter == "" or string.find(string.lower(p.Name), filter) or string.find(string.lower(p.DisplayName), filter)) then
             count = count + 1
-            local b = Instance.new("TextButton", PlayerScroll); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundColor3 = Color3.fromRGB(45, 45, 50); b.Text = p.DisplayName; b.TextColor3 = CustomPlayerColors[p.Name] or Color3.fromRGB(220, 220, 220); b.Font = Enum.Font.Gotham; b.TextSize = 11; applyUICorner(b, 3)
+            local b = Instance.new("TextButton", PlayerScroll); 
+            b.Size = UDim2.new(1, 0, 0, 20); 
+            b.BackgroundColor3 = Color3.fromRGB(45, 45, 50); 
+            b.Text = p.DisplayName .. " (@" .. p.Name .. ")"; 
+            b.TextColor3 = CustomPlayerColors[p.Name] or Color3.fromRGB(220, 220, 220); 
+            b.Font = Enum.Font.Gotham; 
+            b.TextSize = 11; 
+            applyUICorner(b, 3)
+            
             b.MouseButton1Click:Connect(function() updateSelection(p.Name) end)
         end
     end
@@ -267,7 +302,7 @@ resetColorBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- TAB PLAYER (TÍCH HỢP TP WALK TẠI ĐÂY)
+-- TAB PLAYER
 -- ==========================================
 createSettingRow(PlayerContainer, "Tốc chạy (WS):", 15, 10, PlayerSettings, "WalkSpeed")
 createToggle(PlayerContainer, "🏃 Loop Tốc Chạy: ON", "🏃 Loop Tốc Chạy: OFF", 15, 45, PlayerSettings, "LoopW")
@@ -278,7 +313,6 @@ createToggle(PlayerContainer, "👻 Xuyên tường (Noclip): ON", "👻 Xuyên 
 createToggle(PlayerContainer, "☁️ Nhảy vô hạn (Inf Jump): ON", "☁️ Nhảy vô hạn (Inf Jump): OFF", 240, 10, PlayerSettings, "InfJ")
 createSettingRow(PlayerContainer, "FOV Camera:", 240, 45, PlayerSettings, "FovCam")
 createToggle(PlayerContainer, "👁️ Khóa FOV Cam: ON", "👁️ Khóa FOV Cam: OFF", 240, 80, PlayerSettings, "LockFov")
--- THÊM GIAO DIỆN TP WALK TỪ SCRIPT 1 VÀO SCRIPT 2 (Cột Phải)
 createSettingRow(PlayerContainer, "Tốc độ TP Walk:", 240, 115, PlayerSettings, "TPSpeed")
 createToggle(PlayerContainer, "🚀 TP Walk: ON", "🚀 TP Walk: OFF", 240, 150, PlayerSettings, "TPWalk")
 
@@ -297,7 +331,7 @@ makeDraggable(Title, MainFrame); makeDraggable(ToggleUIBtn, ToggleUIBtn); makeDr
 ToggleUIBtn.Activated:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 -- ==========================================
--- LOGIC KẾT HỢP AIMBOT & ESP (ƯU TIÊN TUYỆT ĐỐI)
+-- LOGIC KẾT HỢP AIMBOT & ESP
 -- ==========================================
 local function updateUIStates()
     isAiming = MasterSwitch and PrefCamAim; AimbotSettings.BodyAim = MasterSwitch and PrefBodyAim
@@ -326,7 +360,6 @@ local function isAimbotTargetValid(p, isHolding)
     if not tPart or not hum or (AimbotSettings.DeadCheck and hum.Health <= 0) then return false end
     if AimbotSettings.TeamCheck and p.Team == Player.Team then return false end
     
-    -- NẾU KHÔNG ĐANG GIỮ LOCK (isHolding = false) VÀ BẬT WALLCHECK -> Mới check tường
     if AimbotSettings.WallCheck and not isHolding then
         local params = RaycastParams.new(); params.FilterType = Enum.RaycastFilterType.Exclude; local ignoreList = {}
         for _, pl in ipairs(Players:GetPlayers()) do if pl.Character then table.insert(ignoreList, pl.Character) end end
@@ -351,7 +384,6 @@ local function getBestAimbotTarget()
     return best
 end
 
--- TẠO CÁC OBJECT ESP & FIX LỖI TÀNG HÌNH (HIGHLIGHT LIMIT)
 local ESP = {}
 local activeHighlights = 0
 
@@ -396,12 +428,10 @@ end
 UserInputService.WindowFocused:Connect(RebuildHighlights)
 FixBtn.Activated:Connect(RebuildHighlights)
 
--- [ƯU TIÊN 201]: CẬP NHẬT AIMBOT (Di chuyển Camera trước)
 RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if isAiming or AimbotSettings.BodyAim then
         local hold = false
         
-        -- Truyền AimbotSettings.LockTarget vào làm biến isHolding để bỏ qua check tường
         if lockedTarget and isAimbotTargetValid(lockedTarget, AimbotSettings.LockTarget) then
             if AimbotSettings.LockTarget then
                 hold = true
@@ -420,11 +450,9 @@ RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 
                 local finalPos = tPart.Position + (vel * (AimbotSettings.EnablePrediction and AimbotSettings.Prediction or 0))
                 
                 if AimbotSettings.AimMode == "CFrame" then
-                    -- CFrame: Khóa chết camera bất chấp mục tiêu ở đâu
                     local dir = (finalPos - Cam.CFrame.Position).Unit
                     Cam.CFrame = AimbotSettings.Smooth == 1 and CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + dir) or CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + Cam.CFrame.LookVector:Lerp(dir, AimbotSettings.Smooth))
                 elseif AimbotSettings.AimMode == "Mouse" and mousemoverel then
-                    -- Mouse: Tạm dừng di chuyển chuột nếu mục tiêu ra sau lưng (vis = false) để tránh loạn tọa độ 2D, nhưng vẫn KHÔNG mất Lock
                     local sPos, vis = Cam:WorldToViewportPoint(finalPos)
                     if vis then
                         local center = Cam.ViewportSize / 2
@@ -440,19 +468,25 @@ RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 
     else lockedTarget = nil end
 end)
 
--- [ƯU TIÊN 202]: CẬP NHẬT UI, TRACER, FOCUS (Chạy sau Aimbot -> Tuyệt đối không giật/lệch)
 RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, function()
     FOVring.Position = UDim2.new(0, Cam.ViewportSize.X / 2, 0, Cam.ViewportSize.Y / 2); FOVring.Size = UDim2.new(0, AimbotSettings.FovRadius * 2, 0, AimbotSettings.FovRadius * 2)
 
-    -- Vẽ Focus
     if lockedTarget and lockedTarget.Character and (isAiming or AimbotSettings.BodyAim) then
         local tPart = getAimbotTargetPart(lockedTarget.Character)
         local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
         if vis and AimbotSettings.ShowFocus then FocusCircle.Position = UDim2.new(0, sPos.X, 0, sPos.Y); FocusCircle.Visible = true else FocusCircle.Visible = false end
     else FocusCircle.Visible = false end
 
-    -- Vẽ ESP & Tracer
-    local origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y)
+    -- Lấy vị trí gốc cho TracerESP dựa trên Settings
+    local origin
+    if ESPSettings.TracerOrigin == "Bottom" then
+        origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y)
+    elseif ESPSettings.TracerOrigin == "Center" then
+        origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
+    elseif ESPSettings.TracerOrigin == "Top" then
+        origin = Vector2.new(Cam.ViewportSize.X / 2, 0)
+    end
+
     for p, e in pairs(ESP) do
         local c = p.Character; local hrp = c and c:FindFirstChild("HumanoidRootPart"); local head = c and c:FindFirstChild("Head"); local hum = c and c:FindFirstChildOfClass("Humanoid")
         local isVisible = hrp and head and hum and hum.Health > 0 and (ESPSettings.ESPTeammates or p.Team ~= Player.Team)
@@ -489,7 +523,7 @@ RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, 
 end)
 
 -- ==========================================
--- LOGIC PLAYER MODS (THÊM THỰC THI TP WALK)
+-- LOGIC PLAYER MODS 
 -- ==========================================
 getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
@@ -498,7 +532,6 @@ getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
         if PlayerSettings.LoopW then hum.WalkSpeed = PlayerSettings.WalkSpeed end
         if PlayerSettings.LoopJ then hum.UseJumpPower = true; hum.JumpPower = PlayerSettings.JumpPower end
         
-        -- THỰC THI LOGIC TP WALK TỪ SCRIPT 1
         if PlayerSettings.TPWalk and hum.MoveDirection.Magnitude > 0 then
             Player.Character:TranslateBy(hum.MoveDirection * PlayerSettings.TPSpeed)
         end
