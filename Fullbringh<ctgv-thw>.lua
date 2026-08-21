@@ -1,5 +1,5 @@
 -- ==========================================
--- MENU FULLBRIGHT & NO FOG (FIX LỖI ATMOSPHERE & THÊM NÚT ẨN/HIỆN MENU)
+-- MENU SOFT FULLBRIGHT & NO FOG (DỊU MẮT, GIỮ MÀU GỐC)
 -- ==========================================
 
 if getgenv().FullBrightCleanup then
@@ -14,9 +14,9 @@ local LocalPlayer = Players.LocalPlayer
 
 local connections = {}
 
--- Khởi tạo biến
+-- Khởi tạo biến (Set độ sáng mặc định thấp xuống)
 if getgenv().FullBrightEnabled == nil then getgenv().FullBrightEnabled = true end
-if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 3 end
+if getgenv().CurrentBrightness == nil then getgenv().CurrentBrightness = 0 end -- 1.5 là đủ nhìn
 
 local DefaultLighting = {
     Brightness = Lighting.Brightness,
@@ -26,8 +26,7 @@ local DefaultLighting = {
     GlobalShadows = Lighting.GlobalShadows,
     Ambient = Lighting.Ambient,
     OutdoorAmbient = Lighting.OutdoorAmbient,
-    ColorShift_Top = Lighting.ColorShift_Top,
-    ColorShift_Bottom = Lighting.ColorShift_Bottom
+    ExposureCompensation = Lighting.ExposureCompensation
 }
 
 local OriginalAtmospheres = {}
@@ -43,15 +42,9 @@ local function CacheAtmosphereData()
                 table.insert(CachedEffects, v)
                 
                 if v:IsA("Atmosphere") then
-                    OriginalAtmospheres[v] = {
-                        Density = v.Density, 
-                        Haze = v.Haze, 
-                        Glare = v.Glare
-                    }
+                    OriginalAtmospheres[v] = {Density = v.Density, Haze = v.Haze, Glare = v.Glare}
                 else
-                    OriginalAtmospheres[v] = {
-                        Enabled = v.Enabled
-                    }
+                    OriginalAtmospheres[v] = {Enabled = v.Enabled}
                 end
             end
         end
@@ -68,8 +61,7 @@ local function RestoreLighting()
     Lighting.GlobalShadows = DefaultLighting.GlobalShadows
     Lighting.Ambient = DefaultLighting.Ambient
     Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient
-    Lighting.ColorShift_Top = DefaultLighting.ColorShift_Top
-    Lighting.ColorShift_Bottom = DefaultLighting.ColorShift_Bottom
+    Lighting.ExposureCompensation = DefaultLighting.ExposureCompensation
 end
 
 local function RestoreFog()
@@ -80,9 +72,7 @@ local function RestoreFog()
         if v and v.Parent then
             pcall(function()
                 if v:IsA("Atmosphere") then
-                    v.Density = data.Density
-                    v.Haze = data.Haze
-                    v.Glare = data.Glare
+                    v.Density = data.Density; v.Haze = data.Haze; v.Glare = data.Glare
                 elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
                     v.Enabled = data.Enabled
                 end
@@ -91,10 +81,8 @@ local function RestoreFog()
     end
 end
 
--- Hàm thực thi xoá sương mù 1 lần khi bấm nút
 local function ClearFogOnce()
-    CacheAtmosphereData() -- Cập nhật danh sách hiệu ứng mới nhất trước khi xoá
-    
+    CacheAtmosphereData()
     Lighting.FogStart = 9e9
     Lighting.FogEnd = 9e9
     
@@ -102,9 +90,7 @@ local function ClearFogOnce()
         if v and v.Parent then
             pcall(function()
                 if v:IsA("Atmosphere") then
-                    v.Density = 0
-                    v.Haze = 0
-                    v.Glare = 0
+                    v.Density = 0; v.Haze = 0; v.Glare = 0
                 elseif v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
                     v.Enabled = false
                 end
@@ -113,16 +99,19 @@ local function ClearFogOnce()
     end
 end
 
--- Vòng lặp chỉ còn giữ trạng thái ánh sáng (FullBright)
+-- ================= CỐT LÕI MỚI: SOFT BRIGHT =================
 local renderConn = RunService.RenderStepped:Connect(function()
     if getgenv().FullBrightEnabled then
-        Lighting.Brightness = getgenv().CurrentBrightness
+        Lighting.ClockTime = 12
         Lighting.GlobalShadows = false 
-        Lighting.ClockTime = 14
-        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
-        Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
-        Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+        
+        -- Dùng ExposureCompensation để nâng sáng tự nhiên thay vì tẩy trắng môi trường
+        Lighting.Brightness = getgenv().CurrentBrightness
+        Lighting.ExposureCompensation = 0.8 
+        
+        -- Dùng xám nhạt thay vì trắng (255,255,255) để dịu mắt
+        Lighting.Ambient = Color3.fromRGB(150, 150, 150)
+        Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
     end
 end)
 table.insert(connections, renderConn)
@@ -130,25 +119,20 @@ table.insert(connections, renderConn)
 -- ================= TẠO GIAO DIỆN UI =================
 local function GetSafeParent()
     if gethui then
-        local success1, result1 = pcall(gethui)
-        if success1 and result1 then return result1 end
+        local success, result = pcall(gethui)
+        if success and result then return result end
     end
-    
-    local success2, result2 = pcall(function()
-        return game:GetService("CoreGui")
-    end)
+    local success2, result2 = pcall(function() return game:GetService("CoreGui") end)
     if success2 and result2 then return result2 end
-    
     return LocalPlayer:WaitForChild("PlayerGui")
 end
 
 local UI = Instance.new("ScreenGui")
-UI.Name = "Fullbright Menu <Ctgv-thw>"
+UI.Name = "SoftBrightMenu"
 UI.IgnoreGuiInset = true 
 UI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 UI.Parent = GetSafeParent()
 
--- 1. NÚT ẨN / HIỆN MENU (MỞ Ở NGOÀI MÀN HÌNH, CÓ THỂ KÉO THẢ)
 local ToggleMenuBtn = Instance.new("TextButton")
 ToggleMenuBtn.Size = UDim2.new(0, 85, 0, 30)
 ToggleMenuBtn.Position = UDim2.new(0.5, -42, 0, 65)
@@ -162,11 +146,8 @@ ToggleMenuBtn.Draggable = true
 ToggleMenuBtn.Parent = UI
 
 Instance.new("UICorner", ToggleMenuBtn).CornerRadius = UDim.new(0, 6)
-local StrokeMenu = Instance.new("UIStroke", ToggleMenuBtn)
-StrokeMenu.Color = Color3.fromRGB(80, 80, 80)
-StrokeMenu.Thickness = 1
+Instance.new("UIStroke", ToggleMenuBtn).Color = Color3.fromRGB(80, 80, 80)
 
--- 2. KHUNG MENU CHÍNH
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 395, 0, 40)
 MainFrame.Position = UDim2.new(0.5, -197, 0, 20) 
@@ -177,13 +158,8 @@ MainFrame.Active = true
 MainFrame.Draggable = true 
 MainFrame.Parent = UI
 
-local UICornerMain = Instance.new("UICorner")
-UICornerMain.CornerRadius = UDim.new(0, 8)
-UICornerMain.Parent = MainFrame
-
-local UIStrokeMain = Instance.new("UIStroke")
-UIStrokeMain.Color = Color3.fromRGB(80, 80, 80)
-UIStrokeMain.Parent = MainFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(80, 80, 80)
 
 local Layout = Instance.new("UIListLayout")
 Layout.FillDirection = Enum.FillDirection.Horizontal
@@ -193,16 +169,15 @@ Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0, 6)
 Layout.Parent = MainFrame
 
--- [VỊ TRÍ 1]: Nút FullBright
 local ToggleBrightBtn = Instance.new("TextButton")
 ToggleBrightBtn.LayoutOrder = 1
 ToggleBrightBtn.Size = UDim2.new(0, 110, 0, 28)
 ToggleBrightBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 if getgenv().FullBrightEnabled then
-    ToggleBrightBtn.Text = "FullBright [BẬT]"
+    ToggleBrightBtn.Text = "SoftBright [BẬT]"
     ToggleBrightBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
 else
-    ToggleBrightBtn.Text = "FullBright [TẮT]"
+    ToggleBrightBtn.Text = "SoftBright [TẮT]"
     ToggleBrightBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
 end
 ToggleBrightBtn.Font = Enum.Font.GothamBold
@@ -210,7 +185,6 @@ ToggleBrightBtn.TextSize = 11
 ToggleBrightBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBrightBtn).CornerRadius = UDim.new(0, 6)
 
--- [VỊ TRÍ 2]: Nút Trừ (-)
 local MinusBtn = Instance.new("TextButton")
 MinusBtn.LayoutOrder = 2
 MinusBtn.Size = UDim2.new(0, 28, 0, 28)
@@ -222,7 +196,6 @@ MinusBtn.TextSize = 15
 MinusBtn.Parent = MainFrame
 Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
 
--- [VỊ TRÍ 3]: Ô Nhập Số (2.5)
 local BrightnessBox = Instance.new("TextBox")
 BrightnessBox.LayoutOrder = 3
 BrightnessBox.Size = UDim2.new(0, 48, 0, 28)
@@ -236,7 +209,6 @@ BrightnessBox.Parent = MainFrame
 Instance.new("UICorner", BrightnessBox).CornerRadius = UDim.new(0, 6)
 Instance.new("UIStroke", BrightnessBox).Color = Color3.fromRGB(100, 100, 100)
 
--- [VỊ TRÍ 4]: Nút Cộng (+)
 local PlusBtn = Instance.new("TextButton")
 PlusBtn.LayoutOrder = 4
 PlusBtn.Size = UDim2.new(0, 28, 0, 28)
@@ -248,7 +220,6 @@ PlusBtn.TextSize = 15
 PlusBtn.Parent = MainFrame
 Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
 
--- [VỊ TRÍ 5]: Nút No Fog (Nút Bấm 1 Lần)
 local ClearFogBtn = Instance.new("TextButton")
 ClearFogBtn.LayoutOrder = 5
 ClearFogBtn.Size = UDim2.new(0, 100, 0, 28)
@@ -260,43 +231,28 @@ ClearFogBtn.TextSize = 11
 ClearFogBtn.Parent = MainFrame
 Instance.new("UICorner", ClearFogBtn).CornerRadius = UDim.new(0, 6)
 
--- ================= CÁC CHỨC NĂNG SỰ KIỆN =================
+-- ================= SỰ KIỆN =================
 local function SetBrightnessValue(val)
-    local newVal = math.clamp(val, 0, 50) 
+    local newVal = math.clamp(val, 0, 5) -- Giới hạn tối đa là 5 để tránh chói
     getgenv().CurrentBrightness = newVal
     BrightnessBox.Text = string.format("%.1f", newVal)
 end
 
--- Sự kiện Bật/Tắt Menu Chính
 ToggleMenuBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
-    if MainFrame.Visible then
-        ToggleMenuBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
-    else
-        ToggleMenuBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    end
+    ToggleMenuBtn.TextColor3 = MainFrame.Visible and Color3.fromRGB(255, 220, 100) or Color3.fromRGB(150, 150, 150)
 end)
 
 ToggleBrightBtn.MouseButton1Click:Connect(function()
     getgenv().FullBrightEnabled = not getgenv().FullBrightEnabled
-    if not getgenv().FullBrightEnabled then
-        RestoreLighting()
-    end
+    if not getgenv().FullBrightEnabled then RestoreLighting() end
     
-    if getgenv().FullBrightEnabled then
-        ToggleBrightBtn.Text = "FullBright [BẬT]"
-        ToggleBrightBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
-    else
-        ToggleBrightBtn.Text = "FullBright [TẮT]"
-        ToggleBrightBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-    end
+    ToggleBrightBtn.Text = getgenv().FullBrightEnabled and "SoftBright [BẬT]" or "SoftBright [TẮT]"
+    ToggleBrightBtn.TextColor3 = getgenv().FullBrightEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(220, 220, 220)
 end)
 
--- Sự kiện Click 1 lần loại bỏ Fog
 ClearFogBtn.MouseButton1Click:Connect(function()
     ClearFogOnce()
-    
-    -- Phản hồi trực quan khi bấm nút
     ClearFogBtn.Text = "Đã Xoá Fog!"
     ClearFogBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
     task.delay(1.5, function()
@@ -307,35 +263,20 @@ ClearFogBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
-MinusBtn.MouseButton1Click:Connect(function()
-    SetBrightnessValue(getgenv().CurrentBrightness - 0.5)
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-    SetBrightnessValue(getgenv().CurrentBrightness + 0.5)
-end)
+MinusBtn.MouseButton1Click:Connect(function() SetBrightnessValue(getgenv().CurrentBrightness - 0.5) end)
+PlusBtn.MouseButton1Click:Connect(function() SetBrightnessValue(getgenv().CurrentBrightness + 0.5) end)
 
 BrightnessBox.FocusLost:Connect(function()
     local num = tonumber(BrightnessBox.Text)
-    if num then
-        SetBrightnessValue(num)
-    else
-        BrightnessBox.Text = string.format("%.1f", getgenv().CurrentBrightness)
-    end
+    if num then SetBrightnessValue(num) else BrightnessBox.Text = string.format("%.1f", getgenv().CurrentBrightness) end
 end)
 
 getgenv().FullBrightCleanup = function()
-    for _, conn in ipairs(connections) do
-        if conn and conn.Connected then
-            conn:Disconnect()
-        end
-    end
+    for _, conn in ipairs(connections) do if conn.Connected then conn:Disconnect() end end
     connections = {}
-    if UI then
-        UI:Destroy()
-    end
+    if UI then UI:Destroy() end
     RestoreLighting()
     RestoreFog()
 end
 
-print("✅ Menu Fullbright Loaded Successfully!")
+print("✅ Menu SoftBright Loaded!")
