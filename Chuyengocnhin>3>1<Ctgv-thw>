@@ -1,7 +1,7 @@
 --[[
-    👁️ CAMERA VIEW CONTROLLER V4 (FIXED: FREE ZOOM 3RD PERSON + FOV CONTROL)
+    👁️ CAMERA VIEW CONTROLLER V4.1 (FIXED: ANTI-JITTER & ANIMATION COMPATIBILITY)
     🛡️ Chức năng: Khóa FOV, ép góc nhìn thứ nhất (nếu bật), thả tự do zoom ở góc nhìn thứ 3.
-    🔥 Chấp mọi loại script vũ khí/súng ép góc nhìn của game.
+    🔥 Fix lỗi giật camera khi nằm hoặc khi game can thiệp vào camera offset.
 ]]
 
 local Players = game:GetService("Players")
@@ -68,9 +68,8 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CameraViewGui_Minimal"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = CoreGui -- Đặt vào CoreGui để chống mất UI
+ScreenGui.Parent = CoreGui 
 
--- Khung Menu Chính (Đã thu gọn chiều cao vì bỏ thanh Zoom)
 local MainFrame = Instance.new("Frame")
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Theme.Background
@@ -81,19 +80,17 @@ MainFrame.Draggable = true
 MainFrame.ClipsDescendants = true
 ApplyMinimalStyle(MainFrame)
 
--- Tiêu đề
 local Title = Instance.new("TextLabel")
 Title.Parent = MainFrame
 Title.BackgroundTransparency = 1
 Title.Size = UDim2.new(1, -45, 0, 35)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "Camera V4"
+Title.Text = "Camera V4.1"
 Title.TextColor3 = Theme.Text
 Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Nút thu nhỏ (+) / (-)
 local MinimizeButton = Instance.new("TextButton")
 MinimizeButton.Parent = MainFrame
 MinimizeButton.BackgroundTransparency = 1
@@ -105,7 +102,6 @@ MinimizeButton.TextColor3 = Theme.Text
 MinimizeButton.TextSize = 22
 MinimizeButton.ZIndex = 2
 
--- Khung chứa các nút điều khiển
 local InnerFrame = Instance.new("Frame")
 InnerFrame.Parent = MainFrame
 InnerFrame.BackgroundTransparency = 1
@@ -117,12 +113,10 @@ ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Padding = UDim.new(0, 8)
 ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- 1. NÚT CHUYỂN ĐỔI GÓC NHÌN CHÍNH (1st / 3rd)
 local ToggleViewBtn = CreateButton(InnerFrame, "GÓC NHÌN: TỰ DO", UDim2.new(1, 0, 0, 32), nil, 13)
 ToggleViewBtn.Font = Enum.Font.GothamBold
 ToggleViewBtn.LayoutOrder = 1
 
--- 2. HÀNG CHỈNH FOV CAMERA (FIELD OF VIEW)
 local FovFrame = Instance.new("Frame")
 FovFrame.Parent = InnerFrame
 FovFrame.BackgroundTransparency = 1
@@ -139,60 +133,49 @@ local FovLabel = CreateButton(FovFrame, "FOV: " .. cameraFOV, UDim2.new(0, 68, 1
 FovLabel.BackgroundColor3 = Theme.Background
 local FovIncBtn = CreateButton(FovFrame, "+", UDim2.new(0, 35, 1, 0), nil, 16)
 
--- ================= LOGIC CẬP NHẬT GIAO DIỆN =================
-local function updateUI()
+-- ================= LOGIC CẬP NHẬT CAMERA (CHỈ CHẠY 1 LẦN KHI BẤM) =================
+local function ApplyCameraMode()
     if isFirstPerson then
         ToggleViewBtn.Text = "GÓC NHÌN: ÉP 1ST"
         ToggleViewBtn.BackgroundColor3 = Theme.Active
         ToggleViewBtn.TextColor3 = Theme.Background
-    else
-        ToggleViewBtn.Text = "GÓC NHÌN: TỰ DO"
-        ToggleViewBtn.BackgroundColor3 = Theme.Panel
-        ToggleViewBtn.TextColor3 = Theme.Text
-    end
-end
-
--- ================= [QUAN TRỌNG NHẤT] KHÓA CAMERA VỚI PRIORITY CAO NHẤT =================
-RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Last.Value + 99, function()
-    local cam = workspace.CurrentCamera
-    local char = player.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-    if cam then
-        if cam.CameraType ~= Enum.CameraType.Custom then
-            cam.CameraType = Enum.CameraType.Custom
-        end
-        -- Khóa chết FOV không cho script súng đổi
-        pcall(function()
-            cam.FieldOfView = cameraFOV
-        end)
-    end
-
-    if hum and hum.CameraOffset ~= Vector3.new(0, 0, 0) then
-        hum.CameraOffset = Vector3.new(0, 0, 0)
-    end
-
-    if isFirstPerson then
-        -- Khi bật: Ép buộc góc nhìn thứ nhất
+        
+        -- Ép góc nhìn thứ nhất
         pcall(function()
             player.CameraMode = Enum.CameraMode.LockFirstPerson
             player.CameraMinZoomDistance = 0.5
             player.CameraMaxZoomDistance = 0.5
         end)
     else
-        -- Khi tắt: Trả về trạng thái tự do zoom (0.5 đến 400 là mặc định của Roblox)
+        ToggleViewBtn.Text = "GÓC NHÌN: TỰ DO"
+        ToggleViewBtn.BackgroundColor3 = Theme.Panel
+        ToggleViewBtn.TextColor3 = Theme.Text
+        
+        -- Trả về tự do
         pcall(function()
             player.CameraMode = Enum.CameraMode.Classic
             player.CameraMinZoomDistance = 0.5
             player.CameraMaxZoomDistance = 400
         end)
     end
+end
+
+-- ================= VÒNG LẶP RENDERSTEP (CHỈ ÉP FOV) =================
+-- Thay đổi Priority thành Camera.Value + 1 để mượt hơn, không đánh nhau với CoreScript
+RunService:BindToRenderStep("AbsoluteCameraLock_V3", Enum.RenderPriority.Camera.Value + 1, function()
+    local cam = workspace.CurrentCamera
+    if cam then
+        pcall(function()
+            -- Chỉ ép FOV nếu nó bị game đổi, không ép CameraType và Offset nữa
+            if cam.FieldOfView ~= cameraFOV then
+                cam.FieldOfView = cameraFOV
+            end
+        end)
+    end
 end)
 
--- ================= HỆ THỐNG XỬ LÝ NHẤN GIỮ NÚT LIÊN TỤC =================
+-- ================= HỆ THỐNG XỬ LÝ FOV =================
 local initialDelay = 0.35
-
--- Xử lý FOV
 local function changeFOV(delta)
     cameraFOV = math.clamp(cameraFOV + delta, 10, 120)
     FovLabel.Text = "FOV: " .. math.floor(cameraFOV + 0.5)
@@ -209,7 +192,6 @@ FovDecBtn.MouseButton1Down:Connect(function() holdingFovAction = -1; fovHoldTime
 FovDecBtn.MouseButton1Up:Connect(function() if holdingFovAction == -1 then holdingFovAction = 0 end end)
 FovDecBtn.MouseLeave:Connect(function() if holdingFovAction == -1 then holdingFovAction = 0 end end)
 
--- Vòng lặp tăng giảm liên tục mượt mà khi giữ nút lâu
 RunService.RenderStepped:Connect(function(dt)
     if holdingFovAction ~= 0 then
         fovHoldTimer = fovHoldTimer + dt
@@ -222,13 +204,13 @@ end)
 -- ================= KẾT NỐI SỰ KIỆN KHÁC =================
 ToggleViewBtn.MouseButton1Click:Connect(function()
     isFirstPerson = not isFirstPerson
-    updateUI()
+    ApplyCameraMode()
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.V then
         isFirstPerson = not isFirstPerson
-        updateUI()
+        ApplyCameraMode()
     end
 end)
 
@@ -245,4 +227,5 @@ MinimizeButton.MouseButton1Click:Connect(function()
     end
 end)
 
-updateUI()
+-- Khởi chạy lần đầu
+ApplyCameraMode()
