@@ -1,5 +1,5 @@
 -- ==========================================
--- SCRIPT BẢNG THÔNG SỐ (1 DÒNG, KHÔNG NỀN, TOP-MOST 9e9)
+-- SCRIPT THÔNG SỐ (1 DÒNG, NỀN ĐEN MỜ, CẦU VỒNG MƯỢT, TOP-MOST 9e9)
 -- ==========================================
 
 local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
@@ -8,75 +8,104 @@ local Stats = game:GetService("Stats")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Xóa bảng cũ nếu đang chạy
-if CoreGui:FindFirstChild("CompactStatsUI") then
-    CoreGui.CompactStatsUI:Destroy()
-end
+if CoreGui:FindFirstChild("CompactStatsUI") then CoreGui.CompactStatsUI:Destroy() end
 
 local UI = Instance.new("ScreenGui")
 UI.Name = "CompactStatsUI"
 UI.ResetOnSpawn = false
 UI.IgnoreGuiInset = true 
 UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
-UI.DisplayOrder = 9e9 -- Nằm trên cùng tuyệt đối
-
+UI.DisplayOrder = 9e9
 UI.Parent = CoreGui
 
 local Frame = Instance.new("Frame")
--- Chiều dài tăng lên 500, chiều cao ép xuống 20 (chỉ bằng 1 dòng chữ)
-Frame.Size = UDim2.new(0, 500, 0, 20)
+Frame.Size = UDim2.new(0, 520, 0, 22)
 Frame.Position = UDim2.new(0, 15, 0, 50) 
-Frame.BackgroundTransparency = 1 -- Loại bỏ phông nền hoàn toàn
-Frame.Active = false -- Cho phép bấm xuyên qua
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BackgroundTransparency = 0.5 
+Frame.Active = false 
 Frame.ZIndex = 9e9
 Frame.Parent = UI
 
 local TextLabel = Instance.new("TextLabel")
-TextLabel.Size = UDim2.new(1, 0, 1, 0)
-TextLabel.Position = UDim2.new(0, 0, 0, 0)
+TextLabel.Size = UDim2.new(1, -4, 1, 0)
+TextLabel.Position = UDim2.new(0, 4, 0, 0)
 TextLabel.BackgroundTransparency = 1
-TextLabel.TextColor3 = Color3.fromRGB(100, 255, 100) -- Chữ màu xanh lá
-TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Viền chữ đen
-TextLabel.TextStrokeTransparency = 0 -- Bật viền chữ giúp dễ đọc khi không có nền
+TextLabel.RichText = true 
 TextLabel.TextXAlignment = Enum.TextXAlignment.Left
-TextLabel.TextYAlignment = Enum.TextYAlignment.Center -- Căn giữa dòng
+TextLabel.TextYAlignment = Enum.TextYAlignment.Center
 TextLabel.Font = Enum.Font.Code
 TextLabel.TextSize = 13
-TextLabel.Text = "Đang tải..."
 TextLabel.Active = false
 TextLabel.ZIndex = 9e9
 TextLabel.Parent = Frame
 
--- Vòng lặp tính toán thông số
-local fpsCount = 0
+-- Hàm tạo màu cầu vồng mượt (chu kỳ 3 giây)
+local function getRainbowColor()
+    return string.format("#%02X%02X%02X", 
+        math.floor(math.sin(tick() * 2) * 127 + 128),
+        math.floor(math.sin(tick() * 2 + 2) * 127 + 128),
+        math.floor(math.sin(tick() * 2 + 4) * 127 + 128)
+    )
+end
+
+-- Biến lưu trữ thông số để không bị nhảy số liên tục
+local pingHistory = {}
+local currentFPS = 60
+local currentNetPing = 0
+local frameCount = 0
 local lastUpdate = tick()
 
-RunService.RenderStepped:Connect(function()
-    fpsCount = fpsCount + 1
+local function getStabilityColor()
+    if #pingHistory < 5 then return "#00FF00" end
+    local sum = 0
+    for _, v in pairs(pingHistory) do sum = sum + v end
+    local avg = sum / #pingHistory
+    local variance = math.abs(pingHistory[#pingHistory] - avg)
     
-    local currentTime = tick()
-    if currentTime - lastUpdate >= 1 then 
-        -- Lấy Data Ping
-        local dataPing = "0"
-        pcall(function()
-            dataPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
-        end)
-        
-        -- Lấy Net Ping
-        local netPing = 0
-        pcall(function()
-            netPing = math.round(LocalPlayer:GetNetworkPing() * 1000)
-        end)
-        
-        -- Lấy Memory
-        local memory = math.floor(Stats:GetTotalMemoryUsageMb())
-        
-        -- Định dạng 1 dòng theo đúng thứ tự: FPS -> Net Ping -> Data Ping -> Memory
-        TextLabel.Text = string.format("FPS: %d  |  Ping Map Đang Chơi: %d ms  |  Data Ping: %s  |  Memory: %d MB", fpsCount, netPing, dataPing, memory)
-        
-        fpsCount = 0
-        lastUpdate = currentTime
+    if variance < 5 then return getRainbowColor() -- Cực ổn định -> Cầu vồng mượt
+    elseif variance < 20 then return "#00FF00" -- Ổn định -> Xanh
+    else return "#FF0000" -- Không ổn định -> Đỏ
     end
+end
+
+RunService.RenderStepped:Connect(function(dt)
+    frameCount += 1
+    
+    -- Cập nhật logic tính toán mỗi 0.5 giây để số không bị nhảy loạn
+    if tick() - lastUpdate >= 0.5 then
+        currentFPS = math.floor(frameCount / (tick() - lastUpdate))
+        currentNetPing = math.round(LocalPlayer:GetNetworkPing() * 1000)
+        table.insert(pingHistory, currentNetPing)
+        if #pingHistory > 10 then table.remove(pingHistory, 1) end
+        
+        frameCount = 0
+        lastUpdate = tick()
+    end
+
+    -- CẬP NHẬT MÀU SẮC LIÊN TỤC (MƯỢT)
+    local rainbow = getRainbowColor()
+    
+    -- FPS Logic
+    local fpsColor = (currentFPS < 25) and "#FF0000" or ((currentFPS > 55) and rainbow or "#FFFFFF")
+    
+    -- Ping Logic
+    local pingColor = (currentNetPing < 100) and rainbow or ((currentNetPing <= 150) and "#00FF00" or "#FF0000")
+    
+    -- Stability & Other Stats
+    local stabColor = getStabilityColor()
+    local dataPing = "0"
+    pcall(function() dataPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString() end)
+    local mem = math.floor(Stats:GetTotalMemoryUsageMb())
+    
+    -- Update Text
+    TextLabel.Text = string.format(
+        "<font color='%s'>FPS: %d</font> | " ..
+        "<font color='%s'>Ping Map Đang Chơi: %d ms</font> | " ..
+        "<font color='%s'>Data Ping: %s</font> | " ..
+        "<font color='#FFFFFF'>Memory: %d MB</font>", 
+        fpsColor, currentFPS, pingColor, currentNetPing, stabColor, dataPing, mem
+    )
 end)
 
-print("✅ Đã load UI thông số dạng ngang, không nền!")
+print("✅ Đã load UI thông số")
