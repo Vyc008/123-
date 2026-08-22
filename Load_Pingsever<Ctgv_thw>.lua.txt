@@ -1,0 +1,82 @@
+-- ==========================================
+-- SCRIPT BẢNG THÔNG SỐ (1 DÒNG, KHÔNG NỀN, TOP-MOST 9e9)
+-- ==========================================
+
+local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Xóa bảng cũ nếu đang chạy
+if CoreGui:FindFirstChild("CompactStatsUI") then
+    CoreGui.CompactStatsUI:Destroy()
+end
+
+local UI = Instance.new("ScreenGui")
+UI.Name = "CompactStatsUI"
+UI.ResetOnSpawn = false
+UI.IgnoreGuiInset = true 
+UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
+UI.DisplayOrder = 9e9 -- Nằm trên cùng tuyệt đối
+
+UI.Parent = CoreGui
+
+local Frame = Instance.new("Frame")
+-- Chiều dài tăng lên 500, chiều cao ép xuống 20 (chỉ bằng 1 dòng chữ)
+Frame.Size = UDim2.new(0, 500, 0, 20)
+Frame.Position = UDim2.new(0, 15, 0, 50) 
+Frame.BackgroundTransparency = 1 -- Loại bỏ phông nền hoàn toàn
+Frame.Active = false -- Cho phép bấm xuyên qua
+Frame.ZIndex = 9e9
+Frame.Parent = UI
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(1, 0, 1, 0)
+TextLabel.Position = UDim2.new(0, 0, 0, 0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.TextColor3 = Color3.fromRGB(100, 255, 100) -- Chữ màu xanh lá
+TextLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0) -- Viền chữ đen
+TextLabel.TextStrokeTransparency = 0 -- Bật viền chữ giúp dễ đọc khi không có nền
+TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel.TextYAlignment = Enum.TextYAlignment.Center -- Căn giữa dòng
+TextLabel.Font = Enum.Font.Code
+TextLabel.TextSize = 13
+TextLabel.Text = "Đang tải..."
+TextLabel.Active = false
+TextLabel.ZIndex = 9e9
+TextLabel.Parent = Frame
+
+-- Vòng lặp tính toán thông số
+local fpsCount = 0
+local lastUpdate = tick()
+
+RunService.RenderStepped:Connect(function()
+    fpsCount = fpsCount + 1
+    
+    local currentTime = tick()
+    if currentTime - lastUpdate >= 1 then 
+        -- Lấy Data Ping
+        local dataPing = "0"
+        pcall(function()
+            dataPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
+        end)
+        
+        -- Lấy Net Ping
+        local netPing = 0
+        pcall(function()
+            netPing = math.round(LocalPlayer:GetNetworkPing() * 1000)
+        end)
+        
+        -- Lấy Memory
+        local memory = math.floor(Stats:GetTotalMemoryUsageMb())
+        
+        -- Định dạng 1 dòng theo đúng thứ tự: FPS -> Net Ping -> Data Ping -> Memory
+        TextLabel.Text = string.format("FPS: %d  |  Ping Map Đang Chơi: %d ms  |  Data Ping: %s  |  Memory: %d MB", fpsCount, netPing, dataPing, memory)
+        
+        fpsCount = 0
+        lastUpdate = currentTime
+    end
+end)
+
+print("✅ Đã load UI thông số dạng ngang, không nền!")
