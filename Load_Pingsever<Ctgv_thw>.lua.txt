@@ -251,7 +251,7 @@ if savedFPS then
 
         local isCancelled = false
         -- Chỉnh thời gian đếm ngược thanh tiến trình còn 1.5 giây ở đây:
-        local progressTween = TweenService:Create(ProgressBarFill, TweenInfo.new(1.5, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 1, 0) })
+        local progressTween = TweenService:Create(ProgressBarFill, TweenInfo.new(1, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 1, 0) })
 
         CancelBtn.MouseButton1Click:Connect(function()
             isCancelled = true
