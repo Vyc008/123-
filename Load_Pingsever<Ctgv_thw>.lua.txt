@@ -1,15 +1,169 @@
 -- ==========================================
--- SCRIPT THÔNG SỐ (1 DÒNG, NỀN ĐEN MỜ, CẦU VỒNG MƯỢT, TOP-MOST 9e9)
+-- SCRIPT THÔNG SỐ + CHỌN FPS + TÍCH HỢP NÚT ĐỔI LẠI (1.5s)
 -- ==========================================
 
 local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
-if CoreGui:FindFirstChild("CompactStatsUI") then CoreGui.CompactStatsUI:Destroy() end
+local ConfigFileName = "CompactStats_FPSConfig.txt"
 
+-- Khai báo trước hàm ShowFPSMenu để gọi lại khi bấm đổi
+local ShowFPSMenu
+
+-- Hàm load giao diện thông số chính (Script 1)
+local function LoadMainStats(UI, fpsText)
+    local StatsFrame = Instance.new("Frame")
+    StatsFrame.Size = UDim2.new(0, 520, 0, 22)
+    StatsFrame.Position = UDim2.new(0, 15, 0, 50) 
+    StatsFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    StatsFrame.BackgroundTransparency = 0.5 
+    StatsFrame.Active = false 
+    StatsFrame.ZIndex = 9e9
+    StatsFrame.Parent = UI
+
+    local StatsText = Instance.new("TextLabel")
+    StatsText.Size = UDim2.new(1, -4, 1, 0)
+    StatsText.Position = UDim2.new(0, 4, 0, 0)
+    StatsText.BackgroundTransparency = 1
+    StatsText.RichText = true 
+    StatsText.TextXAlignment = Enum.TextXAlignment.Left
+    StatsText.TextYAlignment = Enum.TextYAlignment.Center
+    StatsText.Font = Enum.Font.Code
+    StatsText.TextSize = 13
+    StatsText.Active = false
+    StatsText.ZIndex = 9e9
+    StatsText.Parent = StatsFrame
+
+    local function getRainbowColor()
+        return string.format("#%02X%02X%02X", 
+            math.floor(math.sin(tick() * 2) * 127 + 128),
+            math.floor(math.sin(tick() * 2 + 2) * 127 + 128),
+            math.floor(math.sin(tick() * 2 + 4) * 127 + 128)
+        )
+    end
+
+    local pingHistory = {}
+    local currentFPS = 60
+    local currentNetPing = 0
+    local frameCount = 0
+    local lastUpdate = tick()
+
+    local function getStabilityColor()
+        if #pingHistory < 5 then return "#00FF00" end
+        local sum = 0
+        for _, v in pairs(pingHistory) do sum = sum + v end
+        local avg = sum / #pingHistory
+        local variance = math.abs(pingHistory[#pingHistory] - avg)
+        
+        if variance < 5 then return getRainbowColor() 
+        elseif variance < 20 then return "#00FF00" 
+        else return "#FF0000" 
+        end
+    end
+
+    RunService.RenderStepped:Connect(function(dt)
+        frameCount += 1
+        if tick() - lastUpdate >= 0.5 then
+            currentFPS = math.floor(frameCount / (tick() - lastUpdate))
+            currentNetPing = math.round(LocalPlayer:GetNetworkPing() * 1000)
+            table.insert(pingHistory, currentNetPing)
+            if #pingHistory > 10 then table.remove(pingHistory, 1) end
+            
+            frameCount = 0
+            lastUpdate = tick()
+        end
+
+        local rainbow = getRainbowColor()
+        local fpsColor = (currentFPS < 25) and "#FF0000" or ((currentFPS > 55) and rainbow or "#FFFFFF")
+        local pingColor = (currentNetPing < 100) and rainbow or ((currentNetPing <= 150) and "#00FF00" or "#FF0000")
+        local stabColor = getStabilityColor()
+        
+        local dataPing = "0"
+        pcall(function() dataPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString() end)
+        local mem = math.floor(Stats:GetTotalMemoryUsageMb())
+        
+        StatsText.Text = string.format(
+            "<font color='%s'>FPS: %d</font> | " ..
+            "<font color='%s'>Ping: %d ms</font> | " ..
+            "<font color='%s'>Data Ping: %s</font> | " ..
+            "<font color='#FFFFFF'>Memory: %d MB</font>", 
+            fpsColor, currentFPS, pingColor, currentNetPing, stabColor, dataPing, mem
+        )
+    end)
+end
+
+-- Hàm hiển thị Bảng Chọn FPS
+ShowFPSMenu = function(UI)
+    local FPSMenu = Instance.new("Frame")
+    FPSMenu.Size = UDim2.new(0, 160, 0, 210) 
+    FPSMenu.Position = UDim2.new(0.5, -80, 0.5, -105) 
+    FPSMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    FPSMenu.BackgroundTransparency = 0.1
+    FPSMenu.Parent = UI
+
+    local FPSMenuCorner = Instance.new("UICorner")
+    FPSMenuCorner.CornerRadius = UDim.new(0, 8)
+    FPSMenuCorner.Parent = FPSMenu
+
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.Font = Enum.Font.Code
+    TitleLabel.TextSize = 14
+    TitleLabel.Text = "CHỌN MỨC FPS"
+    TitleLabel.Parent = FPSMenu
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = FPSMenu
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.Padding = UDim.new(0, 8)
+
+    local UIPadding = Instance.new("UIPadding")
+    UIPadding.PaddingTop = UDim.new(0, 10)
+    UIPadding.Parent = FPSMenu
+
+    local function createFPSButton(text, fpsValue)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.9, 0, 0, 30)
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.Code
+        btn.TextSize = 14
+        btn.Text = text
+        btn.Parent = FPSMenu
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 5)
+        btnCorner.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            pcall(function() if writefile then writefile(ConfigFileName, tostring(fpsValue)) end end)
+            pcall(function() if setfpscap then setfpscap(fpsValue) end end)
+            
+            FPSMenu:Destroy()
+            LoadMainStats(UI, text)
+        end)
+    end
+
+    createFPSButton("60 FPS", 60)
+    createFPSButton("90 FPS", 90)
+    createFPSButton("120 FPS", 120)
+    createFPSButton("Inf FPS", 0)
+end
+
+-- ==========================================
+-- BẮT ĐẦU CHẠY LOGIC CHÍNH
+-- ==========================================
+
+if CoreGui:FindFirstChild("CompactStatsUI") then 
+    CoreGui.CompactStatsUI:Destroy() 
+end
 local UI = Instance.new("ScreenGui")
 UI.Name = "CompactStatsUI"
 UI.ResetOnSpawn = false
@@ -18,94 +172,108 @@ UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
 UI.DisplayOrder = 9e9
 UI.Parent = CoreGui
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 520, 0, 22)
-Frame.Position = UDim2.new(0, 15, 0, 50) 
-Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Frame.BackgroundTransparency = 0.5 
-Frame.Active = false 
-Frame.ZIndex = 9e9
-Frame.Parent = UI
-
-local TextLabel = Instance.new("TextLabel")
-TextLabel.Size = UDim2.new(1, -4, 1, 0)
-TextLabel.Position = UDim2.new(0, 4, 0, 0)
-TextLabel.BackgroundTransparency = 1
-TextLabel.RichText = true 
-TextLabel.TextXAlignment = Enum.TextXAlignment.Left
-TextLabel.TextYAlignment = Enum.TextYAlignment.Center
-TextLabel.Font = Enum.Font.Code
-TextLabel.TextSize = 13
-TextLabel.Active = false
-TextLabel.ZIndex = 9e9
-TextLabel.Parent = Frame
-
--- Hàm tạo màu cầu vồng mượt (chu kỳ 3 giây)
-local function getRainbowColor()
-    return string.format("#%02X%02X%02X", 
-        math.floor(math.sin(tick() * 2) * 127 + 128),
-        math.floor(math.sin(tick() * 2 + 2) * 127 + 128),
-        math.floor(math.sin(tick() * 2 + 4) * 127 + 128)
-    )
-end
-
--- Biến lưu trữ thông số để không bị nhảy số liên tục
-local pingHistory = {}
-local currentFPS = 60
-local currentNetPing = 0
-local frameCount = 0
-local lastUpdate = tick()
-
-local function getStabilityColor()
-    if #pingHistory < 5 then return "#00FF00" end
-    local sum = 0
-    for _, v in pairs(pingHistory) do sum = sum + v end
-    local avg = sum / #pingHistory
-    local variance = math.abs(pingHistory[#pingHistory] - avg)
-    
-    if variance < 5 then return getRainbowColor() -- Cực ổn định -> Cầu vồng mượt
-    elseif variance < 20 then return "#00FF00" -- Ổn định -> Xanh
-    else return "#FF0000" -- Không ổn định -> Đỏ
+local savedFPS = nil
+pcall(function()
+    if isfile and isfile(ConfigFileName) then
+        local content = readfile(ConfigFileName)
+        if content then savedFPS = tonumber(content) end
     end
-end
-
-RunService.RenderStepped:Connect(function(dt)
-    frameCount += 1
-    
-    -- Cập nhật logic tính toán mỗi 0.5 giây để số không bị nhảy loạn
-    if tick() - lastUpdate >= 0.5 then
-        currentFPS = math.floor(frameCount / (tick() - lastUpdate))
-        currentNetPing = math.round(LocalPlayer:GetNetworkPing() * 1000)
-        table.insert(pingHistory, currentNetPing)
-        if #pingHistory > 10 then table.remove(pingHistory, 1) end
-        
-        frameCount = 0
-        lastUpdate = tick()
-    end
-
-    -- CẬP NHẬT MÀU SẮC LIÊN TỤC (MƯỢT)
-    local rainbow = getRainbowColor()
-    
-    -- FPS Logic
-    local fpsColor = (currentFPS < 25) and "#FF0000" or ((currentFPS > 55) and rainbow or "#FFFFFF")
-    
-    -- Ping Logic
-    local pingColor = (currentNetPing < 100) and rainbow or ((currentNetPing <= 150) and "#00FF00" or "#FF0000")
-    
-    -- Stability & Other Stats
-    local stabColor = getStabilityColor()
-    local dataPing = "0"
-    pcall(function() dataPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString() end)
-    local mem = math.floor(Stats:GetTotalMemoryUsageMb())
-    
-    -- Update Text
-    TextLabel.Text = string.format(
-        "<font color='%s'>FPS: %d</font> | " ..
-        "<font color='%s'>Ping Map Đang Chơi: %d ms</font> | " ..
-        "<font color='%s'>Data Ping: %s</font> | " ..
-        "<font color='#FFFFFF'>Memory: %d MB</font>", 
-        fpsColor, currentFPS, pingColor, currentNetPing, stabColor, dataPing, mem
-    )
 end)
 
-print("✅ Đã load UI thông số")
+if savedFPS then
+    -- TỰ ĐỘNG ÁP DỤNG VÀ HIỂN THỊ THÔNG BÁO TÍCH HỢP NÚT ĐỔI LẠI
+    task.spawn(function()
+        local textDesc = (savedFPS == 0) and "Inf FPS" or (savedFPS .. " FPS")
+        pcall(function() if setfpscap then setfpscap(savedFPS) end end)
+
+        local MainFrame = Instance.new("Frame")
+        MainFrame.Size = UDim2.new(0, 220, 0, 95)
+        MainFrame.Position = UDim2.new(0, -250, 0.95, -95)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        MainFrame.Parent = UI
+
+        local MainFrameCorner = Instance.new("UICorner")
+        MainFrameCorner.CornerRadius = UDim.new(0, 8)
+        MainFrameCorner.Parent = MainFrame
+
+        local NotificationFrame = Instance.new("Frame")
+        NotificationFrame.Size = UDim2.new(0.9, 0, 0.85, 0)
+        NotificationFrame.Position = UDim2.new(0.05, 0, 0.07, 0)
+        NotificationFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        NotificationFrame.Parent = MainFrame
+
+        local NotificationFrameCorner = Instance.new("UICorner")
+        NotificationFrameCorner.CornerRadius = UDim.new(0, 8)
+        NotificationFrameCorner.Parent = NotificationFrame
+
+        local TextLabel = Instance.new("TextLabel")
+        TextLabel.Size = UDim2.new(0.9, 0, 0.4, 0)
+        TextLabel.Position = UDim2.new(0.05, 0, 0.08, 0)
+        TextLabel.BackgroundTransparency = 1
+        TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TextLabel.TextScaled = true
+        TextLabel.TextXAlignment = Enum.TextXAlignment.Center
+        TextLabel.TextYAlignment = Enum.TextYAlignment.Center
+        TextLabel.Text = "Đã áp dụng: " .. textDesc
+        TextLabel.Parent = NotificationFrame
+
+        local ProgressBar = Instance.new("Frame")
+        ProgressBar.Size = UDim2.new(0.9, 0, 0.08, 0)
+        ProgressBar.Position = UDim2.new(0.05, 0, 0.52, 0)
+        ProgressBar.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        ProgressBar.BorderSizePixel = 0
+        ProgressBar.Parent = NotificationFrame
+
+        local ProgressBarFill = Instance.new("Frame")
+        ProgressBarFill.Size = UDim2.new(1, 0, 1, 0)
+        ProgressBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+        ProgressBarFill.BorderSizePixel = 0
+        ProgressBarFill.Parent = ProgressBar
+
+        -- Nút đỏ "Đổi mức FPS lại" nhỏ gọn tích hợp ngay trong thông báo
+        local CancelBtn = Instance.new("TextButton")
+        CancelBtn.Size = UDim2.new(0.9, 0, 0, 25)
+        CancelBtn.Position = UDim2.new(0.05, 0, 0.66, 0)
+        CancelBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        CancelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CancelBtn.Font = Enum.Font.Code
+        CancelBtn.TextSize = 12
+        CancelBtn.Text = "ĐỔI MỨC FPS LẠI"
+        CancelBtn.Parent = NotificationFrame
+        
+        local BtnCorner = Instance.new("UICorner")
+        BtnCorner.CornerRadius = UDim.new(0, 4)
+        BtnCorner.Parent = CancelBtn
+
+        -- Trượt bảng thông báo ra
+        local tweenIn = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(0, 15, 0.95, -95) })
+        tweenIn:Play()
+
+        local isCancelled = false
+        -- Chỉnh thời gian đếm ngược thanh tiến trình còn 1.5 giây ở đây:
+        local progressTween = TweenService:Create(ProgressBarFill, TweenInfo.new(1.5, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 1, 0) })
+
+        CancelBtn.MouseButton1Click:Connect(function()
+            isCancelled = true
+            progressTween:Cancel()
+            MainFrame:Destroy()
+            ShowFPSMenu(UI) -- Mở lại bảng chọn FPS
+        end)
+
+        progressTween:Play()
+        progressTween.Completed:Wait()
+
+        if not isCancelled then
+            local tweenOut = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = UDim2.new(0, -250, 0.95, -95) })
+            tweenOut:Play()
+            tweenOut.Completed:Wait()
+            MainFrame:Destroy()
+        end
+
+        -- Load giao diện thông số chính
+        LoadMainStats(UI, textDesc)
+    end)
+else
+    -- Nếu chưa lưu bao giờ thì hiện thẳng Bảng Chọn FPS
+    ShowFPSMenu(UI)
+end
