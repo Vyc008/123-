@@ -1,0 +1,151 @@
+-- ==========================================
+-- SCRIPT SPEED GLITCH MM2 (FIX CHỈ KÍCH HOẠT KHI NHẢY THẬT)
+-- ==========================================
+
+local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- Xóa UI cũ nếu có tránh bị trùng lặp
+if CoreGui:FindFirstChild("MM2SpeedGlitchUI") then
+    CoreGui.MM2SpeedGlitchUI:Destroy()
+end
+
+-- Tạo ScreenGui chính
+local UI = Instance.new("ScreenGui")
+UI.Name = "MM2SpeedGlitchUI"
+UI.ResetOnSpawn = false
+UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
+UI.DisplayOrder = 9e8
+UI.Parent = CoreGui
+
+-- Khung Menu nhỏ gọn
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 180, 0, 110)
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = UI
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(80, 80, 80)
+UIStroke.Thickness = 1
+UIStroke.Parent = MainFrame
+
+-- Tiêu đề Menu
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 25)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.Code
+TitleLabel.TextSize = 13
+TitleLabel.Text = "SPEED GLITCH MM2"
+TitleLabel.Parent = MainFrame
+
+-- Nút ON/OFF
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.9, 0, 0, 28)
+ToggleButton.Position = UDim2.new(0.05, 0, 0.32, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.Code
+ToggleButton.TextSize = 12
+ToggleButton.Text = "Trạng thái: OFF"
+ToggleButton.Parent = MainFrame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 5)
+ToggleCorner.Parent = ToggleButton
+
+-- Ô nhập tốc độ (Speed Glitch)
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0.9, 0, 0, 28)
+SpeedBox.Position = UDim2.new(0.05, 0, 0.65, 0)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+SpeedBox.PlaceholderText = "Tốc độ lao tới (VD: 35)"
+SpeedBox.Text = "60
+"
+SpeedBox.Font = Enum.Font.Code
+SpeedBox.TextSize = 12
+SpeedBox.ClearTextOnFocus = false
+SpeedBox.Parent = MainFrame
+
+local BoxCorner = Instance.new("UICorner")
+BoxCorner.CornerRadius = UDim.new(0, 5)
+BoxCorner.Parent = SpeedBox
+
+-- ==========================================
+-- LOGIC XỬ LÝ CHÍNH
+-- ==========================================
+
+local isGlitchEnabled = false
+local hasJumped = false
+local stateConn = nil
+
+-- Hàm theo dõi trạng thái nhảy thực tế của nhân vật
+local function setupCharacter(char)
+    if stateConn then stateConn:Disconnect() end
+    hasJumped = false
+    
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if humanoid then
+        stateConn = humanoid.StateChanged:Connect(function(oldState, newState)
+            if newState == Enum.HumanoidStateType.Jumping then
+                hasJumped = true -- Chỉ khi thực sự bấm nhảy mới bật cờ
+            elseif newState == Enum.HumanoidStateType.Running or newState == Enum.HumanoidStateType.Landed then
+                hasJumped = false -- Chạm đất hoặc chạy lại thì tắt cờ
+            end
+        end)
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+
+-- Bật/Tắt tính năng qua nút bấm
+ToggleButton.MouseButton1Click:Connect(function()
+    isGlitchEnabled = not isGlitchEnabled
+    if isGlitchEnabled then
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 180, 80)
+        ToggleButton.Text = "Trạng thái: ON"
+    else
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        ToggleButton.Text = "Trạng thái: OFF"
+    end
+end)
+
+-- Vòng lặp kiểm tra liên tục
+RunService.RenderStepped:Connect(function(dt)
+    if not isGlitchEnabled then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    
+    if not hrp or not humanoid then return end
+
+    local customSpeed = tonumber(SpeedBox.Text) or 35
+    local isInAir = (humanoid.FloorMaterial == Enum.Material.Air)
+    local currentVelocity = hrp.AssemblyLinearVelocity
+
+    -- Điều kiện cực kỳ khắt khe: 
+    -- 1. Đang ở trên không
+    -- 2. Có bấm nút di chuyển
+    -- 3. `hasJumped == true` (Phải chủ động bấm phím nhảy, đi hụt chân rơi xuống sẽ bị loại bỏ hoàn toàn)
+    if isInAir and humanoid.MoveDirection.Magnitude > 0 and hasJumped then
+        local moveDir = humanoid.MoveDirection.Unit
+        hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * customSpeed, currentVelocity.Y, moveDir.Z * customSpeed)
+    end
+end)
