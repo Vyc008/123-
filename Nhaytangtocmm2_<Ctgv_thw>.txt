@@ -1,11 +1,12 @@
 -- ==========================================
--- SCRIPT SPEED GLITCH MM2 (FIX CHỈ KÍCH HOẠT KHI NHẢY THẬT)
+-- SCRIPT SPEED GLITCH MM2 (CÓ CHECK VẬT CẢN TRƯỚC MẶT)
 -- ==========================================
 
 local CoreGui = (gethui and pcall(gethui)) and gethui() or game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 -- Xóa UI cũ nếu có tránh bị trùng lặp
 if CoreGui:FindFirstChild("MM2SpeedGlitchUI") then
@@ -72,7 +73,7 @@ SpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 SpeedBox.PlaceholderText = "Tốc độ lao tới (VD: 35)"
-SpeedBox.Text = "67"
+SpeedBox.Text = "50"
 SpeedBox.Font = Enum.Font.Code
 SpeedBox.TextSize = 12
 SpeedBox.ClearTextOnFocus = false
@@ -135,16 +136,34 @@ RunService.RenderStepped:Connect(function(dt)
     
     if not hrp or not humanoid then return end
 
-    local customSpeed = tonumber(SpeedBox.Text) or 67
+    local customSpeed = tonumber(SpeedBox.Text) or 50
     local isInAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local currentVelocity = hrp.AssemblyLinearVelocity
 
-    -- Điều kiện cực kỳ khắt khe: 
-    -- 1. Đang ở trên không
-    -- 2. Có bấm nút di chuyển
-    -- 3. `hasJumped == true` (Phải chủ động bấm phím nhảy, đi hụt chân rơi xuống sẽ bị loại bỏ hoàn toàn)
+    -- Nếu đang bay, có hướng di chuyển và đã chủ động nhảy
     if isInAir and humanoid.MoveDirection.Magnitude > 0 and hasJumped then
         local moveDir = humanoid.MoveDirection.Unit
-        hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * customSpeed, currentVelocity.Y, moveDir.Z * customSpeed)
+        
+        -- Tạo tia Raycast để dò đường phía trước
+        local rayOrigin = hrp.Position
+        local rayDistance = 3.5 -- Phóng tia xa 3.5 studs về phía trước
+        local rayDirection = moveDir * rayDistance
+        
+        -- Thông số Raycast (Bỏ qua nhân vật của chính mình)
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {char}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        
+        -- Thực hiện phóng tia
+        local rayHit = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+        
+        -- Nếu tia chạm vào vật cản (tường, cửa...) và vật đó là vật rắn (CanCollide)
+        if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
+            -- Có vật cản! Tắt hiệu ứng lao đi, để nhân vật rơi và va vào tường bình thường
+            hasJumped = false 
+        else
+            -- Đường trống, tiếp tục lao đi
+            hrp.AssemblyLinearVelocity = Vector3.new(moveDir.X * customSpeed, currentVelocity.Y, moveDir.Z * customSpeed)
+        end
     end
 end)
