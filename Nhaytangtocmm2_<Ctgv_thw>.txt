@@ -17,7 +17,7 @@ local UI = Instance.new("ScreenGui")
 UI.Name = "MM2SpeedGlitchUI"
 UI.ResetOnSpawn = false
 UI.ZIndexBehavior = Enum.ZIndexBehavior.Global
-UI.DisplayOrder = 9e8
+UI.DisplayOrder = 9e9
 UI.Parent = CoreGui
 
 -- Khung Menu nhỏ gọn
@@ -72,8 +72,7 @@ SpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 SpeedBox.PlaceholderText = "Tốc độ lao tới (VD: 35)"
-SpeedBox.Text = "60
-"
+SpeedBox.Text = "67"
 SpeedBox.Font = Enum.Font.Code
 SpeedBox.TextSize = 12
 SpeedBox.ClearTextOnFocus = false
@@ -136,7 +135,7 @@ RunService.RenderStepped:Connect(function(dt)
     
     if not hrp or not humanoid then return end
 
-    local customSpeed = tonumber(SpeedBox.Text) or 35
+    local customSpeed = tonumber(SpeedBox.Text) or 67
     local isInAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local currentVelocity = hrp.AssemblyLinearVelocity
 
