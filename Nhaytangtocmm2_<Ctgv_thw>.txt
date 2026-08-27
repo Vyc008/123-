@@ -58,7 +58,7 @@ SpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 SpeedBox.PlaceholderText = "Tốc độ lao tới"
-SpeedBox.Text = "50"
+SpeedBox.Text = "36"
 SpeedBox.Font = Enum.Font.Code
 SpeedBox.TextSize = 12
 SpeedBox.ClearTextOnFocus = false
@@ -210,7 +210,7 @@ RunService.RenderStepped:Connect(function(dt)
     
     if not hrp or not humanoid then return end
 
-    local customSpeed = tonumber(SpeedBox.Text) or 50
+    local customSpeed = tonumber(SpeedBox.Text) or 36
     local isInAir = (humanoid.FloorMaterial == Enum.Material.Air)
     local currentVelocity = hrp.AssemblyLinearVelocity
 
