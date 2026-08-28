@@ -47,7 +47,7 @@ TitleLabel.BackgroundTransparency = 1
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.Font = Enum.Font.Code
 TitleLabel.TextSize = 13
-TitleLabel.Text = "SPEED GLITCH MM2"
+TitleLabel.Text = "SPEED GLITCH MM2 <Ctgv_thw>"
 TitleLabel.Parent = MainFrame
 
 -- Ô nhập tốc độ (Speed Box) - Ở TRÊN
