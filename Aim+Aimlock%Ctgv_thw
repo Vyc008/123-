@@ -1,10 +1,12 @@
---// Rromax Universal Hub: Aimbot + ESP + Player Mods (FIXED: SMOOTH INPUT + AIMBOT COLOR PALETTE)
---// Bản Hợp Nhất: Đã sửa lỗi lưu Smooth và thêm chọn màu FOV/Focus
+--// Rromax Universal Hub: Aimbot + ESP + Player Mods (MODERN UI EDITION)
+--// Cập nhật: Giao diện Modern Dark, Hiệu ứng Loading % chi tiết, Nút bọc viền, Gradient.
+--// Bản Edit by Ctgv_thw: Chuyển tab siêu tốc, Nút ghim, Hiệu ứng 7 màu lướt xịn xò.
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local Cam = workspace.CurrentCamera
 local Player = Players.LocalPlayer
@@ -25,14 +27,27 @@ if getgenv()._Player_Stepped then getgenv()._Player_Stepped:Disconnect(); getgen
 if getgenv()._Player_Jump then getgenv()._Player_Jump:Disconnect(); getgenv()._Player_Jump = nil end
 
 -- ==========================================
+-- THEME & COLORS (HIỆN ĐẠI HƠN)
+-- ==========================================
+local Theme = {
+    Background = Color3.fromRGB(20, 22, 30),      -- Xanh đen tối
+    Frame = Color3.fromRGB(30, 32, 43),           -- Xanh đen sáng hơn
+    ButtonOff = Color3.fromRGB(40, 42, 55),       -- Xám xanh (Tắt)
+    ButtonOn = Color3.fromRGB(0, 200, 100),       -- Xanh lục bảo (Bật)
+    Stroke = Color3.fromRGB(70, 75, 95),          -- Viền nổi
+    Accent = Color3.fromRGB(0, 170, 255),         -- Xanh dương nhấn
+    TextBase = Color3.fromRGB(240, 240, 255)      -- Trắng sáng
+}
+
+-- ==========================================
 -- CẤU HÌNH TỔNG HỢP
 -- ==========================================
 local AimbotSettings = {
     Prediction = 0.05, EnablePrediction = false, Smooth = 1,
-    FovRadius = 136, ShowFov = true, FovColor = Color3.fromRGB(255, 255, 255),
+    FovRadius = 136, ShowFov = true, FovColor = Theme.Accent,
     LockTarget = false, TeamCheck = false, WallCheck = true,
     DeadCheck = true, ShowFocus = true, FocusPart = "Head",
-    AimMode = "CFrame", ShowFloatingBtn = true, BodyAim = false
+    AimMode = "CFrame", ShowFloatingBtn = true, PinFloatingBtn = false, BodyAim = false
 }
 
 local ESPSettings = {
@@ -42,10 +57,8 @@ local ESPSettings = {
 }
 
 local PlayerSettings = {
-    WalkSpeed = 16, LoopW = false,
-    JumpPower = 50, LoopJ = false,
-    Noclip = false, InfJ = false,
-    FovCam = 70, LockFov = false,
+    WalkSpeed = 16, LoopW = false, JumpPower = 50, LoopJ = false,
+    Noclip = false, InfJ = false, FovCam = 70, LockFov = false,
     TPWalk = false, TPSpeed = 0.1
 }
 
@@ -60,35 +73,61 @@ local CustomPlayerColors = {}
 local currentESPColor = nil
 local SelectedPlayerName = nil 
 local colorOrder = {
-    {name = "White", color = Color3.fromRGB(255, 255, 255)}, {name = "Red", color = Color3.fromRGB(255, 0, 0)},
-    {name = "Green", color = Color3.fromRGB(0, 255, 0)}, {name = "Blue", color = Color3.fromRGB(0, 0, 255)},
-    {name = "Yellow", color = Color3.fromRGB(255, 255, 0)}, {name = "Orange", color = Color3.fromRGB(255, 165, 0)},
-    {name = "Purple", color = Color3.fromRGB(160, 32, 240)}, {name = "Cyan", color = Color3.fromRGB(0, 255, 255)},
-    {name = "Pink", color = Color3.fromRGB(255, 105, 180)}, {name = "Black", color = Color3.fromRGB(0, 0, 0)}
+    {name = "White", color = Color3.fromRGB(255, 255, 255)}, {name = "Red", color = Color3.fromRGB(255, 50, 50)},
+    {name = "Green", color = Color3.fromRGB(50, 255, 50)}, {name = "Blue", color = Theme.Accent},
+    {name = "Yellow", color = Color3.fromRGB(255, 215, 0)}, {name = "Orange", color = Color3.fromRGB(255, 140, 0)},
+    {name = "Purple", color = Color3.fromRGB(180, 50, 255)}, {name = "Cyan", color = Color3.fromRGB(0, 255, 255)},
+    {name = "Pink", color = Color3.fromRGB(255, 105, 180)}, {name = "Black", color = Color3.fromRGB(20, 20, 20)}
 }
 
 -- ==========================================
--- HÀM HỖ TRỢ GIAO DIỆN
+-- HÀM HỖ TRỢ GIAO DIỆN & HIỆU ỨNG
 -- ==========================================
 local function applyUICorner(instance, radius)
     local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, radius or 6); corner.Parent = instance
 end
 
 local function applyUIStroke(instance, color, thickness)
-    local stroke = Instance.new("UIStroke"); stroke.Color = color or Color3.fromRGB(70, 70, 75)
-    stroke.Thickness = thickness or 1.5; stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; stroke.Parent = instance
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Theme.Stroke
+    stroke.Thickness = thickness or 1.2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+    return stroke
 end
 
--- ĐÃ FIX: Thêm tham số minVal và maxVal để khoá giá trị chuẩn, tránh lỗi nhập liệu
+local function applyGradient(instance, color1, color2)
+    local grad = Instance.new("UIGradient", instance)
+    grad.Color = ColorSequence.new{ ColorSequenceKeypoint.new(0, color1), ColorSequenceKeypoint.new(1, color2) }
+end
+
+local function applyClickEffect(btn)
+    local scale = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
+    scale.Scale = 1
+    -- GIẢM THỜI GIAN DELAY HIỆU ỨNG CLICK XUỐNG 0.05 ĐỂ TĂNG ĐỘ PHẢN HỒI
+    btn.MouseButton1Down:Connect(function()
+        TweenService:Create(scale, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.92}):Play()
+        if btn:FindFirstChildOfClass("UIStroke") then btn.UIStroke.Color = Theme.Accent end 
+    end)
+    btn.MouseButton1Up:Connect(function()
+        TweenService:Create(scale, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        if btn:FindFirstChildOfClass("UIStroke") then btn.UIStroke.Color = Theme.Stroke end
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(scale, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        if btn:FindFirstChildOfClass("UIStroke") then btn.UIStroke.Color = Theme.Stroke end
+    end)
+end
+
 local function createSettingRow(parent, labelText, xPos, yPos, settingsTable, configKey, minVal, maxVal)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(0, 110, 0, 30); Label.Position = UDim2.new(0, xPos, 0, yPos); Label.BackgroundTransparency = 1
-    Label.Text = labelText; Label.TextColor3 = Color3.fromRGB(220, 220, 220); Label.Font = Enum.Font.GothamMedium; Label.TextSize = 12; Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Text = labelText; Label.TextColor3 = Theme.TextBase; Label.Font = Enum.Font.GothamMedium; Label.TextSize = 12; Label.TextXAlignment = Enum.TextXAlignment.Left
 
     local Input = Instance.new("TextBox", parent)
-    Input.Size = UDim2.new(0, 80, 0, 30); Input.Position = UDim2.new(0, xPos + 115, 0, yPos); Input.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    Input.Text = tostring(settingsTable[configKey]); Input.TextColor3 = Color3.fromRGB(255, 255, 255); Input.Font = Enum.Font.Gotham; Input.TextSize = 12
-    applyUICorner(Input, 6); applyUIStroke(Input, Color3.fromRGB(80, 80, 85), 1)
+    Input.Size = UDim2.new(0, 80, 0, 30); Input.Position = UDim2.new(0, xPos + 115, 0, yPos); Input.BackgroundColor3 = Theme.Background
+    Input.Text = tostring(settingsTable[configKey]); Input.TextColor3 = Theme.Accent; Input.Font = Enum.Font.GothamBold; Input.TextSize = 12
+    applyUICorner(Input, 6); applyUIStroke(Input, Theme.Stroke, 1.5)
 
     Input.FocusLost:Connect(function()
         local val = tonumber(Input.Text)
@@ -104,12 +143,15 @@ end
 local function createToggle(parent, textOn, textOff, xPos, yPos, settingsTable, configKey, callback)
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(0, 205, 0, 30); btn.Position = UDim2.new(0, xPos, 0, yPos)
-    btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold; btn.TextSize = 11; btn.TextColor3 = Theme.TextBase
     applyUICorner(btn, 6)
+    applyUIStroke(btn)
+    applyClickEffect(btn)
+
     local function update()
         local state = settingsTable[configKey]
         btn.Text = state and textOn or textOff
-        btn.BackgroundColor3 = state and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
+        btn.BackgroundColor3 = state and Theme.ButtonOn or Theme.ButtonOff
     end
     btn.Activated:Connect(function()
         settingsTable[configKey] = not settingsTable[configKey]
@@ -140,64 +182,134 @@ FocusCircle.AnchorPoint = Vector2.new(0.5, 0.5); FocusCircle.Size = UDim2.new(0,
 local FocusCorner = Instance.new("UICorner", FocusCircle); FocusCorner.CornerRadius = UDim.new(1, 0)
 
 local ToggleUIBtn = Instance.new("TextButton", ScreenGui)
-ToggleUIBtn.Size = UDim2.new(0, 45, 0, 45); ToggleUIBtn.Position = UDim2.new(0, 10, 0, 150); ToggleUIBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-ToggleUIBtn.Text = "MENU\nẨn/Hiện"; ToggleUIBtn.TextColor3 = Color3.fromRGB(255, 255, 255); ToggleUIBtn.Font = Enum.Font.GothamBold; ToggleUIBtn.TextSize = 11
-applyUICorner(ToggleUIBtn, 8); applyUIStroke(ToggleUIBtn)
+ToggleUIBtn.Size = UDim2.new(0, 50, 0, 50); ToggleUIBtn.Position = UDim2.new(0, 10, 0, 150); ToggleUIBtn.BackgroundColor3 = Theme.Frame
+ToggleUIBtn.Text = "MENU\nẨn/Hiện"; ToggleUIBtn.TextColor3 = Theme.TextBase; ToggleUIBtn.Font = Enum.Font.GothamBold; ToggleUIBtn.TextSize = 10
+ToggleUIBtn.Visible = false 
+applyUICorner(ToggleUIBtn, 10); applyUIStroke(ToggleUIBtn, Theme.Accent, 1.5); applyClickEffect(ToggleUIBtn)
 
 local MasterFloatingBtn = Instance.new("TextButton", ScreenGui)
-MasterFloatingBtn.Size = UDim2.new(0, 110, 0, 55); MasterFloatingBtn.Position = UDim2.new(0, 10, 0, 205); MasterFloatingBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60) 
+MasterFloatingBtn.Size = UDim2.new(0, 110, 0, 55); MasterFloatingBtn.Position = UDim2.new(0, 10, 0, 210); MasterFloatingBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 70) 
 MasterFloatingBtn.Text = "TỔNG: OFF\nC:OFF | B:OFF"; MasterFloatingBtn.TextColor3 = Color3.fromRGB(255, 255, 255); MasterFloatingBtn.Font = Enum.Font.GothamBold; MasterFloatingBtn.TextSize = 12 
-applyUICorner(MasterFloatingBtn, 8); applyUIStroke(MasterFloatingBtn, Color3.fromRGB(150, 40, 40), 2)
+MasterFloatingBtn.Visible = false
+applyUICorner(MasterFloatingBtn, 10); applyUIStroke(MasterFloatingBtn, Color3.fromRGB(255, 100, 100), 2); applyClickEffect(MasterFloatingBtn)
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 480, 0, 435); MainFrame.Position = UDim2.new(0.5, -240, 0.5, -217); MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35); MainFrame.Active = true
-applyUICorner(MainFrame, 10); applyUIStroke(MainFrame)
+MainFrame.Size = UDim2.new(0, 480, 0, 435); MainFrame.Position = UDim2.new(0.5, -240, 0.5, -217); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.Active = true
+MainFrame.Visible = false 
+applyUICorner(MainFrame, 12); applyUIStroke(MainFrame, Theme.Stroke, 2)
 
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 35); Title.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Title.Text = "  ⚙️ AIMBOT + ESP + PLAYER (Ctgv_thw)"; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.GothamBold; Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
-applyUICorner(Title, 10)
+local MenuScale = Instance.new("UIScale", MainFrame)
+MenuScale.Scale = 0
+
+-- HIỆU ỨNG TÊN 7 MÀU LƯỚT '/' (By Ctgv_thw)
+local TitleFrame = Instance.new("Frame", MainFrame)
+TitleFrame.Size = UDim2.new(1, 0, 0, 40)
+TitleFrame.BackgroundColor3 = Theme.Frame
+TitleFrame.BorderSizePixel = 0
+applyUICorner(TitleFrame, 12)
+
+local TitleCornerFix = Instance.new("Frame", TitleFrame)
+TitleCornerFix.Size = UDim2.new(1, 0, 0, 10)
+TitleCornerFix.Position = UDim2.new(0, 0, 1, -10)
+TitleCornerFix.BackgroundColor3 = Theme.Frame
+TitleCornerFix.BorderSizePixel = 0
+
+local Title = Instance.new("TextLabel", TitleFrame)
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "   🚀 Aimbot+ESP+Edit Player (By Ctgv_thw)"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 18 -- Tăng kích thước theo yêu cầu
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local TitleGradient = Instance.new("UIGradient", Title)
+TitleGradient.Rotation = 15 -- Tạo độ nghiêng giống thanh '/' chéo
+
+task.spawn(function()
+    local rainbowColors = {
+        Color3.fromRGB(255, 0, 0),    -- Đỏ
+        Color3.fromRGB(255, 127, 0),  -- Cam
+        Color3.fromRGB(255, 255, 0),  -- Vàng
+        Color3.fromRGB(0, 255, 0),    -- Lục
+        Color3.fromRGB(0, 255, 255),  -- Xanh Ngọc
+        Color3.fromRGB(0, 0, 255),    -- Lam
+        Color3.fromRGB(148, 0, 211)   -- Tím
+    }
+    local colorIdx = 1
+    while task.wait() do
+        local oldColor = rainbowColors[colorIdx]
+        colorIdx = colorIdx + 1
+        if colorIdx > #rainbowColors then colorIdx = 1 end
+        local newColor = rainbowColors[colorIdx]
+
+        -- Tạo Gradient với ranh giới màu trắng chéo để tạo thanh lướt /
+        TitleGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, newColor),
+            ColorSequenceKeypoint.new(0.48, newColor),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), -- THANH '/' MÀU TRẮNG SÁNG
+            ColorSequenceKeypoint.new(0.52, oldColor),
+            ColorSequenceKeypoint.new(1, oldColor)
+        })
+
+        TitleGradient.Offset = Vector2.new(-1, 0)
+        local tw = TweenService:Create(TitleGradient, TweenInfo.new(1, Enum.EasingStyle.Linear), {Offset = Vector2.new(1, 0)})
+        tw:Play()
+        tw.Completed:Wait() -- Chờ đúng 1 giây lướt xong, lặp lại màu tiếp theo
+    end
+end)
 
 local TabFrame = Instance.new("Frame", MainFrame)
-TabFrame.Size = UDim2.new(1, 0, 0, 30); TabFrame.Position = UDim2.new(0, 0, 0, 35); TabFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45); TabFrame.BorderSizePixel = 0
+TabFrame.Size = UDim2.new(1, 0, 0, 32); TabFrame.Position = UDim2.new(0, 0, 0, 40); TabFrame.BackgroundColor3 = Theme.Frame; TabFrame.BorderSizePixel = 0
 
 local function createTabBtn(text, xPos, width)
     local btn = Instance.new("TextButton", TabFrame)
     btn.Size = UDim2.new(width, 0, 1, 0); btn.Position = UDim2.new(xPos, 0, 0, 0)
-    btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextColor3 = Color3.new(1, 1, 1); btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50); btn.BorderSizePixel = 0
+    btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextColor3 = Theme.TextBase; btn.BackgroundColor3 = Theme.Frame; btn.BorderSizePixel = 0
+    applyUIStroke(btn, Theme.Stroke, 1)
+    applyClickEffect(btn)
     return btn
 end
 
 local TabAimbot = createTabBtn("🎯 AIMBOT", 0, 0.333)
 local TabESP = createTabBtn("👁️ ESP", 0.333, 0.333)
 local TabPlayer = createTabBtn("🏃 PLAYER", 0.666, 0.334)
-TabAimbot.BackgroundColor3 = Color3.fromRGB(60, 120, 180) 
+TabAimbot.BackgroundColor3 = Theme.Accent
 
-local AimbotContainer = Instance.new("Frame", MainFrame); AimbotContainer.Size = UDim2.new(1, 0, 1, -65); AimbotContainer.Position = UDim2.new(0, 0, 0, 65); AimbotContainer.BackgroundTransparency = 1; AimbotContainer.Visible = true
-local ESPContainer = Instance.new("Frame", MainFrame); ESPContainer.Size = UDim2.new(1, 0, 1, -65); ESPContainer.Position = UDim2.new(0, 0, 0, 65); ESPContainer.BackgroundTransparency = 1; ESPContainer.Visible = false
-local PlayerContainer = Instance.new("Frame", MainFrame); PlayerContainer.Size = UDim2.new(1, 0, 1, -65); PlayerContainer.Position = UDim2.new(0, 0, 0, 65); PlayerContainer.BackgroundTransparency = 1; PlayerContainer.Visible = false
+local AimbotContainer = Instance.new("Frame", MainFrame); AimbotContainer.Size = UDim2.new(1, 0, 1, -72); AimbotContainer.Position = UDim2.new(0, 0, 0, 72); AimbotContainer.BackgroundTransparency = 1; AimbotContainer.Visible = true
+local ESPContainer = Instance.new("Frame", MainFrame); ESPContainer.Size = UDim2.new(1, 0, 1, -72); ESPContainer.Position = UDim2.new(0, 0, 0, 72); ESPContainer.BackgroundTransparency = 1; ESPContainer.Visible = false
+local PlayerContainer = Instance.new("Frame", MainFrame); PlayerContainer.Size = UDim2.new(1, 0, 1, -72); PlayerContainer.Position = UDim2.new(0, 0, 0, 72); PlayerContainer.BackgroundTransparency = 1; PlayerContainer.Visible = false
 
 local function switchTab(activeTab, activeContainer)
-    TabAimbot.BackgroundColor3 = Color3.fromRGB(45, 45, 50); TabESP.BackgroundColor3 = Color3.fromRGB(45, 45, 50); TabPlayer.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+    TabAimbot.BackgroundColor3 = Theme.Frame; TabESP.BackgroundColor3 = Theme.Frame; TabPlayer.BackgroundColor3 = Theme.Frame
     AimbotContainer.Visible = false; ESPContainer.Visible = false; PlayerContainer.Visible = false
-    activeTab.BackgroundColor3 = Color3.fromRGB(60, 120, 180); activeContainer.Visible = true
+    activeTab.BackgroundColor3 = Theme.Accent; activeContainer.Visible = true
 end
-TabAimbot.Activated:Connect(function() switchTab(TabAimbot, AimbotContainer) end)
-TabESP.Activated:Connect(function() switchTab(TabESP, ESPContainer) end)
-TabPlayer.Activated:Connect(function() switchTab(TabPlayer, PlayerContainer) end)
+
+-- BỎ .Activated THAY BẰNG .MouseButton1Down ĐỂ CHUYỂN TAB TỨC THÌ (GIẢM DELAY VỀ 0)
+TabAimbot.MouseButton1Down:Connect(function() switchTab(TabAimbot, AimbotContainer) end)
+TabESP.MouseButton1Down:Connect(function() switchTab(TabESP, ESPContainer) end)
+TabPlayer.MouseButton1Down:Connect(function() switchTab(TabPlayer, PlayerContainer) end)
 
 -- ==========================================
 -- TAB AIMBOT
 -- ==========================================
-local MasterAimbotToggleBtn = Instance.new("TextButton", AimbotContainer); MasterAimbotToggleBtn.Size = UDim2.new(0, 205, 0, 30); MasterAimbotToggleBtn.Position = UDim2.new(0, 15, 0, 10); MasterAimbotToggleBtn.Font = Enum.Font.GothamBold; MasterAimbotToggleBtn.TextSize = 11; MasterAimbotToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255); MasterAimbotToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65); MasterAimbotToggleBtn.Text = "⚡ AIMBOT TỔNG: OFF"; applyUICorner(MasterAimbotToggleBtn, 6)
-createToggle(AimbotContainer, "🔘 NÚT NỔI: HIỆN", "🔘 NÚT NỔI: ẨN", 15, 45, AimbotSettings, "ShowFloatingBtn", function(state) MasterFloatingBtn.Visible = state end)
-local MenuCamAimBtn = Instance.new("TextButton", AimbotContainer); MenuCamAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuCamAimBtn.Position = UDim2.new(0, 15, 0, 80); MenuCamAimBtn.Font = Enum.Font.GothamBold; MenuCamAimBtn.TextSize = 11; MenuCamAimBtn.TextColor3 = Color3.fromRGB(255, 255, 255); MenuCamAimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65); MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): OFF"; applyUICorner(MenuCamAimBtn, 6)
-local MenuBodyAimBtn = Instance.new("TextButton", AimbotContainer); MenuBodyAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuBodyAimBtn.Position = UDim2.new(0, 15, 0, 115); MenuBodyAimBtn.Font = Enum.Font.GothamBold; MenuBodyAimBtn.TextSize = 11; MenuBodyAimBtn.TextColor3 = Color3.fromRGB(255, 255, 255); MenuBodyAimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65); MenuBodyAimBtn.Text = "🧍 BODY AIM: OFF"; applyUICorner(MenuBodyAimBtn, 6)
-local TargetPartBtn = Instance.new("TextButton", AimbotContainer); TargetPartBtn.Size = UDim2.new(0, 205, 0, 30); TargetPartBtn.Position = UDim2.new(0, 15, 0, 150); TargetPartBtn.Font = Enum.Font.GothamBold; TargetPartBtn.TextSize = 11; TargetPartBtn.TextColor3 = Color3.fromRGB(255, 255, 255); applyUICorner(TargetPartBtn, 6)
-local function updateTargetPartText() TargetPartBtn.Text = AimbotSettings.FocusPart == "Head" and "🎯 Mục tiêu: Đầu (Head)" or "🎯 Mục tiêu: Thân (Body)"; TargetPartBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80) end
+local MasterAimbotToggleBtn = Instance.new("TextButton", AimbotContainer); MasterAimbotToggleBtn.Size = UDim2.new(0, 205, 0, 30); MasterAimbotToggleBtn.Position = UDim2.new(0, 15, 0, 10); MasterAimbotToggleBtn.Font = Enum.Font.GothamBold; MasterAimbotToggleBtn.TextSize = 11; MasterAimbotToggleBtn.TextColor3 = Theme.TextBase; MasterAimbotToggleBtn.BackgroundColor3 = Theme.ButtonOff; MasterAimbotToggleBtn.Text = "⚡ AIMBOT TỔNG: OFF"; applyUICorner(MasterAimbotToggleBtn, 6); applyUIStroke(MasterAimbotToggleBtn); applyClickEffect(MasterAimbotToggleBtn)
+
+-- CHIA NÚT NỔI THÀNH 2 NÚT (6/4)
+local FloatToggleBtn = createToggle(AimbotContainer, "🔘 NỔI: HIỆN", "🔘 NỔI: ẨN", 15, 45, AimbotSettings, "ShowFloatingBtn", function(state) MasterFloatingBtn.Visible = state end)
+FloatToggleBtn.Size = UDim2.new(0, 120, 0, 30) -- Chiếm ~6 phần
+
+local PinToggleBtn = createToggle(AimbotContainer, "📌 GHIM: ON", "📌 GHIM: OFF", 140, 45, AimbotSettings, "PinFloatingBtn")
+PinToggleBtn.Size = UDim2.new(0, 80, 0, 30) -- Chiếm ~4 phần (Chức năng khóa vị trí)
+
+local MenuCamAimBtn = Instance.new("TextButton", AimbotContainer); MenuCamAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuCamAimBtn.Position = UDim2.new(0, 15, 0, 80); MenuCamAimBtn.Font = Enum.Font.GothamBold; MenuCamAimBtn.TextSize = 11; MenuCamAimBtn.TextColor3 = Theme.TextBase; MenuCamAimBtn.BackgroundColor3 = Theme.ButtonOff; MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): OFF"; applyUICorner(MenuCamAimBtn, 6); applyUIStroke(MenuCamAimBtn); applyClickEffect(MenuCamAimBtn)
+local MenuBodyAimBtn = Instance.new("TextButton", AimbotContainer); MenuBodyAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuBodyAimBtn.Position = UDim2.new(0, 15, 0, 115); MenuBodyAimBtn.Font = Enum.Font.GothamBold; MenuBodyAimBtn.TextSize = 11; MenuBodyAimBtn.TextColor3 = Theme.TextBase; MenuBodyAimBtn.BackgroundColor3 = Theme.ButtonOff; MenuBodyAimBtn.Text = "🧍 BODY AIM: OFF"; applyUICorner(MenuBodyAimBtn, 6); applyUIStroke(MenuBodyAimBtn); applyClickEffect(MenuBodyAimBtn)
+local TargetPartBtn = Instance.new("TextButton", AimbotContainer); TargetPartBtn.Size = UDim2.new(0, 205, 0, 30); TargetPartBtn.Position = UDim2.new(0, 15, 0, 150); TargetPartBtn.Font = Enum.Font.GothamBold; TargetPartBtn.TextSize = 11; TargetPartBtn.TextColor3 = Theme.TextBase; applyUICorner(TargetPartBtn, 6); applyUIStroke(TargetPartBtn); applyClickEffect(TargetPartBtn)
+local function updateTargetPartText() TargetPartBtn.Text = AimbotSettings.FocusPart == "Head" and "🎯 Mục tiêu: Đầu (Head)" or "🎯 Mục tiêu: Thân (Body)"; TargetPartBtn.BackgroundColor3 = Theme.ButtonOn end
 TargetPartBtn.Activated:Connect(function() AimbotSettings.FocusPart = (AimbotSettings.FocusPart == "Head") and "HumanoidRootPart" or "Head"; updateTargetPartText() end); updateTargetPartText()
 
 createSettingRow(AimbotContainer, "Đoán hướng (Val):", 15, 185, AimbotSettings, "Prediction")
--- Đã Fix: Smooth được giới hạn cứng từ 0.01 đến 1 ngay trong createSettingRow
 createSettingRow(AimbotContainer, "Độ mượt (Smooth):", 15, 220, AimbotSettings, "Smooth", 0.01, 1)
 createSettingRow(AimbotContainer, "Phạm vi FOV:", 15, 255, AimbotSettings, "FovRadius")
 
@@ -206,26 +318,27 @@ createToggle(AimbotContainer, "🔒 LUÔN LUÔN AIM (LOCK)", "🔒 KHÔNG BUÔNG
 createToggle(AimbotContainer, "👁️ FOV: HIỆN", "👁️ FOV: ẨN", 240, 80, AimbotSettings, "ShowFov", function(state) FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and state end)
 createToggle(AimbotContainer, "🚀 ĐOÁN HƯỚNG: ON", "🚀 ĐOÁN HƯỚNG: OFF", 240, 115, AimbotSettings, "EnablePrediction")
 createToggle(AimbotContainer, "🧱 Check Walls: ON", "🧱 Check Walls: OFF", 240, 150, AimbotSettings, "WallCheck")
-local FocusDeadBtn = Instance.new("TextButton", AimbotContainer); FocusDeadBtn.Size = UDim2.new(0, 205, 0, 30); FocusDeadBtn.Position = UDim2.new(0, 240, 0, 185); FocusDeadBtn.Font = Enum.Font.GothamBold; FocusDeadBtn.TextSize = 11; FocusDeadBtn.TextColor3 = Color3.fromRGB(255, 255, 255); applyUICorner(FocusDeadBtn, 6)
-local function updateFocusDead() FocusDeadBtn.Text = AimbotSettings.DeadCheck and "❤️ Focus & CheckDead: ON" or "❤️ Focus & CheckDead: OFF"; FocusDeadBtn.BackgroundColor3 = AimbotSettings.DeadCheck and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65) end
+local FocusDeadBtn = Instance.new("TextButton", AimbotContainer); FocusDeadBtn.Size = UDim2.new(0, 205, 0, 30); FocusDeadBtn.Position = UDim2.new(0, 240, 0, 185); FocusDeadBtn.Font = Enum.Font.GothamBold; FocusDeadBtn.TextSize = 11; FocusDeadBtn.TextColor3 = Theme.TextBase; applyUICorner(FocusDeadBtn, 6); applyUIStroke(FocusDeadBtn); applyClickEffect(FocusDeadBtn)
+local function updateFocusDead() FocusDeadBtn.Text = AimbotSettings.DeadCheck and "❤️ Focus & CheckDead: ON" or "❤️ Focus & CheckDead: OFF"; FocusDeadBtn.BackgroundColor3 = AimbotSettings.DeadCheck and Theme.ButtonOn or Theme.ButtonOff end
 FocusDeadBtn.Activated:Connect(function() AimbotSettings.DeadCheck = not AimbotSettings.DeadCheck; AimbotSettings.ShowFocus = AimbotSettings.DeadCheck; updateFocusDead() end); updateFocusDead() 
-local AimModeBtn = Instance.new("TextButton", AimbotContainer); AimModeBtn.Size = UDim2.new(0, 205, 0, 30); AimModeBtn.Position = UDim2.new(0, 240, 0, 220); AimModeBtn.Font = Enum.Font.GothamBold; AimModeBtn.TextSize = 12; AimModeBtn.BackgroundColor3 = Color3.fromRGB(45, 100, 180); AimModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255); AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode; applyUICorner(AimModeBtn, 6)
+local AimModeBtn = Instance.new("TextButton", AimbotContainer); AimModeBtn.Size = UDim2.new(0, 205, 0, 30); AimModeBtn.Position = UDim2.new(0, 240, 0, 220); AimModeBtn.Font = Enum.Font.GothamBold; AimModeBtn.TextSize = 12; AimModeBtn.BackgroundColor3 = Theme.Accent; AimModeBtn.TextColor3 = Theme.TextBase; AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode; applyUICorner(AimModeBtn, 6); applyUIStroke(AimModeBtn); applyClickEffect(AimModeBtn)
 AimModeBtn.Activated:Connect(function() AimbotSettings.AimMode = (AimbotSettings.AimMode == "CFrame") and "Mouse" or "CFrame"; AimModeBtn.Text = "Chế độ Cam: " .. AimbotSettings.AimMode end)
 
--- TÍNH NĂNG MỚI: Bảng màu FOV/Focus cho Aimbot
 local AimbotColorLabel = Instance.new("TextLabel", AimbotContainer)
 AimbotColorLabel.Size = UDim2.new(0, 110, 0, 30); AimbotColorLabel.Position = UDim2.new(0, 15, 0, 290); AimbotColorLabel.BackgroundTransparency = 1
-AimbotColorLabel.Text = "Màu FOV/Focus:"; AimbotColorLabel.TextColor3 = Color3.fromRGB(220, 220, 220); AimbotColorLabel.Font = Enum.Font.GothamMedium; AimbotColorLabel.TextSize = 12; AimbotColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+AimbotColorLabel.Text = "Màu FOV/Focus:"; AimbotColorLabel.TextColor3 = Theme.TextBase; AimbotColorLabel.Font = Enum.Font.GothamMedium; AimbotColorLabel.TextSize = 12; AimbotColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local AimbotColorScroll = Instance.new("ScrollingFrame", AimbotContainer)
-AimbotColorScroll.Size = UDim2.new(0, 430, 0, 35); AimbotColorScroll.Position = UDim2.new(0, 15, 0, 320); AimbotColorScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35); AimbotColorScroll.ScrollBarThickness = 0; AimbotColorScroll.CanvasSize = UDim2.new(0, (#colorOrder * 35) + 5, 0, 0); AimbotColorScroll.ScrollingDirection = Enum.ScrollingDirection.X
-applyUICorner(AimbotColorScroll, 4)
+AimbotColorScroll.Size = UDim2.new(0, 430, 0, 35); AimbotColorScroll.Position = UDim2.new(0, 15, 0, 320); AimbotColorScroll.BackgroundColor3 = Theme.Background; AimbotColorScroll.ScrollBarThickness = 0; AimbotColorScroll.CanvasSize = UDim2.new(0, (#colorOrder * 35) + 5, 0, 0); AimbotColorScroll.ScrollingDirection = Enum.ScrollingDirection.X
+applyUICorner(AimbotColorScroll, 4); applyUIStroke(AimbotColorScroll)
 local AimbotColorListLayout = Instance.new("UIListLayout", AimbotColorScroll); AimbotColorListLayout.FillDirection = Enum.FillDirection.Horizontal; AimbotColorListLayout.SortOrder = Enum.SortOrder.LayoutOrder; AimbotColorListLayout.Padding = UDim.new(0, 5)
 
 for i, c in ipairs(colorOrder) do
     local cb = Instance.new("TextButton", AimbotColorScroll)
     cb.Size = UDim2.new(0, 30, 0, 30); cb.BackgroundColor3 = c.color; cb.Text = ""; cb.LayoutOrder = i
     applyUICorner(cb, 15)
+    applyUIStroke(cb, Color3.fromRGB(255,255,255), 1.5)
+    applyClickEffect(cb)
     cb.MouseButton1Click:Connect(function()
         AimbotSettings.FovColor = c.color
         FOVstroke.Color = c.color
@@ -244,8 +357,8 @@ TracerToggleBtn.Size = UDim2.new(0, 120, 0, 30)
 
 local TracerPosBtn = Instance.new("TextButton", ESPContainer)
 TracerPosBtn.Size = UDim2.new(0, 80, 0, 30); TracerPosBtn.Position = UDim2.new(0, 140, 0, 80)
-TracerPosBtn.Font = Enum.Font.GothamBold; TracerPosBtn.TextSize = 10; TracerPosBtn.BackgroundColor3 = Color3.fromRGB(45, 100, 180); TracerPosBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-applyUICorner(TracerPosBtn, 6)
+TracerPosBtn.Font = Enum.Font.GothamBold; TracerPosBtn.TextSize = 10; TracerPosBtn.BackgroundColor3 = Theme.Accent; TracerPosBtn.TextColor3 = Theme.TextBase
+applyUICorner(TracerPosBtn, 6); applyUIStroke(TracerPosBtn); applyClickEffect(TracerPosBtn)
 
 local tracerPosList = {"Bottom", "Center", "Top"}
 local currentTracerPosIdx = 3
@@ -267,29 +380,29 @@ createToggle(ESPContainer, "ESP Name: ON", "ESP Name: OFF", 15, 115, ESPSettings
 createToggle(ESPContainer, "ESP Distance: ON", "ESP Distance: OFF", 15, 150, ESPSettings, "ShowDistance")
 createToggle(ESPContainer, "ESP Teammates: ON", "ESP Teammates: OFF", 15, 185, ESPSettings, "ESPTeammates")
 
-local FixBtn = Instance.new("TextButton", ESPContainer); FixBtn.Size = UDim2.new(0, 205, 0, 30); FixBtn.Position = UDim2.new(0, 15, 0, 220); FixBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50); FixBtn.Text = "🔄 Sửa Lỗi Tàng Hình Outline"; FixBtn.Font = Enum.Font.GothamBold; FixBtn.TextSize = 11; FixBtn.TextColor3 = Color3.new(1, 1, 1); applyUICorner(FixBtn, 6)
+local FixBtn = Instance.new("TextButton", ESPContainer); FixBtn.Size = UDim2.new(0, 205, 0, 30); FixBtn.Position = UDim2.new(0, 15, 0, 220); FixBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60); FixBtn.Text = "🔄 Sửa Lỗi Tàng Hình Outline"; FixBtn.Font = Enum.Font.GothamBold; FixBtn.TextSize = 11; FixBtn.TextColor3 = Theme.TextBase; applyUICorner(FixBtn, 6); applyUIStroke(FixBtn); applyClickEffect(FixBtn)
 
-local TargetPanel = Instance.new("Frame", ESPContainer); TargetPanel.Size = UDim2.new(0, 230, 0, 240); TargetPanel.Position = UDim2.new(0, 235, 0, 10); TargetPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 45); applyUICorner(TargetPanel, 6); applyUIStroke(TargetPanel, Color3.fromRGB(60, 60, 65), 1)
+local TargetPanel = Instance.new("Frame", ESPContainer); TargetPanel.Size = UDim2.new(0, 230, 0, 240); TargetPanel.Position = UDim2.new(0, 235, 0, 10); TargetPanel.BackgroundColor3 = Theme.Frame; applyUICorner(TargetPanel, 6); applyUIStroke(TargetPanel)
 
-local SelectedLabel = Instance.new("TextLabel", TargetPanel); SelectedLabel.Size = UDim2.new(1, 0, 0, 20); SelectedLabel.Position = UDim2.new(0, 0, 0, 5); SelectedLabel.BackgroundTransparency = 1; SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0); SelectedLabel.Font = Enum.Font.GothamBold; SelectedLabel.TextSize = 11
+local SelectedLabel = Instance.new("TextLabel", TargetPanel); SelectedLabel.Size = UDim2.new(1, 0, 0, 20); SelectedLabel.Position = UDim2.new(0, 0, 0, 5); SelectedLabel.BackgroundTransparency = 1; SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 230, 80); SelectedLabel.Font = Enum.Font.GothamBold; SelectedLabel.TextSize = 11
 
-local SearchBar = Instance.new("TextBox", TargetPanel); SearchBar.Size = UDim2.new(1, -20, 0, 24); SearchBar.Position = UDim2.new(0, 10, 0, 25); SearchBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35); SearchBar.TextColor3 = Color3.fromRGB(255, 255, 255); SearchBar.PlaceholderText = "Nhập tên đăng nhập..."; SearchBar.Font = Enum.Font.Gotham; SearchBar.TextSize = 11; SearchBar.Text = ""; applyUICorner(SearchBar, 4)
+local SearchBar = Instance.new("TextBox", TargetPanel); SearchBar.Size = UDim2.new(1, -20, 0, 24); SearchBar.Position = UDim2.new(0, 10, 0, 25); SearchBar.BackgroundColor3 = Theme.Background; SearchBar.TextColor3 = Theme.TextBase; SearchBar.PlaceholderText = "Nhập tên đăng nhập..."; SearchBar.Font = Enum.Font.Gotham; SearchBar.TextSize = 11; SearchBar.Text = ""; applyUICorner(SearchBar, 4); applyUIStroke(SearchBar)
 
-local btnAll = Instance.new("TextButton", TargetPanel); btnAll.Size = UDim2.new(0.5, -15, 0, 22); btnAll.Position = UDim2.new(0, 10, 0, 55); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9; btnAll.BackgroundColor3 = Color3.fromRGB(60, 120, 180); btnAll.TextColor3 = Color3.fromRGB(255, 255, 255); btnAll.Text = "[ CHỌN TẤT CẢ ]"; applyUICorner(btnAll, 4)
-local resetColorBtn = Instance.new("TextButton", TargetPanel); resetColorBtn.Size = UDim2.new(0.5, -15, 0, 22); resetColorBtn.Position = UDim2.new(0.5, 5, 0, 55); resetColorBtn.Font = Enum.Font.GothamBold; resetColorBtn.TextSize = 9; resetColorBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60); resetColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255); resetColorBtn.Text = "[ RESET MÀU ]"; applyUICorner(resetColorBtn, 4)
+local btnAll = Instance.new("TextButton", TargetPanel); btnAll.Size = UDim2.new(0.5, -15, 0, 22); btnAll.Position = UDim2.new(0, 10, 0, 55); btnAll.Font = Enum.Font.GothamBold; btnAll.TextSize = 9; btnAll.BackgroundColor3 = Theme.Accent; btnAll.TextColor3 = Theme.TextBase; btnAll.Text = "[ CHỌN TẤT CẢ ]"; applyUICorner(btnAll, 4); applyUIStroke(btnAll); applyClickEffect(btnAll)
+local resetColorBtn = Instance.new("TextButton", TargetPanel); resetColorBtn.Size = UDim2.new(0.5, -15, 0, 22); resetColorBtn.Position = UDim2.new(0.5, 5, 0, 55); resetColorBtn.Font = Enum.Font.GothamBold; resetColorBtn.TextSize = 9; resetColorBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60); resetColorBtn.TextColor3 = Theme.TextBase; resetColorBtn.Text = "[ RESET MÀU ]"; applyUICorner(resetColorBtn, 4); applyUIStroke(resetColorBtn); applyClickEffect(resetColorBtn)
 
-local PlayerScroll = Instance.new("ScrollingFrame", TargetPanel); PlayerScroll.Size = UDim2.new(1, -20, 0, 100); PlayerScroll.Position = UDim2.new(0, 10, 0, 85); PlayerScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35); PlayerScroll.ScrollBarThickness = 4; PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0); applyUICorner(PlayerScroll, 4); local PlayerListLayout = Instance.new("UIListLayout", PlayerScroll); PlayerListLayout.SortOrder = Enum.SortOrder.Name; PlayerListLayout.Padding = UDim.new(0, 2)
+local PlayerScroll = Instance.new("ScrollingFrame", TargetPanel); PlayerScroll.Size = UDim2.new(1, -20, 0, 100); PlayerScroll.Position = UDim2.new(0, 10, 0, 85); PlayerScroll.BackgroundColor3 = Theme.Background; PlayerScroll.ScrollBarThickness = 4; PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0); applyUICorner(PlayerScroll, 4); applyUIStroke(PlayerScroll); local PlayerListLayout = Instance.new("UIListLayout", PlayerScroll); PlayerListLayout.SortOrder = Enum.SortOrder.Name; PlayerListLayout.Padding = UDim.new(0, 3)
 
-local ColorScroll = Instance.new("ScrollingFrame", TargetPanel); ColorScroll.Size = UDim2.new(1, -20, 0, 40); ColorScroll.Position = UDim2.new(0, 10, 0, 190); ColorScroll.BackgroundColor3 = Color3.fromRGB(30, 30, 35); ColorScroll.ScrollBarThickness = 0; ColorScroll.CanvasSize = UDim2.new(0, (#colorOrder * 35) + 5, 0, 0); ColorScroll.ScrollingDirection = Enum.ScrollingDirection.X; applyUICorner(ColorScroll, 4); local ColorListLayout = Instance.new("UIListLayout", ColorScroll); ColorListLayout.FillDirection = Enum.FillDirection.Horizontal; ColorListLayout.SortOrder = Enum.SortOrder.LayoutOrder; ColorListLayout.Padding = UDim.new(0, 5)
+local ColorScroll = Instance.new("ScrollingFrame", TargetPanel); ColorScroll.Size = UDim2.new(1, -20, 0, 40); ColorScroll.Position = UDim2.new(0, 10, 0, 190); ColorScroll.BackgroundColor3 = Theme.Background; ColorScroll.ScrollBarThickness = 0; ColorScroll.CanvasSize = UDim2.new(0, (#colorOrder * 35) + 5, 0, 0); ColorScroll.ScrollingDirection = Enum.ScrollingDirection.X; applyUICorner(ColorScroll, 4); applyUIStroke(ColorScroll); local ColorListLayout = Instance.new("UIListLayout", ColorScroll); ColorListLayout.FillDirection = Enum.FillDirection.Horizontal; ColorListLayout.SortOrder = Enum.SortOrder.LayoutOrder; ColorListLayout.Padding = UDim.new(0, 5)
 
 local function updateSelection(name)
     SelectedPlayerName = name
-    if name then SelectedLabel.Text = "Mục tiêu: " .. name; SelectedLabel.TextColor3 = CustomPlayerColors[name] or Color3.fromRGB(0, 255, 0)
-    else SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 255, 0) end
+    if name then SelectedLabel.Text = "Mục tiêu: " .. name; SelectedLabel.TextColor3 = CustomPlayerColors[name] or Color3.fromRGB(50, 255, 100)
+    else SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 230, 80) end
 end
 
 for i, c in ipairs(colorOrder) do
-    local cb = Instance.new("TextButton", ColorScroll); cb.Size = UDim2.new(0, 30, 0, 30); cb.BackgroundColor3 = c.color; cb.Text = ""; cb.LayoutOrder = i; applyUICorner(cb, 15)
+    local cb = Instance.new("TextButton", ColorScroll); cb.Size = UDim2.new(0, 30, 0, 30); cb.BackgroundColor3 = c.color; cb.Text = ""; cb.LayoutOrder = i; applyUICorner(cb, 15); applyUIStroke(cb, Color3.fromRGB(255,255,255), 1.5); applyClickEffect(cb)
     cb.MouseButton1Click:Connect(function()
         if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = c.color; SelectedLabel.TextColor3 = c.color
         else currentESPColor = c.color; table.clear(CustomPlayerColors) end
@@ -303,24 +416,26 @@ local function RefreshPlayerList()
         if p ~= Player and (filter == "" or string.find(string.lower(p.Name), filter) or string.find(string.lower(p.DisplayName), filter)) then
             count = count + 1
             local b = Instance.new("TextButton", PlayerScroll); 
-            b.Size = UDim2.new(1, 0, 0, 20); 
-            b.BackgroundColor3 = Color3.fromRGB(45, 45, 50); 
+            b.Size = UDim2.new(1, 0, 0, 22); 
+            b.BackgroundColor3 = Theme.ButtonOff; 
             b.Text = p.DisplayName .. " (@" .. p.Name .. ")"; 
-            b.TextColor3 = CustomPlayerColors[p.Name] or Color3.fromRGB(220, 220, 220); 
+            b.TextColor3 = CustomPlayerColors[p.Name] or Theme.TextBase; 
             b.Font = Enum.Font.Gotham; 
             b.TextSize = 11; 
-            applyUICorner(b, 3)
+            applyUICorner(b, 4)
+            applyUIStroke(b, Theme.Stroke, 1)
+            applyClickEffect(b) 
             
             b.MouseButton1Click:Connect(function() updateSelection(p.Name) end)
         end
     end
-    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, count * 22)
+    PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, count * 25)
 end
 
 SearchBar.Changed:Connect(function(prop) if prop == "Text" then RefreshPlayerList() end end); Players.PlayerAdded:Connect(RefreshPlayerList); Players.PlayerRemoving:Connect(RefreshPlayerList)
 btnAll.MouseButton1Click:Connect(function() updateSelection(nil) end)
 resetColorBtn.MouseButton1Click:Connect(function()
-    if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil; SelectedLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil; SelectedLabel.TextColor3 = Color3.fromRGB(50, 255, 100)
     else currentESPColor = nil; table.clear(CustomPlayerColors) end
     RefreshPlayerList()
 end)
@@ -341,29 +456,67 @@ createSettingRow(PlayerContainer, "Tốc độ TP Walk:", 240, 115, PlayerSettin
 createToggle(PlayerContainer, "🚀 TP Walk: ON", "🚀 TP Walk: OFF", 240, 150, PlayerSettings, "TPWalk")
 
 -- ==========================================
--- XỬ LÝ KÉO THẢ UI
+-- XỬ LÝ KÉO THẢ UI & HIỆU ỨNG ẨN/HIỆN (Có Hỗ Trợ Ghim)
 -- ==========================================
-local function makeDraggable(dragObject, moveObject)
+local function makeDraggable(dragObject, moveObject, canDragCallback)
     local dragging, dragInput, dragStart, startPos
     dragObject.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = moveObject.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+            if canDragCallback and not canDragCallback() then return end -- Check điều kiện ghim
+            dragging = true; 
+            dragStart = input.Position; 
+            startPos = moveObject.Position; 
+            input.Changed:Connect(function() 
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end 
+            end) 
+        end
     end)
-    dragObject.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
-    UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+    dragObject.InputChanged:Connect(function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
+            dragInput = input 
+        end 
+    end)
+    UserInputService.InputChanged:Connect(function(input) 
+        if input == dragInput and dragging then 
+            local delta = input.Position - dragStart; 
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
+        end 
+    end)
 end
-makeDraggable(Title, MainFrame); makeDraggable(ToggleUIBtn, ToggleUIBtn); makeDraggable(MasterFloatingBtn, MasterFloatingBtn)
-ToggleUIBtn.Activated:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+makeDraggable(TitleFrame, MainFrame); 
+makeDraggable(ToggleUIBtn, ToggleUIBtn); 
+makeDraggable(MasterFloatingBtn, MasterFloatingBtn, function() 
+    return not AimbotSettings.PinFloatingBtn -- NẾU PIN ĐANG BẬT THÌ KHÔNG THỂ DRAG NÚT NỔI
+end)
+
+local isMenuOpen = false
+local function toggleMenu()
+    isMenuOpen = not isMenuOpen
+    if isMenuOpen then
+        MainFrame.Visible = true
+        TweenService:Create(MenuScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    else
+        local tw = TweenService:Create(MenuScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0})
+        tw:Play()
+        tw.Completed:Connect(function()
+            if not isMenuOpen then MainFrame.Visible = false end
+        end)
+    end
+end
+
+ToggleUIBtn.Activated:Connect(toggleMenu)
 
 -- ==========================================
 -- LOGIC KẾT HỢP AIMBOT & ESP
 -- ==========================================
 local function updateUIStates()
     isAiming = MasterSwitch and PrefCamAim; AimbotSettings.BodyAim = MasterSwitch and PrefBodyAim
-    MasterAimbotToggleBtn.Text = MasterSwitch and "⚡ AIMBOT TỔNG: ON" or "⚡ AIMBOT TỔNG: OFF"; MasterAimbotToggleBtn.BackgroundColor3 = MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(60, 60, 65)
-    MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): " .. (PrefCamAim and "ON" or "OFF"); MenuCamAimBtn.BackgroundColor3 = PrefCamAim and (MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(150, 150, 40)) or Color3.fromRGB(60, 60, 65)
-    MenuBodyAimBtn.Text = "🧍 BODY AIM: " .. (PrefBodyAim and "ON" or "OFF"); MenuBodyAimBtn.BackgroundColor3 = PrefBodyAim and (MasterSwitch and Color3.fromRGB(80, 150, 80) or Color3.fromRGB(150, 150, 40)) or Color3.fromRGB(60, 60, 65)
+    MasterAimbotToggleBtn.Text = MasterSwitch and "⚡ AIMBOT TỔNG: ON" or "⚡ AIMBOT TỔNG: OFF"; MasterAimbotToggleBtn.BackgroundColor3 = MasterSwitch and Theme.ButtonOn or Theme.ButtonOff
+    MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): " .. (PrefCamAim and "ON" or "OFF"); MenuCamAimBtn.BackgroundColor3 = PrefCamAim and (MasterSwitch and Theme.ButtonOn or Color3.fromRGB(150, 150, 50)) or Theme.ButtonOff
+    MenuBodyAimBtn.Text = "🧍 BODY AIM: " .. (PrefBodyAim and "ON" or "OFF"); MenuBodyAimBtn.BackgroundColor3 = PrefBodyAim and (MasterSwitch and Theme.ButtonOn or Color3.fromRGB(150, 150, 50)) or Theme.ButtonOff
     MasterFloatingBtn.Text = "TỔNG: " .. (MasterSwitch and "ON" or "OFF") .. "\nC:" .. (PrefCamAim and "ON" or "OFF") .. " | B:" .. (PrefBodyAim and "ON" or "OFF")
-    MasterFloatingBtn.BackgroundColor3 = MasterSwitch and Color3.fromRGB(80, 200, 80) or Color3.fromRGB(220, 60, 60)
+    MasterFloatingBtn.BackgroundColor3 = MasterSwitch and Color3.fromRGB(50, 200, 100) or Color3.fromRGB(220, 50, 70)
     FOVring.Visible = (isAiming or AimbotSettings.BodyAim) and AimbotSettings.ShowFov
     if not isAiming and not AimbotSettings.BodyAim then lockedTarget = nil; FocusCircle.Visible = false end
 end
@@ -410,7 +563,6 @@ end
 
 local ESP = {}
 local activeHighlights = 0
-
 local function getESPColor(p) return CustomPlayerColors[p.Name] or currentESPColor or (p.Team and p.Team.TeamColor.Color or NO_TEAM_COLOR) end
 
 local function cleanESP(p) 
@@ -426,14 +578,11 @@ end
 local function setupESP(p)
     if p == Player then return end; cleanESP(p)
     local box = Instance.new("SelectionBox"); box.LineThickness = 0.05; box.SurfaceTransparency = 1; box.Parent = ScreenGui 
-    
     local hl = Instance.new("Highlight"); hl.FillTransparency = 1; hl.OutlineTransparency = 0; hl.Enabled = false
     if activeHighlights < 31 then hl.Parent = ScreenGui; activeHighlights = activeHighlights + 1 end
-    
     local bb = Instance.new("BillboardGui"); bb.AlwaysOnTop = true; bb.Size = UDim2.new(0, 200, 0, 50); bb.StudsOffset = Vector3.new(0, 2, 0); bb.Parent = ScreenGui
     local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Font = Enum.Font.GothamBold; txt.TextSize = 12; txt.TextStrokeTransparency = 0; txt.Parent = bb
     local tracerFrame = Instance.new("Frame"); tracerFrame.AnchorPoint = Vector2.new(0.5, 0.5); tracerFrame.BorderSizePixel = 0; tracerFrame.Visible = false; tracerFrame.Parent = ScreenGui
-    
     ESP[p] = { Box = box, HL = hl, BB = bb, TXT = txt, Tracer = tracerFrame }
 end
 for _, p in pairs(Players:GetPlayers()) do setupESP(p) end
@@ -455,33 +604,25 @@ FixBtn.Activated:Connect(RebuildHighlights)
 RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if isAiming or AimbotSettings.BodyAim then
         local hold = false
-        
         if lockedTarget and isAimbotTargetValid(lockedTarget, AimbotSettings.LockTarget) then
-            if AimbotSettings.LockTarget then
-                hold = true
-            else
+            if AimbotSettings.LockTarget then hold = true else
                 local tPart = getAimbotTargetPart(lockedTarget.Character)
                 local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
                 if vis and (Vector2.new(sPos.X, sPos.Y) - Cam.ViewportSize / 2).Magnitude <= AimbotSettings.FovRadius then hold = true end
             end
         end
         if not hold then lockedTarget = getBestAimbotTarget() end
-
         if lockedTarget and lockedTarget.Character then
             local tPart = getAimbotTargetPart(lockedTarget.Character)
             if isAiming then
                 local vel = tPart.AssemblyLinearVelocity; if vel.Magnitude > 100 then vel = vel.Unit * 100 end
                 local finalPos = tPart.Position + (vel * (AimbotSettings.EnablePrediction and AimbotSettings.Prediction or 0))
-                
                 if AimbotSettings.AimMode == "CFrame" then
                     local dir = (finalPos - Cam.CFrame.Position).Unit
                     Cam.CFrame = AimbotSettings.Smooth == 1 and CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + dir) or CFrame.new(Cam.CFrame.Position, Cam.CFrame.Position + Cam.CFrame.LookVector:Lerp(dir, AimbotSettings.Smooth))
                 elseif AimbotSettings.AimMode == "Mouse" and mousemoverel then
                     local sPos, vis = Cam:WorldToViewportPoint(finalPos)
-                    if vis then
-                        local center = Cam.ViewportSize / 2
-                        mousemoverel(math.round((sPos.X - center.X) * AimbotSettings.Smooth), math.round((sPos.Y - center.Y) * AimbotSettings.Smooth))
-                    end
+                    if vis then mousemoverel(math.round((sPos.X - (Cam.ViewportSize.X/2)) * AimbotSettings.Smooth), math.round((sPos.Y - (Cam.ViewportSize.Y/2)) * AimbotSettings.Smooth)) end
                 end
             end
             if AimbotSettings.BodyAim and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
@@ -494,36 +635,20 @@ end)
 
 RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, function()
     FOVring.Position = UDim2.new(0, Cam.ViewportSize.X / 2, 0, Cam.ViewportSize.Y / 2); FOVring.Size = UDim2.new(0, AimbotSettings.FovRadius * 2, 0, AimbotSettings.FovRadius * 2)
-
     if lockedTarget and lockedTarget.Character and (isAiming or AimbotSettings.BodyAim) then
-        local tPart = getAimbotTargetPart(lockedTarget.Character)
-        local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
+        local tPart = getAimbotTargetPart(lockedTarget.Character); local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
         if vis and AimbotSettings.ShowFocus then FocusCircle.Position = UDim2.new(0, sPos.X, 0, sPos.Y); FocusCircle.Visible = true else FocusCircle.Visible = false end
     else FocusCircle.Visible = false end
 
-    local origin
-    if ESPSettings.TracerOrigin == "Bottom" then
-        origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y)
-    elseif ESPSettings.TracerOrigin == "Center" then
-        origin = Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2)
-    elseif ESPSettings.TracerOrigin == "Top" then
-        origin = Vector2.new(Cam.ViewportSize.X / 2, 0)
-    end
+    local origin = ESPSettings.TracerOrigin == "Bottom" and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y) or (ESPSettings.TracerOrigin == "Center" and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2) or Vector2.new(Cam.ViewportSize.X / 2, 0))
 
     for p, e in pairs(ESP) do
         local c = p.Character; local hrp = c and c:FindFirstChild("HumanoidRootPart"); local head = c and c:FindFirstChild("Head"); local hum = c and c:FindFirstChildOfClass("Humanoid")
         local isVisible = hrp and head and hum and hum.Health > 0 and (ESPSettings.ESPTeammates or p.Team ~= Player.Team)
-        
         if isVisible then
             local col = getESPColor(p)
             e.Box.Visible = ESPSettings.BoxESP; e.Box.Adornee = ESPSettings.BoxESP and c or nil; e.Box.Color3 = col
-            
-            if ESPSettings.OutlineESP and e.HL then
-                e.HL.Enabled = true; e.HL.Adornee = c; e.HL.OutlineColor = col
-            elseif e.HL then
-                e.HL.Enabled = false; e.HL.Adornee = nil
-            end
-            
+            if ESPSettings.OutlineESP and e.HL then e.HL.Enabled = true; e.HL.Adornee = c; e.HL.OutlineColor = col elseif e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end
             if ESPSettings.ShowName or ESPSettings.ShowDistance then
                 e.BB.Adornee = head; e.BB.Enabled = true; e.TXT.TextColor3 = col
                 local str = ""; if ESPSettings.ShowName then str = p.Name end
@@ -535,46 +660,138 @@ RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, 
                 local pos, onScreen = Cam:WorldToViewportPoint(hrp.Position)
                 if onScreen then
                     local target = Vector2.new(pos.X, pos.Y); local dist = (target - origin).Magnitude
-                    e.Tracer.Size = UDim2.new(0, dist, 0, 1.5)
-                    e.Tracer.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
-                    e.Tracer.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
-                    e.Tracer.BackgroundColor3 = col; e.Tracer.Visible = true
+                    e.Tracer.Size = UDim2.new(0, dist, 0, 1.5); e.Tracer.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
+                    e.Tracer.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X)); e.Tracer.BackgroundColor3 = col; e.Tracer.Visible = true
                 else e.Tracer.Visible = false end
             else e.Tracer.Visible = false end
         else e.Box.Visible = false; if e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end; e.BB.Enabled = false; e.Tracer.Visible = false end
     end
 end)
 
--- ==========================================
--- LOGIC PLAYER MODS 
--- ==========================================
 getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
         local hum = Player.Character:FindFirstChildOfClass("Humanoid")
-        
         if PlayerSettings.LoopW then hum.WalkSpeed = PlayerSettings.WalkSpeed end
         if PlayerSettings.LoopJ then hum.UseJumpPower = true; hum.JumpPower = PlayerSettings.JumpPower end
-        
-        if PlayerSettings.TPWalk and hum.MoveDirection.Magnitude > 0 then
-            Player.Character:TranslateBy(hum.MoveDirection * PlayerSettings.TPSpeed)
-        end
+        if PlayerSettings.TPWalk and hum.MoveDirection.Magnitude > 0 then Player.Character:TranslateBy(hum.MoveDirection * PlayerSettings.TPSpeed) end
     end
     if PlayerSettings.LockFov then Cam.FieldOfView = PlayerSettings.FovCam end
 end)
 
 getgenv()._Player_Stepped = RunService.Stepped:Connect(function()
-    if PlayerSettings.Noclip and Player.Character then
-        for _, part in pairs(Player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end
-    end
+    if PlayerSettings.Noclip and Player.Character then for _, part in pairs(Player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end
 end)
 
 getgenv()._Player_Jump = UserInputService.JumpRequest:Connect(function()
-    if PlayerSettings.InfJ and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
-        Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-    end
+    if PlayerSettings.InfJ and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gp)
     if not gp and input.KeyCode == Enum.KeyCode.T then toggleCamAim() end
-    if not gp and input.KeyCode == Enum.KeyCode.RightShift then MainFrame.Visible = not MainFrame.Visible end
+    if not gp and input.KeyCode == Enum.KeyCode.RightShift then toggleMenu() end
+end)
+
+-- ==========================================
+-- GIAO DIỆN TẢI SCRIPT (NÂNG CẤP % TRẠNG THÁI)
+-- ==========================================
+local LoadFrame = Instance.new("Frame", ScreenGui)
+LoadFrame.Size = UDim2.new(0, 340, 0, 130)
+LoadFrame.Position = UDim2.new(0.5, -170, 0.5, -65)
+LoadFrame.BackgroundColor3 = Theme.Background
+applyUICorner(LoadFrame, 12)
+applyUIStroke(LoadFrame, Theme.Accent, 2)
+
+local LoadTitle = Instance.new("TextLabel", LoadFrame)
+LoadTitle.Size = UDim2.new(1, 0, 0, 40)
+LoadTitle.Position = UDim2.new(0, 0, 0, 10)
+LoadTitle.BackgroundTransparency = 1
+LoadTitle.Text = "RROMAX HUB"
+LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadTitle.Font = Enum.Font.GothamBlack
+LoadTitle.TextSize = 22
+applyGradient(LoadTitle, Color3.fromRGB(150, 50, 255), Color3.fromRGB(0, 170, 255))
+
+local LoadStatus = Instance.new("TextLabel", LoadFrame)
+LoadStatus.Size = UDim2.new(1, 0, 0, 25)
+LoadStatus.Position = UDim2.new(0, 0, 0, 50)
+LoadStatus.BackgroundTransparency = 1
+LoadStatus.Text = "Đang khởi tạo hệ thống..."
+LoadStatus.TextColor3 = Color3.fromRGB(180, 180, 200)
+LoadStatus.Font = Enum.Font.Gotham
+LoadStatus.TextSize = 13
+
+local LoadPercent = Instance.new("TextLabel", LoadFrame)
+LoadPercent.Size = UDim2.new(0, 50, 0, 25)
+LoadPercent.Position = UDim2.new(1, -65, 0, 85)
+LoadPercent.BackgroundTransparency = 1
+LoadPercent.Text = "0%"
+LoadPercent.TextColor3 = Theme.Accent
+LoadPercent.Font = Enum.Font.GothamBold
+LoadPercent.TextSize = 14
+LoadPercent.TextXAlignment = Enum.TextXAlignment.Right
+
+local LoadingBarBG = Instance.new("Frame", LoadFrame)
+LoadingBarBG.Size = UDim2.new(0, 260, 0, 10)
+LoadingBarBG.Position = UDim2.new(0, 20, 0, 92)
+LoadingBarBG.BackgroundColor3 = Theme.Frame
+applyUICorner(LoadingBarBG, 5)
+applyUIStroke(LoadingBarBG, Theme.Stroke, 1)
+
+local LoadingBarFill = Instance.new("Frame", LoadingBarBG)
+LoadingBarFill.Size = UDim2.new(0, 0, 1, 0)
+LoadingBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+applyUICorner(LoadingBarFill, 5)
+applyGradient(LoadingBarFill, Color3.fromRGB(0, 170, 255), Color3.fromRGB(0, 255, 170))
+
+task.spawn(function()
+    local duration = 3
+    local startTime = tick()
+    
+    while tick() - startTime < duration do
+        local elapsed = tick() - startTime
+        local progress = math.clamp(elapsed / duration, 0, 1)
+        local pct = math.floor(progress * 100)
+        
+        LoadPercent.Text = tostring(pct) .. "%"
+        LoadingBarFill.Size = UDim2.new(progress, 0, 1, 0)
+        
+        if pct < 30 then
+            LoadStatus.Text = "Khởi tạo lõi Script & Bảo mật..."
+        elseif pct < 65 then
+            LoadStatus.Text = "Đang tiêm Modules Aimbot & ESP..."
+        elseif pct < 90 then
+            LoadStatus.Text = "Chuẩn bị giao diện người dùng..."
+        else
+            LoadStatus.Text = "Hoàn tất! Đang khởi động..."
+        end
+        
+        RunService.RenderStepped:Wait()
+    end
+    
+    LoadPercent.Text = "100%"
+    LoadingBarFill.Size = UDim2.new(1, 0, 1, 0)
+    LoadStatus.Text = "Thành công!"
+    task.wait(0.3)
+    
+    for _, child in pairs(LoadFrame:GetDescendants()) do
+        if child:IsA("GuiObject") then
+            if child:IsA("TextLabel") then
+                TweenService:Create(child, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+            else
+                TweenService:Create(child, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+            end
+            if child:FindFirstChildOfClass("UIStroke") then
+                TweenService:Create(child.UIStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+            end
+        end
+    end
+    TweenService:Create(LoadFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(LoadFrame.UIStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    
+    task.wait(0.5)
+    LoadFrame:Destroy()
+    
+    ToggleUIBtn.Visible = true
+    if AimbotSettings.ShowFloatingBtn then MasterFloatingBtn.Visible = true end
+    toggleMenu()
 end)
