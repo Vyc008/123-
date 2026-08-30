@@ -1,6 +1,7 @@
 --// Rromax Universal Hub: Aimbot + ESP + Player Mods (MODERN UI EDITION)
 --// Cập nhật: Giao diện Modern Dark, Hiệu ứng Loading % chi tiết, Nút bọc viền, Gradient.
 --// Bản Edit by Ctgv_thw: Chuyển tab siêu tốc, Nút ghim, Hiệu ứng 7 màu lướt xịn xò.
+--// Sửa đổi: Mặc định ESP và FOV/Focus màu Xanh Lá Cây.
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -44,7 +45,7 @@ local Theme = {
 -- ==========================================
 local AimbotSettings = {
     Prediction = 0.05, EnablePrediction = false, Smooth = 1,
-    FovRadius = 136, ShowFov = true, FovColor = Theme.Accent,
+    FovRadius = 136, ShowFov = true, FovColor = Color3.fromRGB(50, 255, 50), -- Chỉnh FOV/Focus mặc định thành Xanh lá
     LockTarget = false, TeamCheck = false, WallCheck = true,
     DeadCheck = true, ShowFocus = true, FocusPart = "Head",
     AimMode = "CFrame", ShowFloatingBtn = true, PinFloatingBtn = false, BodyAim = false
@@ -68,9 +69,9 @@ local PrefBodyAim = false
 local isAiming = true     
 local lockedTarget = nil
 
-local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255)
+local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255) -- Sửa mặc định ESP thành trắng
 local CustomPlayerColors = {} 
-local currentESPColor = nil
+local currentESPColor = Color3.fromRGB(255, 255, 255) -- Sửa mặc định ESP thành trắng
 local SelectedPlayerName = nil 
 local colorOrder = {
     {name = "White", color = Color3.fromRGB(255, 255, 255)}, {name = "Red", color = Color3.fromRGB(255, 50, 50)},
@@ -436,7 +437,8 @@ SearchBar.Changed:Connect(function(prop) if prop == "Text" then RefreshPlayerLis
 btnAll.MouseButton1Click:Connect(function() updateSelection(nil) end)
 resetColorBtn.MouseButton1Click:Connect(function()
     if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil; SelectedLabel.TextColor3 = Color3.fromRGB(50, 255, 100)
-    else currentESPColor = nil; table.clear(CustomPlayerColors) end
+    -- Đã cập nhật dòng dưới để nút Reset cũng sẽ đưa về màu xanh lá:
+    else currentESPColor = Color3.fromRGB(50, 255, 50); table.clear(CustomPlayerColors) end
     RefreshPlayerList()
 end)
 
