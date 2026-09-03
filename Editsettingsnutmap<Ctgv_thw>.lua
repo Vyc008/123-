@@ -20,23 +20,23 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.IgnoreGuiInset = true
-ScreenGui.DisplayOrder = 999999999 -- FIX: Đảm bảo Aura và Menu không bao giờ bị game che khuất
+ScreenGui.DisplayOrder = 999999999
 
--- Khung Aura (Viền sáng bám theo nút đang chọn)
+-- Khung Aura
 local AuraFrame = Instance.new("Frame")
 AuraFrame.Name = "AuraFrame"
 AuraFrame.Parent = ScreenGui
 AuraFrame.BackgroundTransparency = 1
 AuraFrame.Visible = false
 AuraFrame.ZIndex = 99999
-AuraFrame.Interactable = false -- FIX: Đảm bảo Aura không chặn click chuột của bạn
+AuraFrame.Interactable = false
 
 local AuraStroke = Instance.new("UIStroke")
 AuraStroke.Parent = AuraFrame
 AuraStroke.Color = Color3.fromRGB(0, 255, 255)
 AuraStroke.Thickness = 3
 
-local AuraCorner = Instance.new("UICorner") -- FIX: Bo góc cho Aura
+local AuraCorner = Instance.new("UICorner")
 AuraCorner.Parent = AuraFrame
 AuraCorner.CornerRadius = UDim.new(0, 0)
 
@@ -125,9 +125,10 @@ SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
 SliderKnob.Text = ""
 
 -- Nút LƯU & TẢI
+local originalSaveColor = Color3.fromRGB(50, 100, 200)
 local SaveBtn = Instance.new("TextButton")
 SaveBtn.Parent = MainFrame
-SaveBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+SaveBtn.BackgroundColor3 = originalSaveColor
 SaveBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
 SaveBtn.Size = UDim2.new(0.42, 0, 0, 30)
 SaveBtn.Font = Enum.Font.SourceSansBold
@@ -155,11 +156,10 @@ StatusLog.Text = "Sẵn sàng!"
 StatusLog.TextColor3 = Color3.fromRGB(150, 255, 150)
 StatusLog.TextSize = 12
 
--- Bảng quản lý Connections để dọn rác bộ nhớ (Tránh lag aura khi chạy lại script)
 local connections = {}
 
 -- ==========================================
--- 2. FIX KÉO MENU (CHỈ KÉO BẰNG TITLE BAR)
+-- 2. KÉO MENU
 -- ==========================================
 local isDraggingMenu = false
 local dragMenuStartPos = nil
@@ -179,7 +179,6 @@ table.insert(connections, TitleBar.InputEnded:Connect(function(input)
 	end
 end))
 
--- ẨN / HIỆN MENU
 table.insert(connections, HideBtn.MouseButton1Click:Connect(function()
 	MainFrame.Visible = false
 	ShowMenuBtn.Visible = true
@@ -192,7 +191,7 @@ table.insert(connections, ShowMenuBtn.MouseButton1Click:Connect(function()
 end))
 
 -- ==========================================
--- 3. LOGIC LƯU VÀ TẢI SETTINGS
+-- 3. LOGIC LƯU VÀ TẢI SETTINGS (CÓ XÁC NHẬN)
 -- ==========================================
 local function saveSettings()
 	local dataToSave = {}
@@ -220,6 +219,45 @@ local function saveSettings()
 	end
 end
 
+-- LOGIC NÚT LƯU UI (XÁC NHẬN 2 LẦN)
+local isConfirmingSave = false
+local saveResetThread = nil
+
+table.insert(connections, SaveBtn.MouseButton1Click:Connect(function()
+	if not isConfirmingSave then
+		-- Lần 1: Yêu cầu xác nhận
+		isConfirmingSave = true
+		SaveBtn.Text = "XÁC NHẬN?"
+		SaveBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Đổi thành màu đỏ
+		
+		-- Hủy bỏ bộ đếm lùi cũ nếu có
+		if saveResetThread then task.cancel(saveResetThread) end
+		
+		-- Sau 3 giây nếu không ấn lần 2 thì reset lại nút
+		saveResetThread = task.delay(3, function()
+			isConfirmingSave = false
+			SaveBtn.Text = "LƯU UI"
+			SaveBtn.BackgroundColor3 = originalSaveColor
+		end)
+	else
+		-- Lần 2: Thực thi lệnh lưu
+		if saveResetThread then task.cancel(saveResetThread) end
+		isConfirmingSave = false
+		
+		saveSettings() -- Gọi hàm lưu data
+		
+		SaveBtn.Text = "OK!"
+		SaveBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Đổi màu xanh lá báo thành công
+		
+		-- Trả lại nút bình thường sau 1.5 giây
+		task.delay(1.5, function()
+			SaveBtn.Text = "LƯU UI"
+			SaveBtn.BackgroundColor3 = originalSaveColor
+		end)
+	end
+end))
+
+-- LOGIC NÚT TẢI UI
 local function loadSettings()
 	if not isfile or not readfile or not isfile(SAVE_FILE) then
 		StatusLog.Text = "Không tìm thấy file!"
@@ -250,11 +288,10 @@ local function loadSettings()
 	end)
 end
 
-table.insert(connections, SaveBtn.MouseButton1Click:Connect(saveSettings))
 table.insert(connections, LoadBtn.MouseButton1Click:Connect(loadSettings))
 
 -- ==========================================
--- 4. LOGIC ĐIỀU KHIỂN & KÉO THẢ NÚT (FIXED)
+-- 4. LOGIC ĐIỀU KHIỂN & KÉO THẢ NÚT
 -- ==========================================
 local isEditing = false
 local selectedUI = nil
@@ -371,7 +408,7 @@ table.insert(connections, UserInputService.InputEnded:Connect(function(input)
 	end
 end))
 
--- Hiệu ứng Aura bám sát (FIX: Cập nhật UICorner & Xử lý mất cha)
+-- Hiệu ứng Aura bám sát
 table.insert(connections, RunService.RenderStepped:Connect(function()
 	if isEditing and selectedUI and selectedUI.Parent then
 		AuraFrame.Visible = true
@@ -381,7 +418,6 @@ table.insert(connections, RunService.RenderStepped:Connect(function()
 		AuraFrame.Position = UDim2.new(0, selectedUI.AbsolutePosition.X, 0, selectedUI.AbsolutePosition.Y)
 		AuraFrame.AnchorPoint = Vector2.new(0, 0)
 		
-		-- Đồng bộ bo góc (CornerRadius) cho Aura nếu nút được chọn là hình tròn
 		local targetCorner = selectedUI:FindFirstChildOfClass("UICorner")
 		if targetCorner then
 			AuraCorner.CornerRadius = targetCorner.CornerRadius
@@ -393,7 +429,7 @@ table.insert(connections, RunService.RenderStepped:Connect(function()
 	end
 end))
 
--- FIX CHỐNG LAG: Ngắt toàn bộ sự kiện quét liên tục khi GUI bị tắt hoặc chạy lại
+-- Ngắt sự kiện quét khi GUI bị tắt
 ScreenGui.AncestryChanged:Connect(function(_, parent)
 	if not parent then
 		for _, conn in pairs(connections) do
