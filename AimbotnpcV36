@@ -47,7 +47,7 @@ FovCorner.CornerRadius = UDim.new(1, 0)
 FovCorner.Parent = FOVring
 
 local FovStroke = Instance.new("UIStroke")
-FovStroke.Color = Color3.fromRGB(255, 105, 180)
+FovStroke.Color = Color3.fromRGB(0, 255, 0) -- ĐÃ CHỈNH SANG MÀU XANH LÁ
 FovStroke.Thickness = 2
 FovStroke.Parent = FOVring
 
@@ -66,7 +66,7 @@ ToggleUIBtn.Parent = ScreenGui
 
 -- KHUNG MENU CHÍNH
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 335) -- Tăng chiều cao để chứa thêm UI
+MainFrame.Size = UDim2.new(0, 220, 0, 335)
 MainFrame.Position = UDim2.new(0, 70, 0, 150)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 2
@@ -78,7 +78,7 @@ MainFrame.Parent = ScreenGui
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Title.Text = " AIMBOT NPC MENU"
+Title.Text = " AIMBOT MENU"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -167,7 +167,7 @@ ColorLabel.Size = UDim2.new(0, 200, 0, 20)
 ColorLabel.Position = UDim2.new(0, 10, 0, 185)
 ColorLabel.BackgroundTransparency = 1
 ColorLabel.Text = "Màu FOV (Chọn hoặc Nhập):"
-ColorLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 ColorLabel.Font = Enum.Font.Gotham
 ColorLabel.TextSize = 13
 ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -208,14 +208,15 @@ local function createColorInput(posX, defaultVal)
     return input
 end
 
-local R_Input = createColorInput(10, 255)
-local G_Input = createColorInput(80, 105)
-local B_Input = createColorInput(150, 180)
+-- ĐÃ CHỈNH THÔNG SỐ NHẬP MẶC ĐỊNH SANG XANH LÁ (0, 255, 0)
+local R_Input = createColorInput(10, 0)
+local G_Input = createColorInput(80, 255)
+local B_Input = createColorInput(150, 0)
 
 local function updateColor()
-    local r = tonumber(R_Input.Text) or 255
-    local g = tonumber(G_Input.Text) or 105
-    local b = tonumber(B_Input.Text) or 180
+    local r = tonumber(R_Input.Text) or 0
+    local g = tonumber(G_Input.Text) or 255
+    local b = tonumber(B_Input.Text) or 0
     r = math.clamp(r, 0, 255); R_Input.Text = tostring(r)
     g = math.clamp(g, 0, 255); G_Input.Text = tostring(g)
     b = math.clamp(b, 0, 255); B_Input.Text = tostring(b)
@@ -385,7 +386,6 @@ local function aim(targetPosition)
     
     local currentCF = currentCam.CFrame
     local targetDirection = (targetPosition - currentCF.Position).Unit
-    -- ĐÃ ÁP DỤNG ĐỘ MƯỢT TỪ Ô NHẬP LIỆU (smoothFactor)
     local newLookVector = currentCF.LookVector:Lerp(targetDirection, smoothFactor)
     currentCam.CFrame = CFrame.new(currentCF.Position, currentCF.Position + newLookVector)
 end
