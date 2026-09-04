@@ -1,6 +1,7 @@
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -12,6 +13,37 @@ if existingGui then
 	end
 	existingGui:Destroy()
 end
+
+-- DATA CÀI ĐẶT
+local settingsFile = "FlyGuiSettings_Ctgv.json"
+local mySettings = {
+	verticalPower = 50,
+	keyBind = "F"
+}
+
+-- HÀM LƯU/TẢI CÀI ĐẶT
+local function SaveSettings()
+	if writefile then
+		pcall(function()
+			writefile(settingsFile, HttpService:JSONEncode(mySettings))
+		end)
+	end
+end
+
+local function LoadSettings()
+	if readfile and isfile then
+		pcall(function()
+			if isfile(settingsFile) then
+				local data = HttpService:JSONDecode(readfile(settingsFile))
+				if data then
+					mySettings.verticalPower = data.verticalPower or 50
+					mySettings.keyBind = data.keyBind or "F"
+				end
+			end
+		end)
+	end
+end
+LoadSettings()
 
 -- TẠO SCREEN GUI
 local main = Instance.new("ScreenGui")
@@ -25,6 +57,7 @@ local speed = Instance.new("TextLabel")
 local mine = Instance.new("TextButton")
 local closebutton = Instance.new("TextButton")
 local keyInput = Instance.new("TextBox")
+local settingsBtn = Instance.new("TextButton")
 local noclipBtn = Instance.new("TextButton")
 
 main.Name = "MobileFlyGUI"
@@ -32,7 +65,7 @@ main.Parent = LocalPlayer:WaitForChild("PlayerGui")
 main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 main.ResetOnSpawn = false
 
--- KHUNG MENU (200x65)
+-- KHUNG MENU CHÍNH (200x65)
 Frame.Parent = main
 Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Frame.Position = UDim2.new(0.1, 0, 0.35, 0)
@@ -40,12 +73,12 @@ Frame.Size = UDim2.new(0, 200, 0, 65)
 Frame.Active = true
 Frame.Draggable = true
 
--- HÀNG BÊN NGOÀI KHUNG (TOP BAR - CĂN ĐỀU CẢ NGUYÊN HÀNG 200PX)
+-- HÀNG BÊN NGOÀI KHUNG (TOP BAR)
 closebutton.Name = "Close"
 closebutton.Parent = Frame
 closebutton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 closebutton.Position = UDim2.new(0, 2, 0, -28)
-closebutton.Size = UDim2.new(0, 40, 0, 25)
+closebutton.Size = UDim2.new(0, 35, 0, 25)
 closebutton.Font = Enum.Font.SourceSansBold
 closebutton.Text = "X"
 closebutton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -54,26 +87,36 @@ closebutton.TextSize = 18
 keyInput.Name = "Keybind"
 keyInput.Parent = Frame
 keyInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-keyInput.Position = UDim2.new(0, 44, 0, -28)
-keyInput.Size = UDim2.new(0, 70, 0, 25)
+keyInput.Position = UDim2.new(0, 39, 0, -28)
+keyInput.Size = UDim2.new(0, 45, 0, 25)
 keyInput.Font = Enum.Font.SourceSansBold
-keyInput.Text = "F"
+keyInput.Text = mySettings.keyBind
 keyInput.PlaceholderText = "Phím"
 keyInput.TextColor3 = Color3.fromRGB(255, 255, 0)
 keyInput.TextSize = 14
 keyInput.ClearTextOnFocus = false
 
+settingsBtn.Name = "SettingsBtn"
+settingsBtn.Parent = Frame
+settingsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+settingsBtn.Position = UDim2.new(0, 86, 0, -28)
+settingsBtn.Size = UDim2.new(0, 45, 0, 25)
+settingsBtn.Font = Enum.Font.SourceSansBold
+settingsBtn.Text = "⚙️"
+settingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsBtn.TextSize = 14
+
 noclipBtn.Name = "NoclipBtn"
 noclipBtn.Parent = Frame
 noclipBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-noclipBtn.Position = UDim2.new(0, 116, 0, -28)
-noclipBtn.Size = UDim2.new(0, 82, 0, 25)
+noclipBtn.Position = UDim2.new(0, 133, 0, -28)
+noclipBtn.Size = UDim2.new(0, 65, 0, 25)
 noclipBtn.Font = Enum.Font.SourceSansBold
 noclipBtn.Text = "NC: OFF"
 noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 noclipBtn.TextSize = 12
 
--- HÀNG TRÊN CÙNG TRONG KHUNG (Y = 2px, HEIGHT = 29px)
+-- HÀNG TRÊN CÙNG TRONG KHUNG
 up.Name = "up"
 up.Parent = Frame
 up.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -103,7 +146,7 @@ TextLabel.Text = "FlyGui(By Ctgv_thw)"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextLabel.TextScaled = true
 
--- HÀNG DƯỚI TRONG KHUNG (Y = 33px, HEIGHT = 29px)
+-- HÀNG DƯỚI TRONG KHUNG
 down.Name = "down"
 down.Parent = Frame
 down.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -144,6 +187,57 @@ onof.Text = "BAY"
 onof.TextColor3 = Color3.fromRGB(255, 255, 255)
 onof.TextSize = 14
 
+-- BẢNG CÀI ĐẶT (GẮN LIỀN BÊN TRÁI)
+local SetFrame = Instance.new("Frame")
+SetFrame.Name = "SettingsFrame"
+SetFrame.Parent = Frame
+SetFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+SetFrame.Position = UDim2.new(0, -155, 0, -28)
+SetFrame.Size = UDim2.new(0, 150, 0, 93)
+SetFrame.Visible = false
+SetFrame.Active = true
+SetFrame.Draggable = false
+
+local SetTitle = Instance.new("TextLabel")
+SetTitle.Parent = SetFrame
+SetTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SetTitle.Size = UDim2.new(1, 0, 0, 25)
+SetTitle.Font = Enum.Font.SourceSansBold
+SetTitle.Text = "CÀI ĐẶT LỰC BẬT"
+SetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SetTitle.TextSize = 14
+
+local vertPowerInput = Instance.new("TextBox")
+vertPowerInput.Parent = SetFrame
+vertPowerInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+vertPowerInput.Position = UDim2.new(0.1, 0, 0.35, 0)
+vertPowerInput.Size = UDim2.new(0.8, 0, 0, 25)
+vertPowerInput.Font = Enum.Font.SourceSansBold
+vertPowerInput.Text = tostring(mySettings.verticalPower)
+vertPowerInput.PlaceholderText = "Độ cao Lên/Xuống"
+vertPowerInput.TextColor3 = Color3.fromRGB(0, 255, 255)
+vertPowerInput.TextSize = 14
+
+local saveSetBtn = Instance.new("TextButton")
+saveSetBtn.Parent = SetFrame
+saveSetBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+saveSetBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
+saveSetBtn.Size = UDim2.new(0.4, 0, 0, 25)
+saveSetBtn.Font = Enum.Font.SourceSansBold
+saveSetBtn.Text = "LƯU"
+saveSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveSetBtn.TextSize = 14
+
+local closeSetBtn = Instance.new("TextButton")
+closeSetBtn.Parent = SetFrame
+closeSetBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+closeSetBtn.Position = UDim2.new(0.55, 0, 0.68, 0)
+closeSetBtn.Size = UDim2.new(0.4, 0, 0, 25)
+closeSetBtn.Font = Enum.Font.SourceSansBold
+closeSetBtn.Text = "ĐÓNG"
+closeSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeSetBtn.TextSize = 14
+
 -- VIỀN 7 MÀU (RAINBOW STROKE)
 local rainbowStrokes = {}
 local function addBorder(instance, thickness)
@@ -165,7 +259,13 @@ addBorder(speed)
 addBorder(mine)
 addBorder(closebutton)
 addBorder(keyInput)
+addBorder(settingsBtn)
 addBorder(noclipBtn)
+addBorder(SetFrame, 3)
+addBorder(SetTitle)
+addBorder(vertPowerInput)
+addBorder(saveSetBtn)
+addBorder(closeSetBtn)
 
 local rainbowConn
 rainbowConn = RunService.RenderStepped:Connect(function()
@@ -193,26 +293,38 @@ local isDownBtnDown = false
 local currentPos = Vector3.zero
 local selectedKey = Enum.KeyCode.F
 
--- HÀM KIỂM TRA MẶT ĐẤT & TRƯỢT VA CHẠY MƯỢT MÀ
-local function checkCollision(oldPos, newPos)
-	if noclip then return newPos end
-	local dir = newPos - oldPos
-	if dir.Magnitude < 0.001 then return newPos end
-
-	local char = LocalPlayer.Character
-	if not char then return newPos end
-
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterDescendantsInstances = {char}
-	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	raycastParams.IgnoreWater = true
-
-	local result = workspace:Raycast(oldPos, dir, raycastParams)
-	if result and result.Instance and result.Instance.CanCollide then
-		return result.Position + (result.Normal * 0.2)
+-- Cập nhật phím tắt từ khởi động
+for _, key in ipairs(Enum.KeyCode:GetEnumItems()) do
+	if key.Name == string.upper(mySettings.keyBind) then
+		selectedKey = key
+		break
 	end
-	return newPos
 end
+
+-- EVENT NÚT SETTINGS
+settingsBtn.MouseButton1Click:Connect(function()
+	SetFrame.Visible = not SetFrame.Visible
+	if SetFrame.Visible then
+		vertPowerInput.Text = tostring(mySettings.verticalPower)
+	end
+end)
+
+closeSetBtn.MouseButton1Click:Connect(function()
+	SetFrame.Visible = false
+end)
+
+saveSetBtn.MouseButton1Click:Connect(function()
+	local newVal = tonumber(vertPowerInput.Text)
+	if newVal then
+		mySettings.verticalPower = newVal
+		SaveSettings()
+		saveSetBtn.Text = "ĐÃ LƯU!"
+		task.wait(1)
+		saveSetBtn.Text = "LƯU"
+	else
+		vertPowerInput.Text = tostring(mySettings.verticalPower)
+	end
+end)
 
 -- HÀM XỬ LÝ NOCLIP
 local function setNoclip(state)
@@ -246,13 +358,11 @@ noclipBtn.MouseButton1Click:Connect(function()
 	setNoclip(not noclip)
 end)
 
--- HÀM TẮT BAY TỔNG THỂ
+-- HÀM TẮT BAY
 local function stopFly()
 	nowe = false
 	onof.Text = "BAY"
 	onof.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-	
-	setNoclip(false)
 	
 	local char = LocalPlayer.Character
 	if char then
@@ -270,7 +380,6 @@ end
 
 _G.WuWFlyCleanup = stopFly
 
--- Tăng / Giảm tốc độ
 plus.MouseButton1Click:Connect(function()
 	speeds = speeds + 1
 	speed.Text = tostring(speeds)
@@ -283,7 +392,6 @@ mine.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Cảm ứng giữ nút LÊN / XUỐNG
 local function setupTouchEvents(button, callback)
 	button.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -300,7 +408,23 @@ end
 setupTouchEvents(up, function(state) isUpBtnDown = state end)
 setupTouchEvents(down, function(state) isDownBtnDown = state end)
 
--- HÀM BẬT / TẮT BAY
+RunService.Heartbeat:Connect(function()
+	if not nowe and (isUpBtnDown or isDownBtnDown) then
+		local char = LocalPlayer.Character
+		if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+			local hrp = char.HumanoidRootPart
+			local jumpForce = mySettings.verticalPower 
+
+			if isUpBtnDown then
+				hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, jumpForce, hrp.AssemblyLinearVelocity.Z)
+			elseif isDownBtnDown then
+				hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -jumpForce, hrp.AssemblyLinearVelocity.Z)
+			end
+		end
+	end
+end)
+
+-- HÀM BẬT / TẮT BAY KÈM HỆ THỐNG TRƯỢT TƯỜNG & CÁCH ĐẤT
 local function toggleFly()
 	local char = LocalPlayer.Character
 	if not char then return end
@@ -315,11 +439,15 @@ local function toggleFly()
 		onof.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
 		hum.PlatformStand = true
 		
-		currentPos = hrp.Position + Vector3.new(0, 0.5, 0)
+		currentPos = hrp.Position + Vector3.new(0, 3, 0)
 
 		for _, v in pairs(hum:GetPlayingAnimationTracks()) do
 			v:Stop()
 		end
+
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {char}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
 		flyConnection = RunService.RenderStepped:Connect(function(deltaTime)
 			hrp.AssemblyLinearVelocity = Vector3.zero
@@ -327,6 +455,7 @@ local function toggleFly()
 
 			local moveDir = hum.MoveDirection
 			local speedMultiplier = speeds * 45 * deltaTime
+			local vertSpeedMultiplier = mySettings.verticalPower * deltaTime * speeds
 
 			local nextPos = currentPos
 
@@ -337,15 +466,39 @@ local function toggleFly()
 				nextPos = nextPos + (flyVector * speedMultiplier)
 			end
 
-			-- Nút LÊN / XUỐNG
 			if isUpBtnDown then
-				nextPos = nextPos + Vector3.new(0, speedMultiplier, 0)
+				nextPos = nextPos + Vector3.new(0, vertSpeedMultiplier, 0)
 			end
 			if isDownBtnDown then
-				nextPos = nextPos - Vector3.new(0, speedMultiplier, 0)
+				nextPos = nextPos - Vector3.new(0, vertSpeedMultiplier, 0)
 			end
 
-			currentPos = checkCollision(currentPos, nextPos)
+			-- TÍNH TOÁN KHI NOCLIP TẮT (Trượt tường + Cách đất 1 stud)
+			if not noclip then
+				local moveDelta = nextPos - currentPos
+				if moveDelta.Magnitude > 0 then
+					local wallRay = workspace:Raycast(currentPos, moveDelta.Unit * (moveDelta.Magnitude + 2), raycastParams)
+					if wallRay then
+						local normal = wallRay.Normal
+						local dot = moveDelta:Dot(normal)
+						if dot < 0 then
+							moveDelta = moveDelta - (normal * dot)
+						end
+						nextPos = currentPos + moveDelta
+					end
+				end
+
+				local rayResult = workspace:Raycast(nextPos, Vector3.new(0, -10, 0), raycastParams)
+				if rayResult then
+					local groundY = rayResult.Position.Y
+					local safeGroundDistance = 4 
+					if nextPos.Y < groundY + safeGroundDistance then
+						nextPos = Vector3.new(nextPos.X, groundY + safeGroundDistance, nextPos.Z)
+					end
+				end
+			end
+
+			currentPos = nextPos
 
 			local hoverY = math.sin(tick() * 3.5) * 0.35
 			local hoverOffset = Vector3.new(0, hoverY, 0)
@@ -372,7 +525,6 @@ end
 
 onof.MouseButton1Click:Connect(toggleFly)
 
--- NÚT XÓA SCRIPT
 closebutton.MouseButton1Click:Connect(function()
 	stopFly()
 	if _G.WuWFlyCleanup == stopFly then
@@ -381,7 +533,6 @@ closebutton.MouseButton1Click:Connect(function()
 	main:Destroy()
 end)
 
--- XỬ LÝ PHÍM TẮT MÁY TÍNH
 local function updateKeybind()
 	local text = string.upper(keyInput.Text)
 	if text == "" then return end
@@ -390,6 +541,9 @@ local function updateKeybind()
 		if key.Name == text or key.Name == "Number" .. text then
 			selectedKey = key
 			keyInput.Text = key.Name:gsub("Number", "")
+			
+			mySettings.keyBind = keyInput.Text
+			SaveSettings()
 			return
 		end
 	end
@@ -406,7 +560,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
--- Tự tắt khi chết/reset
 LocalPlayer.CharacterAdded:Connect(function()
 	stopFly()
 end)
