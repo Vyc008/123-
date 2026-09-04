@@ -44,7 +44,7 @@ local Theme = {
 -- CẤU HÌNH TỔNG HỢP
 -- ==========================================
 local AimbotSettings = {
-    Prediction = 0.05, EnablePrediction = false, Smooth = 1,
+    Prediction = 0.05, EnablePrediction = false, Smooth = 0.650,
     FovRadius = 136, ShowFov = true, FovColor = Color3.fromRGB(50, 255, 50), -- Chỉnh FOV/Focus mặc định thành Xanh lá
     LockTarget = false, TeamCheck = false, WallCheck = true,
     DeadCheck = true, ShowFocus = true, FocusPart = "Head",
