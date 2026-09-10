@@ -6,6 +6,7 @@
     - Local File Saving (1 JSON per waypoint)
     - Game-specific Folders (prevents cross-game coordinate glitches)
     - [NEW] Added Search Bar to filter saved locations
+    - [EDIT] Giảm chiều rộng GUI từ 300px -> 260px
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -167,7 +168,7 @@ InputFrame.BackgroundTransparency = 1
 InputFrame.Parent = MainFrame
 
 local NameInput = Instance.new("TextBox")
-NameInput.Size = UDim2.new(0.68, 0, 1, 0)
+NameInput.Size = UDim2.new(0.65, 0, 1, 0)
 NameInput.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
 NameInput.PlaceholderText = "Nhập tên điểm để lưu..."
 NameInput.Text = ""
@@ -179,8 +180,8 @@ applyUICorner(NameInput, 6)
 applyUIStroke(NameInput)
 
 local SaveBtn = Instance.new("TextButton")
-SaveBtn.Size = UDim2.new(0.28, 0, 1, 0)
-SaveBtn.Position = UDim2.new(0.72, 0, 0, 0)
+SaveBtn.Size = UDim2.new(0.31, 0, 1, 0)
+SaveBtn.Position = UDim2.new(0.69, 0, 0, 0)
 SaveBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 80)
 SaveBtn.Text = "💾 Lưu"
 SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -237,9 +238,9 @@ local function toggleMenu()
     isMenuOpen = not isMenuOpen
     if isMenuOpen then
         MainFrame.Visible = true
-        -- Tăng chiều cao UI lên 390 để chứa vừa thanh tìm kiếm
+        -- Giảm chiều rộng từ 300 xuống 260
         TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 300, 0, 390)
+            Size = UDim2.new(0, 260, 0, 390)
         }):Play()
     else
         local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -285,21 +286,22 @@ local function createLocationRow(locName, locCFrame)
     applyUIStroke(Row, Color3.fromRGB(60, 60, 65), 1)
 
     local RowNameInput = Instance.new("TextBox")
-    RowNameInput.Size = UDim2.new(0.44, 0, 1, 0)
+    RowNameInput.Size = UDim2.new(0.40, 0, 1, 0)  -- Giảm từ 0.44 xuống 0.40
     RowNameInput.Position = UDim2.new(0.02, 0, 0, 0)
     RowNameInput.BackgroundTransparency = 1
     RowNameInput.Text = oldName
     RowNameInput.TextColor3 = Color3.fromRGB(220, 220, 225)
     RowNameInput.Font = Enum.Font.GothamMedium
-    RowNameInput.TextSize = 11
+    RowNameInput.TextSize = 10  -- Giảm text size từ 11 xuống 10
     RowNameInput.TextXAlignment = Enum.TextXAlignment.Left
     RowNameInput.TextEditable = false
     RowNameInput.ClearTextOnFocus = false
     RowNameInput.Parent = Row
 
+    -- Điều chỉnh lại vị trí và kích thước các nút cho phù hợp với chiều rộng mới
     local TPBtn = Instance.new("TextButton")
-    TPBtn.Size = UDim2.new(0.16, 0, 0, 25)
-    TPBtn.Position = UDim2.new(0.82, 0, 0.5, -12.5) 
+    TPBtn.Size = UDim2.new(0.17, 0, 0, 25)
+    TPBtn.Position = UDim2.new(0.81, 0, 0.5, -12.5) 
     TPBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
     TPBtn.Text = "TP"
     TPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -309,8 +311,8 @@ local function createLocationRow(locName, locCFrame)
     applyUICorner(TPBtn, 5)
 
     local DelBtn = Instance.new("TextButton")
-    DelBtn.Size = UDim2.new(0.12, 0, 0, 25)
-    DelBtn.Position = UDim2.new(0.68, 0, 0.5, -12.5) 
+    DelBtn.Size = UDim2.new(0.13, 0, 0, 25)
+    DelBtn.Position = UDim2.new(0.66, 0, 0.5, -12.5) 
     DelBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     DelBtn.Text = "🗑️"
     DelBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -320,8 +322,8 @@ local function createLocationRow(locName, locCFrame)
     applyUICorner(DelBtn, 5)
 
     local EditBtn = Instance.new("TextButton")
-    EditBtn.Size = UDim2.new(0.12, 0, 0, 25)
-    EditBtn.Position = UDim2.new(0.54, 0, 0.5, -12.5) 
+    EditBtn.Size = UDim2.new(0.13, 0, 0, 25)
+    EditBtn.Position = UDim2.new(0.51, 0, 0.5, -12.5) 
     EditBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
     EditBtn.Text = "✏️"
     EditBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
