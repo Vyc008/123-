@@ -7,6 +7,7 @@
     - Game-specific Folders (prevents cross-game coordinate glitches)
     - [NEW] Added Search Bar to filter saved locations
     - [EDIT] Giảm chiều rộng GUI từ 300px -> 260px
+    - [NEW] Thêm nút Cài đặt & Chọn loại TP (Instant, Walk, Smooth, Velocity, CFrame Loop)
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,8 +15,42 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
+
+-- ==========================================
+-- CÀI ĐẶT LOẠI TP
+-- ==========================================
+local SETTINGS_FILE = "BatmanTeleports_Settings.json"
+local currentTPMode = "Instant" -- Mặc định
+
+local TP_MODES = {
+    {Name = "⚡ Instant TP", Desc = "Dịch chuyển tức thời (nhanh nhất)"},
+    {Name = "🚶 TP Walk", Desc = "Di chuyển bộ về vị trí (ít bị phát hiện)"},
+    {Name = "🌊 Smooth TP", Desc = "Dịch chuyển mượt mà với Tween"},
+    {Name = "💨 Velocity TP", Desc = "Dùng vận tốc để di chuyển (anti-ban)"},
+    {Name = "🔄 CFrame Loop", Desc = "Dịch chuyển từng đoạn nhỏ (an toàn nhất)"}
+}
+
+local function SaveSettings()
+    if writefile then
+        local data = HttpService:JSONEncode({TPMode = currentTPMode})
+        pcall(function() writefile(SETTINGS_FILE, data) end)
+    end
+end
+
+local function LoadSettings()
+    if isfile and isfile(SETTINGS_FILE) then
+        local success, content = pcall(function() return readfile(SETTINGS_FILE) end)
+        if success then
+            local s2, data = pcall(function() return HttpService:JSONDecode(content) end)
+            if s2 and data.TPMode then
+                currentTPMode = data.TPMode
+            end
+        end
+    end
+end
 
 -- ==========================================
 -- HỆ THỐNG LƯU TRỮ LOCAL (FILE SYSTEM)
@@ -62,6 +97,99 @@ local function DeletePointFile(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
         end
+    end
+end
+
+-- ==========================================
+-- CÁC HÀM DỊCH CHUYỂN KHÁC NHAU
+-- ==========================================
+local function TeleportInstant(targetCFrame)
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = targetCFrame
+    end
+end
+
+local function TeleportWalk(targetCFrame)
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+        local humanoid = char.Humanoid
+        local targetPos = targetCFrame.Position
+        humanoid:MoveTo(targetPos)
+    end
+end
+
+local function TeleportSmooth(targetCFrame)
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+        tween:Play()
+    end
+end
+
+local function TeleportVelocity(targetCFrame)
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local targetPos = targetCFrame.Position
+        local direction = (targetPos - hrp.Position).Unit
+        local distance = (targetPos - hrp.Position).Magnitude
+        
+        -- Đặt vận tốc cao để di chuyển nhanh nhưng vẫn tự nhiên
+        hrp.Velocity = direction * math.min(distance * 3, 200)
+        
+        -- Đặt CFrame đích sau một khoảng thời gian ngắn
+        task.wait(distance / 200 + 0.05)
+        hrp.CFrame = targetCFrame
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+local function TeleportCFrameLoop(targetCFrame)
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local startPos = hrp.Position
+        local endPos = targetCFrame.Position
+        local steps = 10 -- Số đoạn nhỏ
+        local delayPerStep = 0.02 -- Độ trễ giữa các đoạn
+        
+        for i = 1, steps do
+            if not char or not char:FindFirstChild("HumanoidRootPart") then break end
+            local t = i / steps
+            local newPos = startPos:Lerp(endPos, t)
+            hrp.CFrame = CFrame.new(newPos) * targetCFrame.Rotation
+            task.wait(delayPerStep)
+        end
+        
+        -- Đảm bảo đến đúng vị trí cuối
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            hrp.CFrame = targetCFrame
+        end
+    end
+end
+
+local function ExecuteTeleport(targetCFrame, tpButton)
+    local oldColor = tpButton and tpButton.BackgroundColor3
+    
+    if currentTPMode == "Instant" then
+        TeleportInstant(targetCFrame)
+    elseif currentTPMode == "TP Walk" then
+        TeleportWalk(targetCFrame)
+    elseif currentTPMode == "Smooth" then
+        TeleportSmooth(targetCFrame)
+    elseif currentTPMode == "Velocity" then
+        TeleportVelocity(targetCFrame)
+    elseif currentTPMode == "CFrame Loop" then
+        TeleportCFrameLoop(targetCFrame)
+    end
+    
+    if tpButton then
+        tpButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        task.wait(0.2)
+        tpButton.BackgroundColor3 = oldColor
     end
 end
 
@@ -160,6 +288,17 @@ TitleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
 TitleCover.BorderSizePixel = 0
 TitleCover.Parent = Title
 
+-- [NÚT CÀI ĐẶT]
+local SettingsBtn = Instance.new("TextButton")
+SettingsBtn.Size = UDim2.new(0, 28, 0, 28)
+SettingsBtn.Position = UDim2.new(1, -33, 0, 4)
+SettingsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+SettingsBtn.Text = "⚙️"
+SettingsBtn.TextSize = 16
+SettingsBtn.Font = Enum.Font.GothamBold
+SettingsBtn.Parent = Title
+applyUICorner(SettingsBtn, 6)
+
 -- [KHU VỰC LƯU MỚI]
 local InputFrame = Instance.new("Frame")
 InputFrame.Size = UDim2.new(1, -20, 0, 35)
@@ -190,7 +329,7 @@ SaveBtn.TextSize = 11
 SaveBtn.Parent = InputFrame
 applyUICorner(SaveBtn, 6)
 
--- [KHU VỰC TÌM KIẾM MỚI THÊM]
+-- [KHU VỰC TÌM KIẾM]
 local SearchInput = Instance.new("TextBox")
 SearchInput.Size = UDim2.new(1, -20, 0, 30)
 SearchInput.Position = UDim2.new(0, 10, 0, 85)
@@ -231,6 +370,166 @@ ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 -- ==========================================
+-- GIAO DIỆN CÀI ĐẶT
+-- ==========================================
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Size = UDim2.new(0, 0, 0, 0)
+SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+SettingsFrame.ClipsDescendants = true
+SettingsFrame.Visible = false
+SettingsFrame.ZIndex = 10
+SettingsFrame.Parent = ScreenGui
+applyUICorner(SettingsFrame, 10)
+applyUIStroke(SettingsFrame, Color3.fromRGB(100, 100, 120), 1.5)
+
+local SettingsTitle = Instance.new("TextLabel")
+SettingsTitle.Size = UDim2.new(1, 0, 0, 35)
+SettingsTitle.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+SettingsTitle.Text = "  ⚙️ Cài Đặt - Chọn Loại TP"
+SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsTitle.Font = Enum.Font.GothamBold
+SettingsTitle.TextSize = 13
+SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+SettingsTitle.ZIndex = 11
+SettingsTitle.Parent = SettingsFrame
+applyUICorner(SettingsTitle, 10)
+makeDraggable(SettingsTitle, SettingsFrame)
+
+local SettingsTitleCover = Instance.new("Frame")
+SettingsTitleCover.Size = UDim2.new(1, 0, 0, 10)
+SettingsTitleCover.Position = UDim2.new(0, 0, 1, -10)
+SettingsTitleCover.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+SettingsTitleCover.BorderSizePixel = 0
+SettingsTitleCover.ZIndex = 11
+SettingsTitleCover.Parent = SettingsTitle
+
+local CloseSettingsBtn = Instance.new("TextButton")
+CloseSettingsBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseSettingsBtn.Position = UDim2.new(1, -33, 0, 4)
+CloseSettingsBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+CloseSettingsBtn.Text = "✕"
+CloseSettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseSettingsBtn.TextSize = 14
+CloseSettingsBtn.Font = Enum.Font.GothamBold
+CloseSettingsBtn.ZIndex = 12
+CloseSettingsBtn.Parent = SettingsTitle
+applyUICorner(CloseSettingsBtn, 6)
+
+local SettingsScroll = Instance.new("ScrollingFrame")
+SettingsScroll.Size = UDim2.new(1, -20, 1, -50)
+SettingsScroll.Position = UDim2.new(0, 10, 0, 42)
+SettingsScroll.BackgroundTransparency = 1
+SettingsScroll.BorderSizePixel = 0
+SettingsScroll.ScrollBarThickness = 3
+SettingsScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 105)
+SettingsScroll.ZIndex = 11
+SettingsScroll.Parent = SettingsFrame
+
+local SettingsLayout = Instance.new("UIListLayout")
+SettingsLayout.Parent = SettingsScroll
+SettingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SettingsLayout.Padding = UDim.new(0, 8)
+
+local modeButtons = {}
+
+local function CreateTPModeButton(modeData, modeKey)
+    local ModeBtn = Instance.new("TextButton")
+    ModeBtn.Size = UDim2.new(1, -6, 0, 50)
+    ModeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    ModeBtn.Text = ""
+    ModeBtn.ZIndex = 12
+    ModeBtn.Parent = SettingsScroll
+    applyUICorner(ModeBtn, 8)
+    
+    local ModeName = Instance.new("TextLabel")
+    ModeName.Size = UDim2.new(1, -10, 0, 22)
+    ModeName.Position = UDim2.new(0, 10, 0, 4)
+    ModeName.BackgroundTransparency = 1
+    ModeName.Text = modeData.Name
+    ModeName.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ModeName.Font = Enum.Font.GothamBold
+    ModeName.TextSize = 12
+    ModeName.TextXAlignment = Enum.TextXAlignment.Left
+    ModeName.ZIndex = 13
+    ModeName.Parent = ModeBtn
+    
+    local ModeDesc = Instance.new("TextLabel")
+    ModeDesc.Size = UDim2.new(1, -10, 0, 18)
+    ModeDesc.Position = UDim2.new(0, 10, 1, -22)
+    ModeDesc.BackgroundTransparency = 1
+    ModeDesc.Text = modeData.Desc
+    ModeDesc.TextColor3 = Color3.fromRGB(160, 160, 170)
+    ModeDesc.Font = Enum.Font.Gotham
+    ModeDesc.TextSize = 10
+    ModeDesc.TextXAlignment = Enum.TextXAlignment.Left
+    ModeDesc.ZIndex = 13
+    ModeDesc.Parent = ModeBtn
+    
+    local StatusIndicator = Instance.new("Frame")
+    StatusIndicator.Size = UDim2.new(0, 8, 0, 8)
+    StatusIndicator.Position = UDim2.new(1, -15, 0.5, -4)
+    StatusIndicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+    StatusIndicator.ZIndex = 13
+    StatusIndicator.Parent = ModeBtn
+    applyUICorner(StatusIndicator, 50)
+    
+    modeButtons[modeKey] = {Button = ModeBtn, Indicator = StatusIndicator}
+    
+    ModeBtn.Activated:Connect(function()
+        currentTPMode = modeKey
+        SaveSettings()
+        UpdateModeButtons()
+    end)
+end
+
+function UpdateModeButtons()
+    for modeKey, btnData in pairs(modeButtons) do
+        if modeKey == currentTPMode then
+            btnData.Button.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+            btnData.Indicator.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+        else
+            btnData.Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+            btnData.Indicator.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+        end
+    end
+end
+
+-- Tạo các nút chọn chế độ TP
+CreateTPModeButton(TP_MODES[1], "Instant")
+CreateTPModeButton(TP_MODES[2], "TP Walk")
+CreateTPModeButton(TP_MODES[3], "Smooth")
+CreateTPModeButton(TP_MODES[4], "Velocity")
+CreateTPModeButton(TP_MODES[5], "CFrame Loop")
+
+SettingsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, SettingsLayout.AbsoluteContentSize.Y + 10)
+end)
+
+local isSettingsOpen = false
+local function toggleSettings()
+    isSettingsOpen = not isSettingsOpen
+    if isSettingsOpen then
+        SettingsFrame.Visible = true
+        TweenService:Create(SettingsFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 280, 0, 350)
+        }):Play()
+    else
+        local closeTween = TweenService:Create(SettingsFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        closeTween:Play()
+        closeTween.Completed:Connect(function()
+            if not isSettingsOpen then SettingsFrame.Visible = false end
+        end)
+    end
+end
+
+SettingsBtn.Activated:Connect(toggleSettings)
+CloseSettingsBtn.Activated:Connect(toggleSettings)
+
+-- ==========================================
 -- HIỆU ỨNG TWEEN & LOGIC TÌM KIẾM
 -- ==========================================
 local isMenuOpen = false
@@ -238,7 +537,6 @@ local function toggleMenu()
     isMenuOpen = not isMenuOpen
     if isMenuOpen then
         MainFrame.Visible = true
-        -- Giảm chiều rộng từ 300 xuống 260
         TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 260, 0, 390)
         }):Play()
@@ -286,19 +584,18 @@ local function createLocationRow(locName, locCFrame)
     applyUIStroke(Row, Color3.fromRGB(60, 60, 65), 1)
 
     local RowNameInput = Instance.new("TextBox")
-    RowNameInput.Size = UDim2.new(0.40, 0, 1, 0)  -- Giảm từ 0.44 xuống 0.40
+    RowNameInput.Size = UDim2.new(0.40, 0, 1, 0)
     RowNameInput.Position = UDim2.new(0.02, 0, 0, 0)
     RowNameInput.BackgroundTransparency = 1
     RowNameInput.Text = oldName
     RowNameInput.TextColor3 = Color3.fromRGB(220, 220, 225)
     RowNameInput.Font = Enum.Font.GothamMedium
-    RowNameInput.TextSize = 10  -- Giảm text size từ 11 xuống 10
+    RowNameInput.TextSize = 10
     RowNameInput.TextXAlignment = Enum.TextXAlignment.Left
     RowNameInput.TextEditable = false
     RowNameInput.ClearTextOnFocus = false
     RowNameInput.Parent = Row
 
-    -- Điều chỉnh lại vị trí và kích thước các nút cho phù hợp với chiều rộng mới
     local TPBtn = Instance.new("TextButton")
     TPBtn.Size = UDim2.new(0.17, 0, 0, 25)
     TPBtn.Position = UDim2.new(0.81, 0, 0.5, -12.5) 
@@ -333,14 +630,7 @@ local function createLocationRow(locName, locCFrame)
     applyUICorner(EditBtn, 5)
 
     TPBtn.Activated:Connect(function()
-        local char = Player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = savedLocations[oldName]
-            local oldColor = TPBtn.BackgroundColor3
-            TPBtn.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-            task.wait(0.2)
-            TPBtn.BackgroundColor3 = oldColor
-        end
+        ExecuteTeleport(savedLocations[oldName], TPBtn)
     end)
 
     DelBtn.Activated:Connect(function()
@@ -443,4 +733,9 @@ local function LoadPointsFromFile()
     end
 end
 
+-- ==========================================
+-- KHỞI TẠO
+-- ==========================================
+LoadSettings()
+UpdateModeButtons()
 LoadPointsFromFile()
