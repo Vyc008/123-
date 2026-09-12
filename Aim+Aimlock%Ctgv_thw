@@ -2,6 +2,9 @@
 --// Cập nhật: Giao diện Modern Dark, Hiệu ứng Loading % chi tiết, Nút bọc viền, Gradient.
 --// Bản Edit by Ctgv_thw: Chuyển tab siêu tốc, Nút ghim, Hiệu ứng 7 màu lướt xịn xò.
 --// Sửa đổi: Mặc định ESP và FOV/Focus màu Xanh Lá Cây.
+--// [FIX] Đổi màu player tức thì (dùng dictionary tra cứu O(1))
+--// [FIX] ESP chỉ chạy sau khi màn hình loading hoàn tất
+--// [FIX] Distance ESP tính từ nhân vật của bạn (không phải từ Camera)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -45,7 +48,7 @@ local Theme = {
 -- ==========================================
 local AimbotSettings = {
     Prediction = 0.05, EnablePrediction = false, Smooth = 1,
-    FovRadius = 136, ShowFov = true, FovColor = Color3.fromRGB(50, 255, 50), -- Chỉnh FOV/Focus mặc định thành Xanh lá
+    FovRadius = 136, ShowFov = true, FovColor = Color3.fromRGB(50, 255, 50),
     LockTarget = false, TeamCheck = false, WallCheck = true,
     DeadCheck = true, ShowFocus = true, FocusPart = "Head",
     AimMode = "CFrame", ShowFloatingBtn = true, PinFloatingBtn = false, BodyAim = false
@@ -69,9 +72,9 @@ local PrefBodyAim = false
 local isAiming = true     
 local lockedTarget = nil
 
-local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255) -- Sửa mặc định ESP thành trắng
+local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255)
 local CustomPlayerColors = {} 
-local currentESPColor = Color3.fromRGB(255, 255, 255) -- Sửa mặc định ESP thành trắng
+local currentESPColor = Color3.fromRGB(255, 255, 255)
 local SelectedPlayerName = nil 
 local colorOrder = {
     {name = "White", color = Color3.fromRGB(255, 255, 255)}, {name = "Red", color = Color3.fromRGB(255, 50, 50)},
@@ -80,6 +83,9 @@ local colorOrder = {
     {name = "Purple", color = Color3.fromRGB(180, 50, 255)}, {name = "Cyan", color = Color3.fromRGB(0, 255, 255)},
     {name = "Pink", color = Color3.fromRGB(255, 105, 180)}, {name = "Black", color = Color3.fromRGB(20, 20, 20)}
 }
+
+-- Dictionary tra cứu nhanh nút player theo tên (O(1))
+local playerButtons = {}
 
 -- ==========================================
 -- HÀM HỖ TRỢ GIAO DIỆN & HIỆU ỨNG
@@ -105,7 +111,6 @@ end
 local function applyClickEffect(btn)
     local scale = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
     scale.Scale = 1
-    -- GIẢM THỜI GIAN DELAY HIỆU ỨNG CLICK XUỐNG 0.05 ĐỂ TĂNG ĐỘ PHẢN HỒI
     btn.MouseButton1Down:Connect(function()
         TweenService:Create(scale, TweenInfo.new(0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.92}):Play()
         if btn:FindFirstChildOfClass("UIStroke") then btn.UIStroke.Color = Theme.Accent end 
@@ -202,7 +207,7 @@ applyUICorner(MainFrame, 12); applyUIStroke(MainFrame, Theme.Stroke, 2)
 local MenuScale = Instance.new("UIScale", MainFrame)
 MenuScale.Scale = 0
 
--- HIỆU ỨNG TÊN 7 MÀU LƯỚT '/' (By Ctgv_thw)
+-- HIỆU ỨNG TÊN 7 MÀU LƯỚT '/'
 local TitleFrame = Instance.new("Frame", MainFrame)
 TitleFrame.Size = UDim2.new(1, 0, 0, 40)
 TitleFrame.BackgroundColor3 = Theme.Frame
@@ -221,21 +226,21 @@ Title.BackgroundTransparency = 1
 Title.Text = "   🚀 Aimbot+ESP+Edit Player (By Ctgv_thw)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBlack
-Title.TextSize = 18 -- Tăng kích thước theo yêu cầu
+Title.TextSize = 18
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local TitleGradient = Instance.new("UIGradient", Title)
-TitleGradient.Rotation = 15 -- Tạo độ nghiêng giống thanh '/' chéo
+TitleGradient.Rotation = 15
 
 task.spawn(function()
     local rainbowColors = {
-        Color3.fromRGB(255, 0, 0),    -- Đỏ
-        Color3.fromRGB(255, 127, 0),  -- Cam
-        Color3.fromRGB(255, 255, 0),  -- Vàng
-        Color3.fromRGB(0, 255, 0),    -- Lục
-        Color3.fromRGB(0, 255, 255),  -- Xanh Ngọc
-        Color3.fromRGB(0, 0, 255),    -- Lam
-        Color3.fromRGB(148, 0, 211)   -- Tím
+        Color3.fromRGB(255, 0, 0),
+        Color3.fromRGB(255, 127, 0),
+        Color3.fromRGB(255, 255, 0),
+        Color3.fromRGB(0, 255, 0),
+        Color3.fromRGB(0, 255, 255),
+        Color3.fromRGB(0, 0, 255),
+        Color3.fromRGB(148, 0, 211)
     }
     local colorIdx = 1
     while task.wait() do
@@ -244,11 +249,10 @@ task.spawn(function()
         if colorIdx > #rainbowColors then colorIdx = 1 end
         local newColor = rainbowColors[colorIdx]
 
-        -- Tạo Gradient với ranh giới màu trắng chéo để tạo thanh lướt /
         TitleGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, newColor),
             ColorSequenceKeypoint.new(0.48, newColor),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), -- THANH '/' MÀU TRẮNG SÁNG
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
             ColorSequenceKeypoint.new(0.52, oldColor),
             ColorSequenceKeypoint.new(1, oldColor)
         })
@@ -256,7 +260,7 @@ task.spawn(function()
         TitleGradient.Offset = Vector2.new(-1, 0)
         local tw = TweenService:Create(TitleGradient, TweenInfo.new(1, Enum.EasingStyle.Linear), {Offset = Vector2.new(1, 0)})
         tw:Play()
-        tw.Completed:Wait() -- Chờ đúng 1 giây lướt xong, lặp lại màu tiếp theo
+        tw.Completed:Wait()
     end
 end)
 
@@ -287,7 +291,6 @@ local function switchTab(activeTab, activeContainer)
     activeTab.BackgroundColor3 = Theme.Accent; activeContainer.Visible = true
 end
 
--- BỎ .Activated THAY BẰNG .MouseButton1Down ĐỂ CHUYỂN TAB TỨC THÌ (GIẢM DELAY VỀ 0)
 TabAimbot.MouseButton1Down:Connect(function() switchTab(TabAimbot, AimbotContainer) end)
 TabESP.MouseButton1Down:Connect(function() switchTab(TabESP, ESPContainer) end)
 TabPlayer.MouseButton1Down:Connect(function() switchTab(TabPlayer, PlayerContainer) end)
@@ -297,12 +300,11 @@ TabPlayer.MouseButton1Down:Connect(function() switchTab(TabPlayer, PlayerContain
 -- ==========================================
 local MasterAimbotToggleBtn = Instance.new("TextButton", AimbotContainer); MasterAimbotToggleBtn.Size = UDim2.new(0, 205, 0, 30); MasterAimbotToggleBtn.Position = UDim2.new(0, 15, 0, 10); MasterAimbotToggleBtn.Font = Enum.Font.GothamBold; MasterAimbotToggleBtn.TextSize = 11; MasterAimbotToggleBtn.TextColor3 = Theme.TextBase; MasterAimbotToggleBtn.BackgroundColor3 = Theme.ButtonOff; MasterAimbotToggleBtn.Text = "⚡ AIMBOT TỔNG: OFF"; applyUICorner(MasterAimbotToggleBtn, 6); applyUIStroke(MasterAimbotToggleBtn); applyClickEffect(MasterAimbotToggleBtn)
 
--- CHIA NÚT NỔI THÀNH 2 NÚT (6/4)
 local FloatToggleBtn = createToggle(AimbotContainer, "🔘 NỔI: HIỆN", "🔘 NỔI: ẨN", 15, 45, AimbotSettings, "ShowFloatingBtn", function(state) MasterFloatingBtn.Visible = state end)
-FloatToggleBtn.Size = UDim2.new(0, 120, 0, 30) -- Chiếm ~6 phần
+FloatToggleBtn.Size = UDim2.new(0, 120, 0, 30)
 
 local PinToggleBtn = createToggle(AimbotContainer, "📌 GHIM: ON", "📌 GHIM: OFF", 140, 45, AimbotSettings, "PinFloatingBtn")
-PinToggleBtn.Size = UDim2.new(0, 80, 0, 30) -- Chiếm ~4 phần (Chức năng khóa vị trí)
+PinToggleBtn.Size = UDim2.new(0, 80, 0, 30)
 
 local MenuCamAimBtn = Instance.new("TextButton", AimbotContainer); MenuCamAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuCamAimBtn.Position = UDim2.new(0, 15, 0, 80); MenuCamAimBtn.Font = Enum.Font.GothamBold; MenuCamAimBtn.TextSize = 11; MenuCamAimBtn.TextColor3 = Theme.TextBase; MenuCamAimBtn.BackgroundColor3 = Theme.ButtonOff; MenuCamAimBtn.Text = "🎯 CAM AIM (CHÍNH): OFF"; applyUICorner(MenuCamAimBtn, 6); applyUIStroke(MenuCamAimBtn); applyClickEffect(MenuCamAimBtn)
 local MenuBodyAimBtn = Instance.new("TextButton", AimbotContainer); MenuBodyAimBtn.Size = UDim2.new(0, 205, 0, 30); MenuBodyAimBtn.Position = UDim2.new(0, 15, 0, 115); MenuBodyAimBtn.Font = Enum.Font.GothamBold; MenuBodyAimBtn.TextSize = 11; MenuBodyAimBtn.TextColor3 = Theme.TextBase; MenuBodyAimBtn.BackgroundColor3 = Theme.ButtonOff; MenuBodyAimBtn.Text = "🧍 BODY AIM: OFF"; applyUICorner(MenuBodyAimBtn, 6); applyUIStroke(MenuBodyAimBtn); applyClickEffect(MenuBodyAimBtn)
@@ -402,30 +404,61 @@ local function updateSelection(name)
     else SelectedLabel.Text = "Mục tiêu: TẤT CẢ (Global)"; SelectedLabel.TextColor3 = Color3.fromRGB(255, 230, 80) end
 end
 
+-- Đổi màu 1 player - tra cứu O(1) từ dictionary
+local function updatePlayerButtonColor(playerName, newColor)
+    local btn = playerButtons[playerName]
+    if btn then
+        btn.TextColor3 = newColor
+    end
+end
+
+-- Đổi màu tất cả player
+local function updateAllPlayerButtonsColor(newColor)
+    for _, btn in pairs(playerButtons) do
+        btn.TextColor3 = newColor
+    end
+end
+
 for i, c in ipairs(colorOrder) do
     local cb = Instance.new("TextButton", ColorScroll); cb.Size = UDim2.new(0, 30, 0, 30); cb.BackgroundColor3 = c.color; cb.Text = ""; cb.LayoutOrder = i; applyUICorner(cb, 15); applyUIStroke(cb, Color3.fromRGB(255,255,255), 1.5); applyClickEffect(cb)
     cb.MouseButton1Click:Connect(function()
-        if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = c.color; SelectedLabel.TextColor3 = c.color
-        else currentESPColor = c.color; table.clear(CustomPlayerColors) end
+        if SelectedPlayerName then 
+            CustomPlayerColors[SelectedPlayerName] = c.color
+            SelectedLabel.TextColor3 = c.color
+            updatePlayerButtonColor(SelectedPlayerName, c.color)
+        else 
+            currentESPColor = c.color
+            table.clear(CustomPlayerColors)
+            updateAllPlayerButtonsColor(c.color)
+        end
     end)
 end
 
 local function RefreshPlayerList()
-    for _, child in pairs(PlayerScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-    local filter = string.lower(SearchBar.Text); local count = 0
+    table.clear(playerButtons)
+    
+    for _, child in pairs(PlayerScroll:GetChildren()) do 
+        if child:IsA("TextButton") then child:Destroy() end 
+    end
+    
+    local filter = string.lower(SearchBar.Text)
+    local count = 0
+    
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= Player and (filter == "" or string.find(string.lower(p.Name), filter) or string.find(string.lower(p.DisplayName), filter)) then
             count = count + 1
-            local b = Instance.new("TextButton", PlayerScroll); 
-            b.Size = UDim2.new(1, 0, 0, 22); 
-            b.BackgroundColor3 = Theme.ButtonOff; 
-            b.Text = p.DisplayName .. " (@" .. p.Name .. ")"; 
-            b.TextColor3 = CustomPlayerColors[p.Name] or Theme.TextBase; 
-            b.Font = Enum.Font.Gotham; 
-            b.TextSize = 11; 
+            local b = Instance.new("TextButton", PlayerScroll)
+            b.Size = UDim2.new(1, 0, 0, 22)
+            b.BackgroundColor3 = Theme.ButtonOff
+            b.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+            b.TextColor3 = CustomPlayerColors[p.Name] or currentESPColor or Theme.TextBase
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 11
             applyUICorner(b, 4)
             applyUIStroke(b, Theme.Stroke, 1)
-            applyClickEffect(b) 
+            applyClickEffect(b)
+            
+            playerButtons[p.Name] = b
             
             b.MouseButton1Click:Connect(function() updateSelection(p.Name) end)
         end
@@ -433,12 +466,23 @@ local function RefreshPlayerList()
     PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, count * 25)
 end
 
-SearchBar.Changed:Connect(function(prop) if prop == "Text" then RefreshPlayerList() end end); Players.PlayerAdded:Connect(RefreshPlayerList); Players.PlayerRemoving:Connect(RefreshPlayerList)
+SearchBar.Changed:Connect(function(prop) if prop == "Text" then RefreshPlayerList() end end)
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(function(p)
+    playerButtons[p.Name] = nil
+end)
+
 btnAll.MouseButton1Click:Connect(function() updateSelection(nil) end)
 resetColorBtn.MouseButton1Click:Connect(function()
-    if SelectedPlayerName then CustomPlayerColors[SelectedPlayerName] = nil; SelectedLabel.TextColor3 = Color3.fromRGB(50, 255, 100)
-    -- Đã cập nhật dòng dưới để nút Reset cũng sẽ đưa về màu xanh lá:
-    else currentESPColor = Color3.fromRGB(50, 255, 50); table.clear(CustomPlayerColors) end
+    if SelectedPlayerName then 
+        CustomPlayerColors[SelectedPlayerName] = nil
+        SelectedLabel.TextColor3 = Color3.fromRGB(50, 255, 100)
+        updatePlayerButtonColor(SelectedPlayerName, currentESPColor or Theme.TextBase)
+    else 
+        currentESPColor = Color3.fromRGB(50, 255, 50)
+        table.clear(CustomPlayerColors)
+        updateAllPlayerButtonsColor(Color3.fromRGB(50, 255, 50))
+    end
     RefreshPlayerList()
 end)
 
@@ -458,16 +502,16 @@ createSettingRow(PlayerContainer, "Tốc độ TP Walk:", 240, 115, PlayerSettin
 createToggle(PlayerContainer, "🚀 TP Walk: ON", "🚀 TP Walk: OFF", 240, 150, PlayerSettings, "TPWalk")
 
 -- ==========================================
--- XỬ LÝ KÉO THẢ UI & HIỆU ỨNG ẨN/HIỆN (Có Hỗ Trợ Ghim)
+-- XỬ LÝ KÉO THẢ UI & HIỆU ỨNG ẨN/HIỆN
 -- ==========================================
 local function makeDraggable(dragObject, moveObject, canDragCallback)
     local dragging, dragInput, dragStart, startPos
     dragObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-            if canDragCallback and not canDragCallback() then return end -- Check điều kiện ghim
-            dragging = true; 
-            dragStart = input.Position; 
-            startPos = moveObject.Position; 
+            if canDragCallback and not canDragCallback() then return end
+            dragging = true
+            dragStart = input.Position
+            startPos = moveObject.Position
             input.Changed:Connect(function() 
                 if input.UserInputState == Enum.UserInputState.End then dragging = false end 
             end) 
@@ -480,16 +524,16 @@ local function makeDraggable(dragObject, moveObject, canDragCallback)
     end)
     UserInputService.InputChanged:Connect(function(input) 
         if input == dragInput and dragging then 
-            local delta = input.Position - dragStart; 
+            local delta = input.Position - dragStart
             moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
         end 
     end)
 end
 
-makeDraggable(TitleFrame, MainFrame); 
-makeDraggable(ToggleUIBtn, ToggleUIBtn); 
+makeDraggable(TitleFrame, MainFrame)
+makeDraggable(ToggleUIBtn, ToggleUIBtn)
 makeDraggable(MasterFloatingBtn, MasterFloatingBtn, function() 
-    return not AimbotSettings.PinFloatingBtn -- NẾU PIN ĐANG BẬT THÌ KHÔNG THỂ DRAG NÚT NỔI
+    return not AimbotSettings.PinFloatingBtn
 end)
 
 local isMenuOpen = false
@@ -510,7 +554,7 @@ end
 ToggleUIBtn.Activated:Connect(toggleMenu)
 
 -- ==========================================
--- LOGIC KẾT HỢP AIMBOT & ESP
+-- LOGIC AIMBOT
 -- ==========================================
 local function updateUIStates()
     isAiming = MasterSwitch and PrefCamAim; AimbotSettings.BodyAim = MasterSwitch and PrefBodyAim
@@ -563,46 +607,6 @@ local function getBestAimbotTarget()
     return best
 end
 
-local ESP = {}
-local activeHighlights = 0
-local function getESPColor(p) return CustomPlayerColors[p.Name] or currentESPColor or (p.Team and p.Team.TeamColor.Color or NO_TEAM_COLOR) end
-
-local function cleanESP(p) 
-    if ESP[p] then 
-        if ESP[p].Box then ESP[p].Box:Destroy() end
-        if ESP[p].HL then ESP[p].HL:Destroy(); activeHighlights = activeHighlights - 1 end
-        if ESP[p].BB then ESP[p].BB:Destroy() end
-        if ESP[p].Tracer then ESP[p].Tracer:Destroy() end
-        ESP[p] = nil 
-    end 
-end
-
-local function setupESP(p)
-    if p == Player then return end; cleanESP(p)
-    local box = Instance.new("SelectionBox"); box.LineThickness = 0.05; box.SurfaceTransparency = 1; box.Parent = ScreenGui 
-    local hl = Instance.new("Highlight"); hl.FillTransparency = 1; hl.OutlineTransparency = 0; hl.Enabled = false
-    if activeHighlights < 31 then hl.Parent = ScreenGui; activeHighlights = activeHighlights + 1 end
-    local bb = Instance.new("BillboardGui"); bb.AlwaysOnTop = true; bb.Size = UDim2.new(0, 200, 0, 50); bb.StudsOffset = Vector3.new(0, 2, 0); bb.Parent = ScreenGui
-    local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Font = Enum.Font.GothamBold; txt.TextSize = 12; txt.TextStrokeTransparency = 0; txt.Parent = bb
-    local tracerFrame = Instance.new("Frame"); tracerFrame.AnchorPoint = Vector2.new(0.5, 0.5); tracerFrame.BorderSizePixel = 0; tracerFrame.Visible = false; tracerFrame.Parent = ScreenGui
-    ESP[p] = { Box = box, HL = hl, BB = bb, TXT = txt, Tracer = tracerFrame }
-end
-for _, p in pairs(Players:GetPlayers()) do setupESP(p) end
-Players.PlayerAdded:Connect(setupESP); Players.PlayerRemoving:Connect(cleanESP)
-
-local function RebuildHighlights()
-    for p, e in pairs(ESP) do if e.HL then pcall(function() e.HL:Destroy() end); e.HL = nil end end
-    activeHighlights = 0
-    for p, e in pairs(ESP) do
-        if activeHighlights < 31 then
-            local newHl = Instance.new("Highlight"); newHl.FillTransparency = 1; newHl.OutlineTransparency = 0; newHl.Enabled = false; newHl.Parent = ScreenGui
-            e.HL = newHl; activeHighlights = activeHighlights + 1
-        end
-    end
-end
-UserInputService.WindowFocused:Connect(RebuildHighlights)
-FixBtn.Activated:Connect(RebuildHighlights)
-
 RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if isAiming or AimbotSettings.BodyAim then
         local hold = false
@@ -635,41 +639,164 @@ RunService:BindToRenderStep("Rromax_Aimbot", Enum.RenderPriority.Camera.Value + 
     else lockedTarget = nil end
 end)
 
-RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, function()
-    FOVring.Position = UDim2.new(0, Cam.ViewportSize.X / 2, 0, Cam.ViewportSize.Y / 2); FOVring.Size = UDim2.new(0, AimbotSettings.FovRadius * 2, 0, AimbotSettings.FovRadius * 2)
-    if lockedTarget and lockedTarget.Character and (isAiming or AimbotSettings.BodyAim) then
-        local tPart = getAimbotTargetPart(lockedTarget.Character); local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
-        if vis and AimbotSettings.ShowFocus then FocusCircle.Position = UDim2.new(0, sPos.X, 0, sPos.Y); FocusCircle.Visible = true else FocusCircle.Visible = false end
-    else FocusCircle.Visible = false end
+-- ==========================================
+-- LOGIC ESP
+-- ==========================================
+local ESP = {}
+local activeHighlights = 0
 
-    local origin = ESPSettings.TracerOrigin == "Bottom" and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y) or (ESPSettings.TracerOrigin == "Center" and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2) or Vector2.new(Cam.ViewportSize.X / 2, 0))
+local function getESPColor(p) 
+    return CustomPlayerColors[p.Name] or currentESPColor or (p.Team and p.Team.TeamColor.Color or NO_TEAM_COLOR) 
+end
 
-    for p, e in pairs(ESP) do
-        local c = p.Character; local hrp = c and c:FindFirstChild("HumanoidRootPart"); local head = c and c:FindFirstChild("Head"); local hum = c and c:FindFirstChildOfClass("Humanoid")
-        local isVisible = hrp and head and hum and hum.Health > 0 and (ESPSettings.ESPTeammates or p.Team ~= Player.Team)
-        if isVisible then
-            local col = getESPColor(p)
-            e.Box.Visible = ESPSettings.BoxESP; e.Box.Adornee = ESPSettings.BoxESP and c or nil; e.Box.Color3 = col
-            if ESPSettings.OutlineESP and e.HL then e.HL.Enabled = true; e.HL.Adornee = c; e.HL.OutlineColor = col elseif e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end
-            if ESPSettings.ShowName or ESPSettings.ShowDistance then
-                e.BB.Adornee = head; e.BB.Enabled = true; e.TXT.TextColor3 = col
-                local str = ""; if ESPSettings.ShowName then str = p.Name end
-                if ESPSettings.ShowDistance then str = str .. (ESPSettings.ShowName and "\n" or "") .. "[" .. math.floor((Cam.CFrame.Position - hrp.Position).Magnitude) .. "m]" end
-                e.TXT.Text = str
-            else e.BB.Enabled = false end
-            
-            if ESPSettings.TracerESP then
-                local pos, onScreen = Cam:WorldToViewportPoint(hrp.Position)
-                if onScreen then
-                    local target = Vector2.new(pos.X, pos.Y); local dist = (target - origin).Magnitude
-                    e.Tracer.Size = UDim2.new(0, dist, 0, 1.5); e.Tracer.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
-                    e.Tracer.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X)); e.Tracer.BackgroundColor3 = col; e.Tracer.Visible = true
-                else e.Tracer.Visible = false end
-            else e.Tracer.Visible = false end
-        else e.Box.Visible = false; if e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end; e.BB.Enabled = false; e.Tracer.Visible = false end
+local function cleanESP(p) 
+    if ESP[p] then 
+        if ESP[p].Box then ESP[p].Box:Destroy() end
+        if ESP[p].HL then ESP[p].HL:Destroy(); activeHighlights = activeHighlights - 1 end
+        if ESP[p].BB then ESP[p].BB:Destroy() end
+        if ESP[p].Tracer then ESP[p].Tracer:Destroy() end
+        ESP[p] = nil 
+    end 
+end
+
+local function setupESP(p)
+    if p == Player then return end
+    cleanESP(p)
+    local box = Instance.new("SelectionBox"); box.LineThickness = 0.05; box.SurfaceTransparency = 1; box.Parent = ScreenGui 
+    local hl = Instance.new("Highlight"); hl.FillTransparency = 1; hl.OutlineTransparency = 0; hl.Enabled = false
+    if activeHighlights < 31 then hl.Parent = ScreenGui; activeHighlights = activeHighlights + 1 end
+    local bb = Instance.new("BillboardGui"); bb.AlwaysOnTop = true; bb.Size = UDim2.new(0, 200, 0, 50); bb.StudsOffset = Vector3.new(0, 2, 0); bb.Parent = ScreenGui
+    local txt = Instance.new("TextLabel"); txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Font = Enum.Font.GothamBold; txt.TextSize = 12; txt.TextStrokeTransparency = 0; txt.Parent = bb
+    local tracerFrame = Instance.new("Frame"); tracerFrame.AnchorPoint = Vector2.new(0.5, 0.5); tracerFrame.BorderSizePixel = 0; tracerFrame.Visible = false; tracerFrame.Parent = ScreenGui
+    ESP[p] = { Box = box, HL = hl, BB = bb, TXT = txt, Tracer = tracerFrame }
+end
+
+local function RebuildHighlights()
+    for p, e in pairs(ESP) do 
+        if e.HL then pcall(function() e.HL:Destroy() end); e.HL = nil end 
     end
-end)
+    activeHighlights = 0
+    for p, e in pairs(ESP) do
+        if activeHighlights < 31 then
+            local newHl = Instance.new("Highlight")
+            newHl.FillTransparency = 1
+            newHl.OutlineTransparency = 0
+            newHl.Enabled = false
+            newHl.Parent = ScreenGui
+            e.HL = newHl
+            activeHighlights = activeHighlights + 1
+        end
+    end
+end
 
+UserInputService.WindowFocused:Connect(RebuildHighlights)
+FixBtn.Activated:Connect(RebuildHighlights)
+
+-- ESP Render loop - gói thành hàm để bind sau khi loading xong
+local function startESPRender()
+    for _, p in pairs(Players:GetPlayers()) do 
+        setupESP(p) 
+    end
+    Players.PlayerAdded:Connect(setupESP)
+    Players.PlayerRemoving:Connect(cleanESP)
+    
+    RefreshPlayerList()
+    
+    RunService:BindToRenderStep("Rromax_ESP", Enum.RenderPriority.Camera.Value + 2, function()
+        FOVring.Position = UDim2.new(0, Cam.ViewportSize.X / 2, 0, Cam.ViewportSize.Y / 2)
+        FOVring.Size = UDim2.new(0, AimbotSettings.FovRadius * 2, 0, AimbotSettings.FovRadius * 2)
+        
+        if lockedTarget and lockedTarget.Character and (isAiming or AimbotSettings.BodyAim) then
+            local tPart = getAimbotTargetPart(lockedTarget.Character)
+            local sPos, vis = Cam:WorldToViewportPoint(tPart.Position)
+            if vis and AimbotSettings.ShowFocus then 
+                FocusCircle.Position = UDim2.new(0, sPos.X, 0, sPos.Y)
+                FocusCircle.Visible = true 
+            else 
+                FocusCircle.Visible = false 
+            end
+        else 
+            FocusCircle.Visible = false 
+        end
+
+        local origin = ESPSettings.TracerOrigin == "Bottom" 
+            and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y) 
+            or (ESPSettings.TracerOrigin == "Center" 
+                and Vector2.new(Cam.ViewportSize.X / 2, Cam.ViewportSize.Y / 2) 
+                or Vector2.new(Cam.ViewportSize.X / 2, 0))
+
+        -- [FIX] Lấy vị trí nhân vật của LocalPlayer để tính Distance
+        local myChar = Player.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local myPos = myRoot and myRoot.Position or Cam.CFrame.Position -- Fallback về Camera nếu chưa có nhân vật
+
+        for p, e in pairs(ESP) do
+            local c = p.Character
+            local hrp = c and c:FindFirstChild("HumanoidRootPart")
+            local head = c and c:FindFirstChild("Head")
+            local hum = c and c:FindFirstChildOfClass("Humanoid")
+            local isVisible = hrp and head and hum and hum.Health > 0 and (ESPSettings.ESPTeammates or p.Team ~= Player.Team)
+            
+            if isVisible then
+                local col = getESPColor(p)
+                e.Box.Visible = ESPSettings.BoxESP
+                e.Box.Adornee = ESPSettings.BoxESP and c or nil
+                e.Box.Color3 = col
+                
+                if ESPSettings.OutlineESP and e.HL then 
+                    e.HL.Enabled = true
+                    e.HL.Adornee = c
+                    e.HL.OutlineColor = col 
+                elseif e.HL then 
+                    e.HL.Enabled = false
+                    e.HL.Adornee = nil 
+                end
+                
+                if ESPSettings.ShowName or ESPSettings.ShowDistance then
+                    e.BB.Adornee = head
+                    e.BB.Enabled = true
+                    e.TXT.TextColor3 = col
+                    local str = ""
+                    if ESPSettings.ShowName then str = p.Name end
+                    if ESPSettings.ShowDistance then 
+                        -- [FIX] Tính khoảng cách từ NHÂN VẬT của bạn (myPos) đến player khác
+                        local distance = math.floor((myPos - hrp.Position).Magnitude)
+                        str = str .. (ESPSettings.ShowName and "\n" or "") .. "[" .. distance .. "m]" 
+                    end
+                    e.TXT.Text = str
+                else 
+                    e.BB.Enabled = false 
+                end
+                
+                if ESPSettings.TracerESP then
+                    local pos, onScreen = Cam:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local target = Vector2.new(pos.X, pos.Y)
+                        local dist = (target - origin).Magnitude
+                        e.Tracer.Size = UDim2.new(0, dist, 0, 1.5)
+                        e.Tracer.Position = UDim2.new(0, (origin.X + target.X) / 2, 0, (origin.Y + target.Y) / 2)
+                        e.Tracer.Rotation = math.deg(math.atan2(target.Y - origin.Y, target.X - origin.X))
+                        e.Tracer.BackgroundColor3 = col
+                        e.Tracer.Visible = true
+                    else 
+                        e.Tracer.Visible = false 
+                    end
+                else 
+                    e.Tracer.Visible = false 
+                end
+            else 
+                e.Box.Visible = false
+                if e.HL then e.HL.Enabled = false; e.HL.Adornee = nil end
+                e.BB.Enabled = false
+                e.Tracer.Visible = false 
+            end
+        end
+    end)
+end
+
+-- ==========================================
+-- PLAYER MODS LOOPS
+-- ==========================================
 getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
     if Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
         local hum = Player.Character:FindFirstChildOfClass("Humanoid")
@@ -681,11 +808,17 @@ getgenv()._Player_Heartbeat = RunService.Heartbeat:Connect(function()
 end)
 
 getgenv()._Player_Stepped = RunService.Stepped:Connect(function()
-    if PlayerSettings.Noclip and Player.Character then for _, part in pairs(Player.Character:GetDescendants()) do if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end end end
+    if PlayerSettings.Noclip and Player.Character then 
+        for _, part in pairs(Player.Character:GetDescendants()) do 
+            if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end 
+        end 
+    end
 end)
 
 getgenv()._Player_Jump = UserInputService.JumpRequest:Connect(function()
-    if PlayerSettings.InfJ and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping) end
+    if PlayerSettings.InfJ and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then 
+        Player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping) 
+    end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gp)
@@ -694,7 +827,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- ==========================================
--- GIAO DIỆN TẢI SCRIPT (NÂNG CẤP % TRẠNG THÁI)
+-- GIAO DIỆN TẢI SCRIPT
 -- ==========================================
 local LoadFrame = Instance.new("Frame", ScreenGui)
 LoadFrame.Size = UDim2.new(0, 340, 0, 130)
@@ -760,11 +893,11 @@ task.spawn(function()
         if pct < 30 then
             LoadStatus.Text = "Khởi tạo lõi Script & Bảo mật..."
         elseif pct < 65 then
-            LoadStatus.Text = "Đang tiêm Modules Aimbot & ESP..."
+            LoadStatus.Text = "Đang tiêm Modules Aimbot..."
         elseif pct < 90 then
             LoadStatus.Text = "Chuẩn bị giao diện người dùng..."
         else
-            LoadStatus.Text = "Hoàn tất! Đang khởi động..."
+            LoadStatus.Text = "Hoàn tất! Đang khởi động ESP..."
         end
         
         RunService.RenderStepped:Wait()
@@ -775,6 +908,10 @@ task.spawn(function()
     LoadStatus.Text = "Thành công!"
     task.wait(0.3)
     
+    -- KHỞI ĐỘNG ESP CHỈ SAU KHI LOADING XONG
+    startESPRender()
+    
+    -- Fade out
     for _, child in pairs(LoadFrame:GetDescendants()) do
         if child:IsA("GuiObject") then
             if child:IsA("TextLabel") then
