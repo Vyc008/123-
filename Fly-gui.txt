@@ -5,67 +5,96 @@ local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- CHỐNG CHẠY SCRIPT 2 LẦN (CLEANUP SCRIPT CŨ)
-local existingGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("MobileFlyGUI")
-if existingGui then
-	if _G.WuWFlyCleanup then
-		_G.WuWFlyCleanup()
-	end
-	existingGui:Destroy()
-end
-
--- DATA CÀI ĐẶT
-local settingsFile = "FlyGuiSettings_Ctgv.json"
+-- ========================
+-- KHAI BÁO CÀI ĐẶT — ĐẦY ĐỦ
+-- ========================
+local settingsFileName = "FlyGuiSettings_Ctgv.json"
 local mySettings = {
-	verticalPower = 50,
-	keyBind = "F"
+    verticalPower = 50,
+    keyBind = "F",
+    tiltWithCamera = true,
+    enableAnimation = true,
+    enableHover = true
 }
 
--- HÀM LƯU/TẢI CÀI ĐẶT
+-- ========================
+-- HÀM LƯU CÀI ĐẶT — LƯU TOÀN BỘ
+-- ========================
 local function SaveSettings()
-	if writefile then
-		pcall(function()
-			writefile(settingsFile, HttpService:JSONEncode(mySettings))
-		end)
-	end
+    if not writefile or not HttpService then
+        return false, "Hàm lưu không khả dụng"
+    end
+    local success, err = pcall(function()
+        local jsonData = HttpService:JSONEncode(mySettings)
+        writefile(settingsFileName, jsonData)
+    end)
+    return success, err or "Đã lưu"
 end
 
+-- ========================
+-- HÀM TẢI CÀI ĐẶT — TẢI ĐẦY ĐỦ
+-- ========================
 local function LoadSettings()
-	if readfile and isfile then
-		pcall(function()
-			if isfile(settingsFile) then
-				local data = HttpService:JSONDecode(readfile(settingsFile))
-				if data then
-					mySettings.verticalPower = data.verticalPower or 50
-					mySettings.keyBind = data.keyBind or "F"
-				end
-			end
-		end)
-	end
+    -- Giữ nguyên mặc định nếu không có file
+    local defaultSettings = {
+        verticalPower = 50,
+        keyBind = "F",
+        tiltWithCamera = true,
+        enableAnimation = true,
+        enableHover = true
+    }
+    -- Bắt đầu với mặc định
+    for k, v in pairs(defaultSettings) do
+        mySettings[k] = v
+    end
+    -- Kiểm tra hàm đọc
+    if not readfile or not isfile or not HttpService then
+        return false, "Hàm đọc không khả dụng"
+    end
+    if not isfile(settingsFileName) then
+        return true, "Chưa có file, dùng mặc định"
+    end
+    -- Đọc và ghi đè từng giá trị
+    local success, err = pcall(function()
+        local jsonData = readfile(settingsFileName)
+        local loaded = HttpService:JSONDecode(jsonData)
+        if loaded then
+            -- Lực lên/xuống
+            mySettings.verticalPower = tonumber(loaded.verticalPower) or 50
+            -- Phím tắt
+            mySettings.keyBind = string.upper(loaded.keyBind or "F")
+            -- Xoay theo camera
+            if loaded.tiltWithCamera ~= nil then mySettings.tiltWithCamera = loaded.tiltWithCamera end
+            -- Nằm khi bay
+            if loaded.enableAnimation ~= nil then mySettings.enableAnimation = loaded.enableAnimation end
+            -- Nhấp nhô
+            if loaded.enableHover ~= nil then mySettings.enableHover = loaded.enableHover end
+        end
+    end)
+    return success, err or "Đã tải"
 end
+
+-- Tải cài đặt khi khởi động
 LoadSettings()
 
--- TẠO SCREEN GUI
-local main = Instance.new("ScreenGui")
-local Frame = Instance.new("Frame")
-local up = Instance.new("TextButton")
-local down = Instance.new("TextButton")
-local onof = Instance.new("TextButton")
-local TextLabel = Instance.new("TextLabel")
-local plus = Instance.new("TextButton")
-local speed = Instance.new("TextLabel")
-local mine = Instance.new("TextButton")
-local closebutton = Instance.new("TextButton")
-local keyInput = Instance.new("TextBox")
-local settingsBtn = Instance.new("TextButton")
-local noclipBtn = Instance.new("TextButton")
+-- CHỐNG CHẠY SCRIPT 2 LẦN
+local existingGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("MobileFlyGUI")
+if existingGui then
+    if _G.WuWFlyCleanup then _G.WuWFlyCleanup() end
+    existingGui:Destroy()
+end
 
+-- ========================
+-- TẠO GIAO DIỆN — SỬA LỖI CHỮ
+-- ========================
+local main = Instance.new("ScreenGui")
 main.Name = "MobileFlyGUI"
 main.Parent = LocalPlayer:WaitForChild("PlayerGui")
 main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 main.ResetOnSpawn = false
 
--- KHUNG MENU CHÍNH (200x65)
+-- Khung chính
+local Frame = Instance.new("Frame")
 Frame.Parent = main
 Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Frame.Position = UDim2.new(0.1, 0, 0.35, 0)
@@ -73,187 +102,262 @@ Frame.Size = UDim2.new(0, 200, 0, 65)
 Frame.Active = true
 Frame.Draggable = true
 
--- HÀNG BÊN NGOÀI KHUNG (TOP BAR)
+-- Nút ĐÓNG
+local closebutton = Instance.new("TextButton")
 closebutton.Name = "Close"
 closebutton.Parent = Frame
 closebutton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 closebutton.Position = UDim2.new(0, 2, 0, -28)
 closebutton.Size = UDim2.new(0, 35, 0, 25)
-closebutton.Font = Enum.Font.SourceSansBold
+closebutton.Font = Enum.Font.GothamBold
 closebutton.Text = "X"
 closebutton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closebutton.TextSize = 18
+closebutton.TextSize = 16
 
+-- Ô PHÍM TẮT
+local keyInput = Instance.new("TextBox")
 keyInput.Name = "Keybind"
 keyInput.Parent = Frame
 keyInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 keyInput.Position = UDim2.new(0, 39, 0, -28)
 keyInput.Size = UDim2.new(0, 45, 0, 25)
-keyInput.Font = Enum.Font.SourceSansBold
+keyInput.Font = Enum.Font.GothamBold
 keyInput.Text = mySettings.keyBind
-keyInput.PlaceholderText = "Phím"
 keyInput.TextColor3 = Color3.fromRGB(255, 255, 0)
 keyInput.TextSize = 14
+keyInput.TextXAlignment = Enum.TextXAlignment.Center
 keyInput.ClearTextOnFocus = false
 
+-- NÚT SETTINGS
+local settingsBtn = Instance.new("TextButton")
 settingsBtn.Name = "SettingsBtn"
 settingsBtn.Parent = Frame
 settingsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 settingsBtn.Position = UDim2.new(0, 86, 0, -28)
 settingsBtn.Size = UDim2.new(0, 45, 0, 25)
-settingsBtn.Font = Enum.Font.SourceSansBold
+settingsBtn.Font = Enum.Font.GothamBold
 settingsBtn.Text = "⚙️"
 settingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 settingsBtn.TextSize = 14
 
+-- NÚT NOCLIP
+local noclipBtn = Instance.new("TextButton")
 noclipBtn.Name = "NoclipBtn"
 noclipBtn.Parent = Frame
 noclipBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 noclipBtn.Position = UDim2.new(0, 133, 0, -28)
 noclipBtn.Size = UDim2.new(0, 65, 0, 25)
-noclipBtn.Font = Enum.Font.SourceSansBold
+noclipBtn.Font = Enum.Font.GothamBold
 noclipBtn.Text = "NC: OFF"
 noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-noclipBtn.TextSize = 12
+noclipBtn.TextSize = 11
 
--- HÀNG TRÊN CÙNG TRONG KHUNG
+-- NÚT LÊN
+local up = Instance.new("TextButton")
 up.Name = "up"
 up.Parent = Frame
 up.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 up.Position = UDim2.new(0, 2, 0, 2)
 up.Size = UDim2.new(0, 50, 0, 29)
-up.Font = Enum.Font.SourceSansBold
+up.Font = Enum.Font.GothamBold
 up.Text = "LÊN"
 up.TextColor3 = Color3.fromRGB(255, 255, 255)
 up.TextSize = 13
 
+-- NÚT +
+local plus = Instance.new("TextButton")
 plus.Name = "plus"
 plus.Parent = Frame
 plus.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 plus.Position = UDim2.new(0, 54, 0, 2)
 plus.Size = UDim2.new(0, 40, 0, 29)
-plus.Font = Enum.Font.SourceSansBold
+plus.Font = Enum.Font.GothamBold
 plus.Text = "+"
 plus.TextColor3 = Color3.fromRGB(255, 255, 255)
 plus.TextSize = 18
 
+-- NHÃN TÊN
+local TextLabel = Instance.new("TextLabel")
 TextLabel.Parent = Frame
 TextLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 TextLabel.Position = UDim2.new(0, 96, 0, 2)
 TextLabel.Size = UDim2.new(0, 102, 0, 29)
-TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "FlyGui(By Ctgv_thw)"
+TextLabel.Font = Enum.Font.GothamBold
+TextLabel.Text = "FlyGui By Ctgv_thw"
 TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextLabel.TextScaled = true
+TextLabel.TextSize = 10
+TextLabel.TextWrapped = true
 
--- HÀNG DƯỚI TRONG KHUNG
+-- NÚT XUỐNG
+local down = Instance.new("TextButton")
 down.Name = "down"
 down.Parent = Frame
 down.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 down.Position = UDim2.new(0, 2, 0, 33)
 down.Size = UDim2.new(0, 50, 0, 29)
-down.Font = Enum.Font.SourceSansBold
+down.Font = Enum.Font.GothamBold
 down.Text = "XUỐNG"
 down.TextColor3 = Color3.fromRGB(255, 255, 255)
 down.TextSize = 13
 
+-- NÚT -
+local mine = Instance.new("TextButton")
 mine.Name = "mine"
 mine.Parent = Frame
 mine.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mine.Position = UDim2.new(0, 54, 0, 33)
 mine.Size = UDim2.new(0, 40, 0, 29)
-mine.Font = Enum.Font.SourceSansBold
+mine.Font = Enum.Font.GothamBold
 mine.Text = "-"
 mine.TextColor3 = Color3.fromRGB(255, 255, 255)
 mine.TextSize = 18
 
+-- HIỂN THỊ TỐC ĐỘ
+local speed = Instance.new("TextLabel")
 speed.Name = "speed"
 speed.Parent = Frame
 speed.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 speed.Position = UDim2.new(0, 96, 0, 33)
 speed.Size = UDim2.new(0, 48, 0, 29)
-speed.Font = Enum.Font.SourceSansBold
+speed.Font = Enum.Font.GothamBold
 speed.Text = "1"
 speed.TextColor3 = Color3.fromRGB(255, 255, 255)
 speed.TextSize = 16
 
+-- NÚT BẬT/TẮT BAY
+local onof = Instance.new("TextButton")
 onof.Name = "onof"
 onof.Parent = Frame
 onof.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 onof.Position = UDim2.new(0, 146, 0, 33)
 onof.Size = UDim2.new(0, 52, 0, 29)
-onof.Font = Enum.Font.SourceSansBold
+onof.Font = Enum.Font.GothamBold
 onof.Text = "BAY"
 onof.TextColor3 = Color3.fromRGB(255, 255, 255)
 onof.TextSize = 14
 
--- BẢNG CÀI ĐẶT (GẮN LIỀN BÊN TRÁI)
+-- ========================
+-- BẢNG CÀI ĐẶT — SỬA LỖI CHỮ
+-- ========================
 local SetFrame = Instance.new("Frame")
 SetFrame.Name = "SettingsFrame"
 SetFrame.Parent = Frame
 SetFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-SetFrame.Position = UDim2.new(0, -155, 0, -28)
-SetFrame.Size = UDim2.new(0, 150, 0, 93)
+SetFrame.Position = UDim2.new(0, -185, 0, -28)
+SetFrame.Size = UDim2.new(0, 185, 0, 195)
 SetFrame.Visible = false
 SetFrame.Active = true
-SetFrame.Draggable = false
 
 local SetTitle = Instance.new("TextLabel")
 SetTitle.Parent = SetFrame
 SetTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-SetTitle.Size = UDim2.new(1, 0, 0, 25)
-SetTitle.Font = Enum.Font.SourceSansBold
-SetTitle.Text = "CÀI ĐẶT LỰC BẬT"
+SetTitle.Size = UDim2.new(1, 0, 0, 24)
+SetTitle.Font = Enum.Font.GothamBold
+SetTitle.Text = "⚙️ CÀI ĐẶT"
 SetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-SetTitle.TextSize = 14
+SetTitle.TextSize = 13
+
+-- LỰC LÊN/XUỐNG
+local vertLabel = Instance.new("TextLabel")
+vertLabel.Parent = SetFrame
+vertLabel.BackgroundTransparency = 1
+vertLabel.Position = UDim2.new(0.05, 0, 0.12, 0)
+vertLabel.Size = UDim2.new(0.9, 0, 0, 18)
+vertLabel.Font = Enum.Font.GothamBold
+vertLabel.Text = "Lực Lên/Xuống:"
+vertLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+vertLabel.TextSize = 12
+vertLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local vertPowerInput = Instance.new("TextBox")
 vertPowerInput.Parent = SetFrame
 vertPowerInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-vertPowerInput.Position = UDim2.new(0.1, 0, 0.35, 0)
-vertPowerInput.Size = UDim2.new(0.8, 0, 0, 25)
-vertPowerInput.Font = Enum.Font.SourceSansBold
+vertPowerInput.Position = UDim2.new(0.05, 0, 0.22, 0)
+vertPowerInput.Size = UDim2.new(0.40, 0, 0, 24)
+vertPowerInput.Font = Enum.Font.GothamBold
 vertPowerInput.Text = tostring(mySettings.verticalPower)
-vertPowerInput.PlaceholderText = "Độ cao Lên/Xuống"
 vertPowerInput.TextColor3 = Color3.fromRGB(0, 255, 255)
-vertPowerInput.TextSize = 14
+vertPowerInput.TextSize = 13
+vertPowerInput.TextXAlignment = Enum.TextXAlignment.Center
 
+-- NÚT LƯU / TẢI
 local saveSetBtn = Instance.new("TextButton")
 saveSetBtn.Parent = SetFrame
 saveSetBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-saveSetBtn.Position = UDim2.new(0.05, 0, 0.68, 0)
-saveSetBtn.Size = UDim2.new(0.4, 0, 0, 25)
-saveSetBtn.Font = Enum.Font.SourceSansBold
+saveSetBtn.Position = UDim2.new(0.47, 0, 0.22, 0)
+saveSetBtn.Size = UDim2.new(0.25, 0, 0, 24)
+saveSetBtn.Font = Enum.Font.GothamBold
 saveSetBtn.Text = "LƯU"
 saveSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-saveSetBtn.TextSize = 14
+saveSetBtn.TextSize = 11
 
+local loadSetBtn = Instance.new("TextButton")
+loadSetBtn.Parent = SetFrame
+loadSetBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 180)
+loadSetBtn.Position = UDim2.new(0.74, 0, 0.22, 0)
+loadSetBtn.Size = UDim2.new(0.21, 0, 0, 24)
+loadSetBtn.Font = Enum.Font.GothamBold
+loadSetBtn.Text = "TẢI"
+loadSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadSetBtn.TextSize = 11
+
+-- NÚT XOAY THEO CAMERA
+local tiltBtn = Instance.new("TextButton")
+tiltBtn.Parent = SetFrame
+tiltBtn.BackgroundColor3 = mySettings.tiltWithCamera and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+tiltBtn.Position = UDim2.new(0.05, 0, 0.35, 0)
+tiltBtn.Size = UDim2.new(0.9, 0, 0, 24)
+tiltBtn.Font = Enum.Font.GothamBold
+tiltBtn.Text = "Xoay theo Camera: " .. (mySettings.tiltWithCamera and "BẬT" or "TẮT")
+tiltBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tiltBtn.TextSize = 11
+
+-- NÚT NẰM KHI BAY
+local animBtn = Instance.new("TextButton")
+animBtn.Parent = SetFrame
+animBtn.BackgroundColor3 = mySettings.enableAnimation and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+animBtn.Position = UDim2.new(0.05, 0, 0.50, 0)
+animBtn.Size = UDim2.new(0.9, 0, 0, 24)
+animBtn.Font = Enum.Font.GothamBold
+animBtn.Text = "Nằm khi Bay: " .. (mySettings.enableAnimation and "BẬT" or "TẮT")
+animBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+animBtn.TextSize = 11
+
+-- NÚT NHẤP NHÔ YÊN
+local hoverBtn = Instance.new("TextButton")
+hoverBtn.Parent = SetFrame
+hoverBtn.BackgroundColor3 = mySettings.enableHover and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+hoverBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+hoverBtn.Size = UDim2.new(0.9, 0, 0, 24)
+hoverBtn.Font = Enum.Font.GothamBold
+hoverBtn.Text = "Nhấp Nhô Yên: " .. (mySettings.enableHover and "BẬT" or "TẮT")
+hoverBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+hoverBtn.TextSize = 11
+
+-- NÚT ĐÓNG CÀI ĐẶT
 local closeSetBtn = Instance.new("TextButton")
 closeSetBtn.Parent = SetFrame
 closeSetBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-closeSetBtn.Position = UDim2.new(0.55, 0, 0.68, 0)
-closeSetBtn.Size = UDim2.new(0.4, 0, 0, 25)
-closeSetBtn.Font = Enum.Font.SourceSansBold
+closeSetBtn.Position = UDim2.new(0.2, 0, 0.82, 0)
+closeSetBtn.Size = UDim2.new(0.6, 0, 0, 26)
+closeSetBtn.Font = Enum.Font.GothamBold
 closeSetBtn.Text = "ĐÓNG"
 closeSetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeSetBtn.TextSize = 14
+closeSetBtn.TextSize = 13
 
--- VIỀN 7 MÀU (RAINBOW STROKE)
+-- VIỀN 7 MÀU
 local rainbowStrokes = {}
 local function addBorder(instance, thickness)
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = thickness or 2
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = instance
-	table.insert(rainbowStrokes, stroke)
-	return stroke
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = thickness or 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = instance
+    table.insert(rainbowStrokes, stroke)
 end
-
 addBorder(Frame, 3)
 addBorder(up)
 addBorder(down)
 addBorder(onof)
-addBorder(TextLabel)
 addBorder(plus)
 addBorder(speed)
 addBorder(mine)
@@ -263,303 +367,339 @@ addBorder(settingsBtn)
 addBorder(noclipBtn)
 addBorder(SetFrame, 3)
 addBorder(SetTitle)
+addBorder(vertLabel)
 addBorder(vertPowerInput)
 addBorder(saveSetBtn)
+addBorder(loadSetBtn)
+addBorder(tiltBtn)
+addBorder(animBtn)
+addBorder(hoverBtn)
 addBorder(closeSetBtn)
 
-local rainbowConn
-rainbowConn = RunService.RenderStepped:Connect(function()
-	if not main or not main.Parent then
-		if rainbowConn then rainbowConn:Disconnect() end
-		return
-	end
-	local hue = (tick() * 0.4) % 1
-	local rainbowColor = Color3.fromHSV(hue, 0.9, 1)
-	for _, stroke in ipairs(rainbowStrokes) do
-		if stroke and stroke.Parent then
-			stroke.Color = rainbowColor
-		end
-	end
+local rainbowConn = RunService.RenderStepped:Connect(function()
+    if not main or not main.Parent then
+        if rainbowConn then rainbowConn:Disconnect() end
+        return
+    end
+    local hue = (tick() * 0.4) % 1
+    local col = Color3.fromHSV(hue, 0.9, 1)
+    for _, stroke in ipairs(rainbowStrokes) do
+        if stroke.Parent then stroke.Color = col end
+    end
 end)
 
--- Biến hệ thống
+-- ========================
+-- BIẾN HỆ THỐNG
+-- ========================
 local speeds = 1
 local nowe = false
 local noclip = false
 local flyConnection = nil
 local noclipConnection = nil
-local isUpBtnDown = false
-local isDownBtnDown = false
+local isUpBtnDown, isDownBtnDown = false, false
 local currentPos = Vector3.zero
 local selectedKey = Enum.KeyCode.F
+local currentLieAngle, targetLieAngle = 0, 0
 
--- Cập nhật phím tắt từ khởi động
+-- CẬP NHẬT PHÍM TẮT TỪ CÀI ĐẶT
 for _, key in ipairs(Enum.KeyCode:GetEnumItems()) do
-	if key.Name == string.upper(mySettings.keyBind) then
-		selectedKey = key
-		break
-	end
+    if key.Name == string.upper(mySettings.keyBind) then
+        selectedKey = key
+        break
+    end
 end
 
--- EVENT NÚT SETTINGS
-settingsBtn.MouseButton1Click:Connect(function()
-	SetFrame.Visible = not SetFrame.Visible
-	if SetFrame.Visible then
-		vertPowerInput.Text = tostring(mySettings.verticalPower)
-	end
+-- ========================
+-- CẬP NHẬT UI TỪ CÀI ĐẶT
+-- ========================
+local function UpdateSettingsUI()
+    vertPowerInput.Text = tostring(mySettings.verticalPower)
+    tiltBtn.BackgroundColor3 = mySettings.tiltWithCamera and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+    tiltBtn.Text = "Xoay theo Camera: " .. (mySettings.tiltWithCamera and "BẬT" or "TẮT")
+    animBtn.BackgroundColor3 = mySettings.enableAnimation and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+    animBtn.Text = "Nằm khi Bay: " .. (mySettings.enableAnimation and "BẬT" or "TẮT")
+    hoverBtn.BackgroundColor3 = mySettings.enableHover and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 40, 40)
+    hoverBtn.Text = "Nhấp Nhô Yên: " .. (mySettings.enableHover and "BẬT" or "TẮT")
+end
+
+-- ========================
+-- NÚT CÀI ĐẶT — LƯU TỰ ĐỘNG
+-- ========================
+tiltBtn.MouseButton1Click:Connect(function()
+    mySettings.tiltWithCamera = not mySettings.tiltWithCamera
+    UpdateSettingsUI()
+    SaveSettings()
 end)
 
-closeSetBtn.MouseButton1Click:Connect(function()
-	SetFrame.Visible = false
+animBtn.MouseButton1Click:Connect(function()
+    mySettings.enableAnimation = not mySettings.enableAnimation
+    UpdateSettingsUI()
+    SaveSettings()
 end)
 
+hoverBtn.MouseButton1Click:Connect(function()
+    mySettings.enableHover = not mySettings.enableHover
+    UpdateSettingsUI()
+    SaveSettings()
+end)
+
+-- NÚT LƯU — LƯU TOÀN BỘ
 saveSetBtn.MouseButton1Click:Connect(function()
-	local newVal = tonumber(vertPowerInput.Text)
-	if newVal then
-		mySettings.verticalPower = newVal
-		SaveSettings()
-		saveSetBtn.Text = "ĐÃ LƯU!"
-		task.wait(1)
-		saveSetBtn.Text = "LƯU"
-	else
-		vertPowerInput.Text = tostring(mySettings.verticalPower)
-	end
+    local newVal = tonumber(vertPowerInput.Text)
+    if newVal and newVal > 0 then
+        mySettings.verticalPower = newVal
+        local ok, msg = SaveSettings()
+        saveSetBtn.Text = ok and "✓ ĐÃ LƯU" or "LỖI!"
+        task.wait(1.2)
+        saveSetBtn.Text = "LƯU"
+        if ok then SetFrame.Visible = false end
+    else
+        vertPowerInput.Text = tostring(mySettings.verticalPower)
+    end
 end)
 
--- HÀM XỬ LÝ NOCLIP
+-- NÚT TẢI — TẢI TOÀN BỘ
+loadSetBtn.MouseButton1Click:Connect(function()
+    local ok, msg = LoadSettings()
+    UpdateSettingsUI()
+    keyInput.Text = mySettings.keyBind
+    -- Cập nhật lại phím tắt
+    for _, key in ipairs(Enum.KeyCode:GetEnumItems()) do
+        if key.Name == string.upper(mySettings.keyBind) then
+            selectedKey = key
+            break
+        end
+    end
+    loadSetBtn.Text = ok and "✓ ĐÃ TẢI" or "LỖI!"
+    task.wait(1.2)
+    loadSetBtn.Text = "TẢI"
+end)
+
+-- MỞ/ĐÓNG CÀI ĐẶT
+settingsBtn.MouseButton1Click:Connect(function()
+    SetFrame.Visible = not SetFrame.Visible
+    if SetFrame.Visible then UpdateSettingsUI() end
+end)
+closeSetBtn.MouseButton1Click:Connect(function() SetFrame.Visible = false end)
+
+-- ========================
+-- NOCLIP
+-- ========================
 local function setNoclip(state)
-	noclip = state
-	if noclip then
-		noclipBtn.Text = "NC: ON"
-		noclipBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-		if not noclipConnection then
-			noclipConnection = RunService.Stepped:Connect(function()
-				local char = LocalPlayer.Character
-				if char then
-					for _, part in ipairs(char:GetDescendants()) do
-						if part:IsA("BasePart") then
-							part.CanCollide = false
-						end
-					end
-				end
-			end)
-		end
-	else
-		noclipBtn.Text = "NC: OFF"
-		noclipBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-		if noclipConnection then
-			noclipConnection:Disconnect()
-			noclipConnection = nil
-		end
-	end
+    noclip = state
+    if noclip then
+        noclipBtn.Text = "NC: BẬT"
+        noclipBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        noclipConnection = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end)
+    else
+        noclipBtn.Text = "NC: TẮT"
+        noclipBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+    end
 end
+noclipBtn.MouseButton1Click:Connect(function() setNoclip(not noclip) end)
 
-noclipBtn.MouseButton1Click:Connect(function()
-	setNoclip(not noclip)
-end)
-
--- HÀM TẮT BAY
+-- ========================
+-- TẮT BAY
+-- ========================
 local function stopFly()
-	nowe = false
-	onof.Text = "BAY"
-	onof.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-	
-	local char = LocalPlayer.Character
-	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.PlatformStand = false
-		end
-	end
-	
-	if flyConnection then
-		flyConnection:Disconnect()
-		flyConnection = nil
-	end
+    nowe = false
+    onof.Text = "BAY"
+    onof.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    currentLieAngle, targetLieAngle = 0, 0
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = false end
+    end
+    if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
 end
-
 _G.WuWFlyCleanup = stopFly
 
-plus.MouseButton1Click:Connect(function()
-	speeds = speeds + 1
-	speed.Text = tostring(speeds)
-end)
+-- ========================
+-- TỐC ĐỘ
+-- ========================
+plus.MouseButton1Click:Connect(function() speeds = speeds + 1; speed.Text = tostring(speeds) end)
+mine.MouseButton1Click:Connect(function() if speeds > 1 then speeds = speeds - 1; speed.Text = tostring(speeds) end end)
 
-mine.MouseButton1Click:Connect(function()
-	if speeds > 1 then
-		speeds = speeds - 1
-		speed.Text = tostring(speeds)
-	end
-end)
-
-local function setupTouchEvents(button, callback)
-	button.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			callback(true)
-		end
-	end)
-	button.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			callback(false)
-		end
-	end)
+-- ========================
+-- TOUCH / MOUSE NÚT
+-- ========================
+local function setupTouch(btn, callback)
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            callback(true)
+        end
+    end)
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            callback(false)
+        end
+    end)
 end
+setupTouch(up, function(s) isUpBtnDown = s end)
+setupTouch(down, function(s) isDownBtnDown = s end)
 
-setupTouchEvents(up, function(state) isUpBtnDown = state end)
-setupTouchEvents(down, function(state) isDownBtnDown = state end)
-
+-- ========================
+-- DI CHUYỂN KHI KHÔNG BAY
+-- ========================
 RunService.Heartbeat:Connect(function()
-	if not nowe and (isUpBtnDown or isDownBtnDown) then
-		local char = LocalPlayer.Character
-		if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
-			local hrp = char.HumanoidRootPart
-			local jumpForce = mySettings.verticalPower 
-
-			if isUpBtnDown then
-				hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, jumpForce, hrp.AssemblyLinearVelocity.Z)
-			elseif isDownBtnDown then
-				hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -jumpForce, hrp.AssemblyLinearVelocity.Z)
-			end
-		end
-	end
+    if not nowe and (isUpBtnDown or isDownBtnDown) then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") then
+            local hrp = char.HumanoidRootPart
+            local force = mySettings.verticalPower
+            if isUpBtnDown then
+                hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, force, hrp.AssemblyLinearVelocity.Z)
+            elseif isDownBtnDown then
+                hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, -force, hrp.AssemblyLinearVelocity.Z)
+            end
+        end
+    end
 end)
 
--- HÀM BẬT / TẮT BAY KÈM HỆ THỐNG TRƯỢT TƯỜNG & CÁCH ĐẤT
+-- ========================
+-- BẬT / TẮT BAY
+-- ========================
 local function toggleFly()
-	local char = LocalPlayer.Character
-	if not char then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if not hrp or not hum then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
 
-	nowe = not nowe
+    nowe = not nowe
+    if nowe then
+        onof.Text = "TẮT"
+        onof.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+        hum.PlatformStand = true
+        currentPos = hrp.Position + Vector3.new(0, 3, 0)
+        currentLieAngle = 0
 
-	if nowe then
-		onof.Text = "TẮT"
-		onof.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
-		hum.PlatformStand = true
-		
-		currentPos = hrp.Position + Vector3.new(0, 3, 0)
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {char}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-		for _, v in pairs(hum:GetPlayingAnimationTracks()) do
-			v:Stop()
-		end
+        flyConnection = RunService.RenderStepped:Connect(function(dt)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
 
-		local raycastParams = RaycastParams.new()
-		raycastParams.FilterDescendantsInstances = {char}
-		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+            local moveDir = hum.MoveDirection
+            local isMoving = moveDir.Magnitude > 0.01 or isUpBtnDown or isDownBtnDown
+            local spd = speeds * 45 * dt
+            local vSpd = mySettings.verticalPower * dt * speeds
+            local nextPos = currentPos
 
-		flyConnection = RunService.RenderStepped:Connect(function(deltaTime)
-			hrp.AssemblyLinearVelocity = Vector3.zero
-			hrp.AssemblyAngularVelocity = Vector3.zero
+            -- Di chuyển ngang
+            if moveDir.Magnitude > 0 then
+                local camCF = Camera.CFrame
+                local rel = camCF:VectorToObjectSpace(moveDir)
+                local dir = (camCF.LookVector * -rel.Z) + (camCF.RightVector * rel.X)
+                nextPos += dir * spd
+            end
+            -- Lên / Xuống
+            if isUpBtnDown then nextPos += Vector3.new(0, vSpd, 0) end
+            if isDownBtnDown then nextPos -= Vector3.new(0, vSpd, 0) end
 
-			local moveDir = hum.MoveDirection
-			local speedMultiplier = speeds * 45 * deltaTime
-			local vertSpeedMultiplier = mySettings.verticalPower * deltaTime * speeds
+            -- Kiểm tra tường + đất — SỬA LỖI DỊCH CHUYỂN
+            if not noclip then
+                local delta = nextPos - currentPos
+                if delta.Magnitude > 0.001 then
+                    local wallRay = workspace:Raycast(currentPos, delta.Unit * (delta.Magnitude + 2), rayParams)
+                    if wallRay then
+                        local normal = wallRay.Normal
+                        local dot = delta:Dot(normal)
+                        if dot < 0 then delta -= normal * dot end
+                        nextPos = currentPos + delta
+                    end
+                end
+                -- Giữ khoảng cách đất — GIỮ NGUYÊN X, Z
+                local groundRay = workspace:Raycast(nextPos + Vector3.new(0, 5, 0), Vector3.new(0, -15, 0), rayParams)
+                if groundRay then
+                    local groundY = groundRay.Position.Y
+                    local safe = 3.5
+                    if nextPos.Y < groundY + safe then
+                        nextPos = Vector3.new(nextPos.X, groundY + safe, nextPos.Z)
+                    end
+                end
+            end
 
-			local nextPos = currentPos
+            currentPos = nextPos
 
-			if moveDir.Magnitude > 0 then
-				local cameraCFrame = Camera.CFrame
-				local relativeMove = cameraCFrame:VectorToObjectSpace(moveDir)
-				local flyVector = (cameraCFrame.LookVector * -relativeMove.Z) + (cameraCFrame.RightVector * relativeMove.X)
-				nextPos = nextPos + (flyVector * speedMultiplier)
-			end
+            -- Hiệu ứng nhấp nhô
+            local hoverY = mySettings.enableHover and math.sin(tick() * 3.5) * 0.35 or 0
+            local hoverOff = Vector3.new(0, hoverY, 0)
 
-			if isUpBtnDown then
-				nextPos = nextPos + Vector3.new(0, vertSpeedMultiplier, 0)
-			end
-			if isDownBtnDown then
-				nextPos = nextPos - Vector3.new(0, vertSpeedMultiplier, 0)
-			end
+            -- Nằm / Đứng mượt mà
+            if mySettings.enableAnimation then
+                targetLieAngle = isMoving and -90 or 0
+            else
+                targetLieAngle = 0
+            end
+            local diff = targetLieAngle - currentLieAngle
+            currentLieAngle += diff * math.min(dt * 4, 1)
 
-			-- TÍNH TOÁN KHI NOCLIP TẮT (Trượt tường + Cách đất 1 stud)
-			if not noclip then
-				local moveDelta = nextPos - currentPos
-				if moveDelta.Magnitude > 0 then
-					local wallRay = workspace:Raycast(currentPos, moveDelta.Unit * (moveDelta.Magnitude + 2), raycastParams)
-					if wallRay then
-						local normal = wallRay.Normal
-						local dot = moveDelta:Dot(normal)
-						if dot < 0 then
-							moveDelta = moveDelta - (normal * dot)
-						end
-						nextPos = currentPos + moveDelta
-					end
-				end
+            -- Hướng nhìn
+            local lookVec = Camera.CFrame.LookVector
+            if not mySettings.tiltWithCamera then
+                lookVec = Vector3.new(lookVec.X, 0, lookVec.Z).Unit
+            end
 
-				local rayResult = workspace:Raycast(nextPos, Vector3.new(0, -10, 0), raycastParams)
-				if rayResult then
-					local groundY = rayResult.Position.Y
-					local safeGroundDistance = 4 
-					if nextPos.Y < groundY + safeGroundDistance then
-						nextPos = Vector3.new(nextPos.X, groundY + safeGroundDistance, nextPos.Z)
-					end
-				end
-			end
-
-			currentPos = nextPos
-
-			local hoverY = math.sin(tick() * 3.5) * 0.35
-			local hoverOffset = Vector3.new(0, hoverY, 0)
-
-			local targetCFrame
-			if moveDir.Magnitude > 0 then
-				local cameraCFrame = Camera.CFrame
-				local relativeMove = cameraCFrame:VectorToObjectSpace(moveDir)
-				local flyVector = (cameraCFrame.LookVector * -relativeMove.Z) + (cameraCFrame.RightVector * relativeMove.X)
-
-				targetCFrame = CFrame.new(currentPos + hoverOffset, currentPos + hoverOffset + flyVector) * CFrame.Angles(-math.rad(90), 0, 0)
-			else
-				local lookVec = Camera.CFrame.LookVector
-				targetCFrame = CFrame.new(currentPos + hoverOffset, currentPos + hoverOffset + Vector3.new(lookVec.X, 0, lookVec.Z))
-			end
-
-			local lerpSpeed = math.clamp(deltaTime * 9, 0, 1)
-			hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, lerpSpeed)
-		end)
-	else
-		stopFly()
-	end
+            -- Áp dụng vị trí + góc
+            local lookAt = currentPos + hoverOff + lookVec
+            local targetCF = CFrame.new(currentPos + hoverOff, lookAt) 
+                * CFrame.Angles(math.rad(currentLieAngle), 0, 0)
+            hrp.CFrame = hrp.CFrame:Lerp(targetCF, math.clamp(dt * 9, 0, 1))
+        end)
+    else
+        stopFly()
+    end
 end
 
+-- NÚT BẬT/TẮT BAY
 onof.MouseButton1Click:Connect(toggleFly)
 
+-- ĐÓNG HOÀN TOÀN
 closebutton.MouseButton1Click:Connect(function()
-	stopFly()
-	if _G.WuWFlyCleanup == stopFly then
-		_G.WuWFlyCleanup = nil
-	end
-	main:Destroy()
+    stopFly()
+    if _G.WuWFlyCleanup == stopFly then _G.WuWFlyCleanup = nil end
+    main:Destroy()
 end)
 
+-- ========================
+-- CẬP NHẬT PHÍM TẮT
+-- ========================
 local function updateKeybind()
-	local text = string.upper(keyInput.Text)
-	if text == "" then return end
-	
-	for _, key in ipairs(Enum.KeyCode:GetEnumItems()) do
-		if key.Name == text or key.Name == "Number" .. text then
-			selectedKey = key
-			keyInput.Text = key.Name:gsub("Number", "")
-			
-			mySettings.keyBind = keyInput.Text
-			SaveSettings()
-			return
-		end
-	end
+    local txt = string.upper(keyInput.Text)
+    if txt == "" then return end
+    for _, key in ipairs(Enum.KeyCode:GetEnumItems()) do
+        if key.Name == txt or key.Name == "Number" .. txt then
+            selectedKey = key
+            keyInput.Text = key.Name:gsub("Number", "")
+            mySettings.keyBind = keyInput.Text
+            SaveSettings() -- LƯU NGAY KHI THAY ĐỔI PHÍM
+            return
+        end
+    end
 end
-
 keyInput.FocusLost:Connect(updateKeybind)
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		if selectedKey and input.KeyCode == selectedKey then
-			toggleFly()
-		end
-	end
+-- BẬT/TẮT BAY BẰNG PHÍM
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if selectedKey and input.KeyCode == selectedKey then
+            toggleFly()
+        end
+    end
 end)
 
-LocalPlayer.CharacterAdded:Connect(function()
-	stopFly()
-end)
+-- TẠO LẠI NHÂN VẬT → TẮT BAY
+LocalPlayer.CharacterAdded:Connect(stopFly)
