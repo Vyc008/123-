@@ -7,7 +7,9 @@
     - Game-specific Folders (prevents cross-game coordinate glitches)
     - [NEW] Added Search Bar to filter saved locations
     - [EDIT] Giảm chiều rộng GUI từ 300px -> 260px
-    - [NEW] Thêm nút Cài đặt & Chọn loại TP (Instant, Walk, Smooth, Velocity, CFrame Loop)
+    - [REMOVED] Đã xóa TP Walk & Velocity TP (chỉ còn Instant, Smooth, CFrame Loop)
+    - [FIX] Sửa lỗi không ẩn được menu (closeTween.Play -> closeTween:Play)
+    - [NEW] Ẩn menu chính thì tự động đóng Settings nếu đang mở
 ]]
 
 local CoreGui = game:GetService("CoreGui")
@@ -27,9 +29,7 @@ local currentTPMode = "Instant" -- Mặc định
 
 local TP_MODES = {
     {Name = "⚡ Instant TP", Desc = "Dịch chuyển tức thời (nhanh nhất)"},
-    {Name = "🚶 TP Walk", Desc = "Di chuyển bộ về vị trí (ít bị phát hiện)"},
     {Name = "🌊 Smooth TP", Desc = "Dịch chuyển mượt mà với Tween"},
-    {Name = "💨 Velocity TP", Desc = "Dùng vận tốc để di chuyển (anti-ban)"},
     {Name = "🔄 CFrame Loop", Desc = "Dịch chuyển từng đoạn nhỏ (an toàn nhất)"}
 }
 
@@ -46,7 +46,11 @@ local function LoadSettings()
         if success then
             local s2, data = pcall(function() return HttpService:JSONDecode(content) end)
             if s2 and data.TPMode then
-                currentTPMode = data.TPMode
+                -- Kiểm tra chế độ còn hợp lệ không (tránh lỗi từ file cũ)
+                local validModes = {["Instant"] = true, ["Smooth"] = true, ["CFrame Loop"] = true}
+                if validModes[data.TPMode] then
+                    currentTPMode = data.TPMode
+                end
             end
         end
     end
@@ -101,21 +105,12 @@ local function DeletePointFile(name)
 end
 
 -- ==========================================
--- CÁC HÀM DỊCH CHUYỂN KHÁC NHAU
+-- CÁC HÀM DỊCH CHUYỂN
 -- ==========================================
 local function TeleportInstant(targetCFrame)
     local char = Player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         char.HumanoidRootPart.CFrame = targetCFrame
-    end
-end
-
-local function TeleportWalk(targetCFrame)
-    local char = Player.Character
-    if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-        local humanoid = char.Humanoid
-        local targetPos = targetCFrame.Position
-        humanoid:MoveTo(targetPos)
     end
 end
 
@@ -126,24 +121,6 @@ local function TeleportSmooth(targetCFrame)
         local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
         tween:Play()
-    end
-end
-
-local function TeleportVelocity(targetCFrame)
-    local char = Player.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        local hrp = char.HumanoidRootPart
-        local targetPos = targetCFrame.Position
-        local direction = (targetPos - hrp.Position).Unit
-        local distance = (targetPos - hrp.Position).Magnitude
-        
-        -- Đặt vận tốc cao để di chuyển nhanh nhưng vẫn tự nhiên
-        hrp.Velocity = direction * math.min(distance * 3, 200)
-        
-        -- Đặt CFrame đích sau một khoảng thời gian ngắn
-        task.wait(distance / 200 + 0.05)
-        hrp.CFrame = targetCFrame
-        hrp.Velocity = Vector3.new(0, 0, 0)
     end
 end
 
@@ -176,12 +153,8 @@ local function ExecuteTeleport(targetCFrame, tpButton)
     
     if currentTPMode == "Instant" then
         TeleportInstant(targetCFrame)
-    elseif currentTPMode == "TP Walk" then
-        TeleportWalk(targetCFrame)
     elseif currentTPMode == "Smooth" then
         TeleportSmooth(targetCFrame)
-    elseif currentTPMode == "Velocity" then
-        TeleportVelocity(targetCFrame)
     elseif currentTPMode == "CFrame Loop" then
         TeleportCFrameLoop(targetCFrame)
     end
@@ -496,33 +469,43 @@ function UpdateModeButtons()
     end
 end
 
--- Tạo các nút chọn chế độ TP
+-- Tạo các nút chọn chế độ TP (chỉ còn 3 chế độ)
 CreateTPModeButton(TP_MODES[1], "Instant")
-CreateTPModeButton(TP_MODES[2], "TP Walk")
-CreateTPModeButton(TP_MODES[3], "Smooth")
-CreateTPModeButton(TP_MODES[4], "Velocity")
-CreateTPModeButton(TP_MODES[5], "CFrame Loop")
+CreateTPModeButton(TP_MODES[2], "Smooth")
+CreateTPModeButton(TP_MODES[3], "CFrame Loop")
 
 SettingsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, SettingsLayout.AbsoluteContentSize.Y + 10)
 end)
 
 local isSettingsOpen = false
+
+local function closeSettings()
+    if not isSettingsOpen then return end
+    isSettingsOpen = false
+    local closeTween = TweenService:Create(SettingsFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0)
+    })
+    closeTween:Play()
+    closeTween.Completed:Connect(function()
+        if not isSettingsOpen then SettingsFrame.Visible = false end
+    end)
+end
+
+local function openSettings()
+    if isSettingsOpen then return end
+    isSettingsOpen = true
+    SettingsFrame.Visible = true
+    TweenService:Create(SettingsFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 280, 0, 250)
+    }):Play()
+end
+
 local function toggleSettings()
-    isSettingsOpen = not isSettingsOpen
     if isSettingsOpen then
-        SettingsFrame.Visible = true
-        TweenService:Create(SettingsFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 280, 0, 350)
-        }):Play()
+        closeSettings()
     else
-        local closeTween = TweenService:Create(SettingsFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0)
-        })
-        closeTween:Play()
-        closeTween.Completed:Connect(function()
-            if not isSettingsOpen then SettingsFrame.Visible = false end
-        end)
+        openSettings()
     end
 end
 
@@ -541,6 +524,12 @@ local function toggleMenu()
             Size = UDim2.new(0, 260, 0, 390)
         }):Play()
     else
+        -- [FIX] Đóng Settings nếu đang mở khi ẩn menu chính
+        if isSettingsOpen then
+            closeSettings()
+        end
+        
+        -- [FIX] Sửa lỗi: closeTween.Play() -> closeTween:Play() (dùng hai chấm)
         local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
         })
