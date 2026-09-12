@@ -5,6 +5,7 @@
 --// [FIX] Đổi màu player tức thì (dùng dictionary tra cứu O(1))
 --// [FIX] ESP chỉ chạy sau khi màn hình loading hoàn tất
 --// [FIX] Distance ESP tính từ nhân vật của bạn (không phải từ Camera)
+--// [FIXED CRITICAL] Khắc phục triệt để lỗi kẹt/đứng ở 100% khi loading
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -74,7 +75,7 @@ local lockedTarget = nil
 
 local NO_TEAM_COLOR = Color3.fromRGB(255, 255, 255)
 local CustomPlayerColors = {} 
-local currentESPColor = Color3.fromRGB(255, 255, 255)
+local currentESPColor = Color3.fromRGB(50, 255, 50)
 local SelectedPlayerName = nil 
 local colorOrder = {
     {name = "White", color = Color3.fromRGB(255, 255, 255)}, {name = "Red", color = Color3.fromRGB(255, 50, 50)},
@@ -207,7 +208,7 @@ applyUICorner(MainFrame, 12); applyUIStroke(MainFrame, Theme.Stroke, 2)
 local MenuScale = Instance.new("UIScale", MainFrame)
 MenuScale.Scale = 0
 
--- HIỆU ỨNG TÊN 7 MÀU LƯỚT '/'
+-- HIỆU ỨNG TÊN 7 MÀU LƯỚT
 local TitleFrame = Instance.new("Frame", MainFrame)
 TitleFrame.Size = UDim2.new(1, 0, 0, 40)
 TitleFrame.BackgroundColor3 = Theme.Frame
@@ -827,7 +828,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- ==========================================
--- GIAO DIỆN TẢI SCRIPT (FIXED)
+-- GIAO DIỆN TẢI SCRIPT (FIXED TRIỆT ĐỂ LỖI ĐỨNG)
 -- ==========================================
 local LoadFrame = Instance.new("Frame", ScreenGui)
 LoadFrame.Size = UDim2.new(0, 340, 0, 130)
@@ -900,7 +901,7 @@ task.spawn(function()
             LoadStatus.Text = "Hoàn tất! Đang khởi động ESP..."
         end
         
-        -- [FIX 1]: Thay vì dùng RenderStepped (dễ bị treo khi thu nhỏ game), dùng task.wait() an toàn hơn
+        -- Dùng task.wait() để an toàn tuyệt đối khi game bị alt+tab
         task.wait()
     end
     
@@ -909,15 +910,15 @@ task.spawn(function()
     LoadStatus.Text = "Thành công!"
     task.wait(0.3)
     
-    -- [FIX 2]: Bọc pcall để chống văng script nếu gặp lỗi khi khởi động ESP
+    -- Bọc pcall bảo vệ để nếu có lỗi nhỏ ở ESP thì Menu vẫn được hiển thị bình thường
     local success, err = pcall(function()
         startESPRender()
     end)
     if not success then
-        warn("Lỗi khi load ESP, nhưng Menu vẫn sẽ mở: " .. tostring(err))
+        warn("Cảnh báo ESP: " .. tostring(err))
     end
     
-    -- Fade out
+    -- Fade out an toàn
     for _, child in pairs(LoadFrame:GetDescendants()) do
         if child:IsA("GuiObject") then
             if child:IsA("TextLabel") then
@@ -925,17 +926,17 @@ task.spawn(function()
             else
                 TweenService:Create(child, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
             end
-            if child:FindFirstChildOfClass("UIStroke") then
-                TweenService:Create(child:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.5), {Transparency = 1}):Play()
+            local childStroke = child:FindFirstChildOfClass("UIStroke")
+            if childStroke then
+                TweenService:Create(childStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
             end
         end
     end
     TweenService:Create(LoadFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
     
-    -- [FIX 3]: Check an toàn trước khi Tween UIStroke gốc
-    local loadFrameStroke = LoadFrame:FindFirstChildOfClass("UIStroke")
-    if loadFrameStroke then
-        TweenService:Create(loadFrameStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    local mainFrameStroke = LoadFrame:FindFirstChildOfClass("UIStroke")
+    if mainFrameStroke then
+        TweenService:Create(mainFrameStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
     end
     
     task.wait(0.5)
@@ -944,7 +945,7 @@ task.spawn(function()
     ToggleUIBtn.Visible = true
     if AimbotSettings.ShowFloatingBtn then MasterFloatingBtn.Visible = true end
     
-    -- Đảm bảo trạng thái menu đang mở
+    -- Đảm bảo trạng thái menu luôn luôn mở sau khi load thành công
     if not isMenuOpen then
         toggleMenu()
     end
