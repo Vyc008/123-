@@ -827,7 +827,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- ==========================================
--- GIAO DIỆN TẢI SCRIPT
+-- GIAO DIỆN TẢI SCRIPT (FIXED)
 -- ==========================================
 local LoadFrame = Instance.new("Frame", ScreenGui)
 LoadFrame.Size = UDim2.new(0, 340, 0, 130)
@@ -900,7 +900,8 @@ task.spawn(function()
             LoadStatus.Text = "Hoàn tất! Đang khởi động ESP..."
         end
         
-        RunService.RenderStepped:Wait()
+        -- [FIX 1]: Thay vì dùng RenderStepped (dễ bị treo khi thu nhỏ game), dùng task.wait() an toàn hơn
+        task.wait()
     end
     
     LoadPercent.Text = "100%"
@@ -908,8 +909,13 @@ task.spawn(function()
     LoadStatus.Text = "Thành công!"
     task.wait(0.3)
     
-    -- KHỞI ĐỘNG ESP CHỈ SAU KHI LOADING XONG
-    startESPRender()
+    -- [FIX 2]: Bọc pcall để chống văng script nếu gặp lỗi khi khởi động ESP
+    local success, err = pcall(function()
+        startESPRender()
+    end)
+    if not success then
+        warn("Lỗi khi load ESP, nhưng Menu vẫn sẽ mở: " .. tostring(err))
+    end
     
     -- Fade out
     for _, child in pairs(LoadFrame:GetDescendants()) do
@@ -920,17 +926,26 @@ task.spawn(function()
                 TweenService:Create(child, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
             end
             if child:FindFirstChildOfClass("UIStroke") then
-                TweenService:Create(child.UIStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+                TweenService:Create(child:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.5), {Transparency = 1}):Play()
             end
         end
     end
     TweenService:Create(LoadFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-    TweenService:Create(LoadFrame.UIStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    
+    -- [FIX 3]: Check an toàn trước khi Tween UIStroke gốc
+    local loadFrameStroke = LoadFrame:FindFirstChildOfClass("UIStroke")
+    if loadFrameStroke then
+        TweenService:Create(loadFrameStroke, TweenInfo.new(0.5), {Transparency = 1}):Play()
+    end
     
     task.wait(0.5)
-    LoadFrame:Destroy()
+    pcall(function() LoadFrame:Destroy() end)
     
     ToggleUIBtn.Visible = true
     if AimbotSettings.ShowFloatingBtn then MasterFloatingBtn.Visible = true end
-    toggleMenu()
+    
+    -- Đảm bảo trạng thái menu đang mở
+    if not isMenuOpen then
+        toggleMenu()
+    end
 end)
